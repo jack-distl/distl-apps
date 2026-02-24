@@ -1,0 +1,20 @@
+{
+  "name": "distl-platform",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Internal tools platform for Distl — Brand Purity. Digital Potency.",
+  "scripts": {
+    "dev": "pnpm --filter ./packages/* run dev",
+    "dev:hub": "pnpm --filter @distl/hub run dev",
+    "dev:okr": "pnpm --filter @distl/okr-planner run dev",
+    "build": "pnpm --filter ./packages/* run build",
+    "build:hub": "pnpm --filter @distl/hub run build",
+    "build:okr": "pnpm --filter @distl/okr-planner run build",
+    "lint": "pnpm --filter ./packages/* run lint",
+    "clean": "pnpm --filter ./packages/* run clean"
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  }
+}
