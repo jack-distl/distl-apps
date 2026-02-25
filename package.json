@@ -15,8 +15,8 @@
     "lint": "pnpm --filter ./packages/* run lint",
     "clean": "pnpm --filter ./packages/* run clean"
   },
+  "packageManager": "pnpm@10.29.3",
   "engines": {
-    "node": ">=18",
-    "pnpm": ">=9"
+    "node": ">=18"
   }
 }
