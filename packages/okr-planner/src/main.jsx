@@ -6,7 +6,7 @@ import '../../shared/styles/globals.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/okr">
       <App />
     </BrowserRouter>
   </React.StrictMode>

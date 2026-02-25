@@ -18,8 +18,8 @@ export default function App() {
         <Sidebar currentPath="/okr" open={sidebarOpen} />
         <main className="flex-1 p-6 lg:p-8">
           <Routes>
-            <Route path="/okr" element={<PlannerHome />} />
-            <Route path="/okr/:clientId" element={<ClientPlanner />} />
+            <Route path="/" element={<PlannerHome />} />
+            <Route path="/:clientId" element={<ClientPlanner />} />
           </Routes>
         </main>
       </div>

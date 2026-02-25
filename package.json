@@ -2,6 +2,7 @@
   "name": "distl-platform",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "description": "Internal tools platform for Distl — Brand Purity. Digital Potency.",
   "scripts": {
     "dev": "pnpm --filter ./packages/* run dev",
@@ -10,6 +11,7 @@
     "build": "pnpm --filter ./packages/* run build",
     "build:hub": "pnpm --filter @distl/hub run build",
     "build:okr": "pnpm --filter @distl/okr-planner run build",
+    "vercel-build": "pnpm build:hub && pnpm build:okr && node scripts/merge-builds.js",
     "lint": "pnpm --filter ./packages/* run lint",
     "clean": "pnpm --filter ./packages/* run clean"
   },
