@@ -1,11 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm vercel-build",
+  "buildCommand": "pnpm build",
   "outputDirectory": "dist",
   "installCommand": "pnpm install",
-  "framework": null,
+  "framework": "vite",
   "rewrites": [
-    { "source": "/okr/:path*", "destination": "/okr/index.html" },
-    { "source": "/((?!okr/).*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
