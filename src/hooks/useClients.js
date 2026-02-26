@@ -26,7 +26,7 @@ export function useClients() {
       .order('name')
 
     if (error) {
-      setError(error)
+      setError('Failed to load clients. Please try again.')
     } else {
       setClients(data)
     }
@@ -53,7 +53,7 @@ export function useClients() {
       .select()
       .single()
 
-    if (error) throw error
+    if (error) throw new Error('Failed to add client.')
     await fetchClients()
     return data
   }

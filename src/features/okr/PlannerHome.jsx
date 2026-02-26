@@ -26,6 +26,7 @@ export default function PlannerHome() {
   const [newRetainer, setNewRetainer] = useState(3600)
   const [abbrevEdited, setAbbrevEdited] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
 
   function handleNameChange(value) {
     setNewName(value)
@@ -47,6 +48,7 @@ export default function PlannerHome() {
     if (!newName.trim() || !newAbbreviation.trim()) return
 
     setSaving(true)
+    setSubmitError(null)
     try {
       await addClient({
         name: newName.trim(),
@@ -55,8 +57,8 @@ export default function PlannerHome() {
       })
       setShowNewClient(false)
       resetForm()
-    } catch (err) {
-      console.error('Failed to add client:', err)
+    } catch {
+      setSubmitError('Something went wrong adding the client. Please try again.')
       setSaving(false)
     }
   }
@@ -144,6 +146,11 @@ export default function PlannerHome() {
         title="New Client"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {submitError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+              {submitError}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Client Name

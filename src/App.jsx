@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import { Header, Sidebar } from './components'
+import { Header, Sidebar, LoginPage, LoadingSpinner } from './components'
+import { useAuth } from './hooks/useAuth'
+import { supabase } from './lib/supabase'
 import Dashboard from './features/hub/Dashboard'
 import Clients from './features/hub/Clients'
 import PlannerHome from './features/okr/PlannerHome'
@@ -8,15 +10,46 @@ import OkrPlanner from './features/okr/OkrPlanner'
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { user, loading, signOut } = useAuth()
 
-  // Placeholder user until auth is wired up
-  const user = { name: 'Team Member' }
+  // Dev mode: no Supabase configured, allow bypass with mock user
+  const [devUser, setDevUser] = useState(null)
+
+  const activeUser = user || devUser
+
+  // Show loading spinner while auth state resolves
+  if (supabase && loading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  // Show login page when not authenticated
+  if (!activeUser) {
+    return (
+      <LoginPage
+        onDevBypass={() => setDevUser({ email: 'dev@localhost', user_metadata: { name: 'Dev User' } })}
+      />
+    )
+  }
+
+  const displayName = activeUser.user_metadata?.name || activeUser.email || 'Team Member'
+
+  async function handleSignOut() {
+    if (supabase) {
+      await signOut()
+    }
+    setDevUser(null)
+  }
 
   return (
     <div className="min-h-screen bg-cream">
       <Header
         onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-        user={user}
+        user={{ name: displayName }}
+        onSignOut={handleSignOut}
       />
       <div className="flex">
         <Sidebar open={sidebarOpen} />
