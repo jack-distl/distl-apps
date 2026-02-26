@@ -1,3 +1,6 @@
+// Mock data for development — matches the OKR planner data model
+// Will be replaced by Supabase queries when database is connected
+
 export const mockClients = [
   {
     id: '1',
@@ -36,70 +39,87 @@ export const mockClients = [
   },
 ]
 
-export const mockOkrPeriods = [
-  {
-    id: 'p1',
-    client_id: '1',
-    label: 'Q1 2026',
-    start_date: '2026-01-01',
-    end_date: '2026-03-31',
-    goal: 'Increase organic traffic by 30% and improve local SEO rankings',
-    is_published: false,
-  },
-  {
-    id: 'p2',
-    client_id: '2',
-    label: 'Q1 2026',
-    start_date: '2026-01-01',
-    end_date: '2026-03-31',
-    goal: 'Launch new eCommerce store and drive initial traffic',
-    is_published: true,
-  },
-  {
-    id: 'p3',
-    client_id: '3',
-    label: 'Q1 2026',
-    start_date: '2026-01-01',
-    end_date: '2026-03-31',
-    goal: 'Dominate Google Maps for dental keywords in Perth metro',
-    is_published: false,
-  },
-]
-
-export const mockObjectives = [
-  {
-    id: 'o1',
-    period_id: 'p1',
-    title: 'Technical SEO audit & fixes',
-    scope: 'seo',
-    sort_order: 0,
-    tasks: [
-      { id: 't1', description: 'Run Screaming Frog crawl & document issues', am_hours: 0.5, seo_hours: 2, status: 'done' },
-      { id: 't2', description: 'Fix critical crawl errors & broken links', am_hours: 0, seo_hours: 4, status: 'in_progress' },
-      { id: 't3', description: 'Implement schema markup on key pages', am_hours: 0, seo_hours: 3, status: 'planned' },
+// OKR planner data keyed by client ID
+// Each client has periods → objectives → key results
+export const mockOkrData = {
+  '1': {
+    abbreviation: 'ACM',
+    retainerAmount: 5400,
+    periods: [
+      {
+        id: 'p1',
+        startMonth: 1,
+        startYear: 2026,
+        endMonth: 3,
+        endYear: 2026,
+        isPublished: false,
+        goal: 'Increase organic traffic by 30% and improve local SEO rankings',
+        offsiteAllowancePercent: 5,
+        adminTasks: {
+          monthlyReportingAM: 1,
+          monthlyReportingSEO: 2,
+          okrReportingAM: 1,
+          okrReportingSEO: 2,
+        },
+        objectives: [
+          {
+            id: 'o1',
+            title: 'Technical Website Optimisations',
+            scope: 'sitewide',
+            scopeDetail: '',
+            keyResults: [
+              { id: 'kr1', task: 'Technical Site Audit', description: 'Run Screaming Frog crawl & document all issues', amHours: 0.5, seoHours: 3.5, status: 'complete' },
+              { id: 'kr2', task: 'Schema Markup Implementation', description: 'Add LocalBusiness and FAQPage schema', amHours: 0, seoHours: 3, status: 'pending' },
+              { id: 'kr3', task: 'Core Web Vitals Audit', description: 'Audit and fix LCP, FID, CLS issues', amHours: 0, seoHours: 3, status: 'pending' },
+            ],
+          },
+          {
+            id: 'o2',
+            title: 'Local SEO & Google Business Profile',
+            scope: 'sitewide',
+            scopeDetail: '',
+            keyResults: [
+              { id: 'kr4', task: 'Google Business Profile Optimisation', description: 'Full GBP audit and optimisation', amHours: 0.5, seoHours: 2, status: 'complete' },
+              { id: 'kr5', task: 'Local Citation Building', description: 'Build 15 local citations across key directories', amHours: 0, seoHours: 3, status: 'pending' },
+              { id: 'kr6', task: 'Review Management Strategy', description: 'Set up review generation workflow', amHours: 1, seoHours: 1, status: 'pending' },
+            ],
+          },
+        ],
+      },
     ],
   },
-  {
-    id: 'o2',
-    period_id: 'p1',
-    title: 'Local SEO optimisation',
-    scope: 'seo',
-    sort_order: 1,
-    tasks: [
-      { id: 't4', description: 'Optimise Google Business Profile', am_hours: 0.5, seo_hours: 2, status: 'done' },
-      { id: 't5', description: 'Build 10 local citations', am_hours: 0, seo_hours: 3, status: 'planned' },
-      { id: 't6', description: 'Create location-specific landing pages', am_hours: 1, seo_hours: 4, status: 'planned' },
+  '2': {
+    abbreviation: 'SRB',
+    retainerAmount: 3600,
+    periods: [
+      {
+        id: 'p2',
+        startMonth: 1,
+        startYear: 2026,
+        endMonth: 3,
+        endYear: 2026,
+        isPublished: true,
+        goal: 'Launch new eCommerce store and drive initial traffic',
+        offsiteAllowancePercent: 5,
+        adminTasks: {
+          monthlyReportingAM: 1,
+          monthlyReportingSEO: 1,
+          okrReportingAM: 0,
+          okrReportingSEO: 1,
+        },
+        objectives: [
+          {
+            id: 'o3',
+            title: 'Keyword Research & Strategy',
+            scope: 'sitewide',
+            scopeDetail: '',
+            keyResults: [
+              { id: 'kr7', task: 'Keyword Research', description: 'Full keyword research for eCommerce categories', amHours: 0.5, seoHours: 3.5, status: 'complete' },
+              { id: 'kr8', task: 'Keyword Mapping', description: 'Map keywords to product and category pages', amHours: 0, seoHours: 2, status: 'pending' },
+            ],
+          },
+        ],
+      },
     ],
   },
-  {
-    id: 'o3',
-    period_id: 'p1',
-    title: 'Client reporting & strategy',
-    scope: 'am',
-    sort_order: 2,
-    tasks: [
-      { id: 't7', description: 'Monthly performance report', am_hours: 3, seo_hours: 1, status: 'in_progress' },
-      { id: 't8', description: 'Quarterly strategy review meeting', am_hours: 2, seo_hours: 0.5, status: 'planned' },
-    ],
-  },
-]
+}
