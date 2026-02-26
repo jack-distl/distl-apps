@@ -1,7 +1,7 @@
 import { Target, Map, Users, Clock } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Button } from '../../components'
-import { mockClients } from '../../lib/mockData'
+import { Button, LoadingSpinner } from '../../components'
+import { useClients } from '../../hooks'
 import { HOURLY_RATE } from '../../lib/constants'
 
 const apps = [
@@ -10,6 +10,16 @@ const apps = [
 ]
 
 export default function Dashboard() {
+  const { clients, loading } = useClients()
+
+  if (loading) {
+    return (
+      <div className="max-w-5xl flex items-center justify-center py-20">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-5xl">
       <div className="mb-8">
@@ -22,8 +32,8 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {[
-          { label: 'Active Clients', value: mockClients.filter(c => c.is_active).length, icon: Users },
-          { label: 'Hours This Month', value: `~${Math.round(mockClients.filter(c => c.is_active).reduce((sum, c) => sum + c.monthly_retainer, 0) / HOURLY_RATE)}`, icon: Clock },
+          { label: 'Active Clients', value: clients.filter(c => c.is_active).length, icon: Users },
+          { label: 'Hours This Month', value: `~${Math.round(clients.filter(c => c.is_active).reduce((sum, c) => sum + c.monthly_retainer, 0) / HOURLY_RATE)}`, icon: Clock },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
             <div className="flex items-center gap-3 mb-2">

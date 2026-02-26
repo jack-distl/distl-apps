@@ -61,3 +61,13 @@ create policy "Admins can manage clients"
       and team_members.role = 'admin'
     )
   );
+
+-- Temporary dev policies for anon access (remove when auth is wired up)
+create policy "Anon can read clients"
+  on clients for select to anon using (true);
+
+create policy "Anon can insert clients"
+  on clients for insert to anon with check (true);
+
+create policy "Anon can update clients"
+  on clients for update to anon using (true);

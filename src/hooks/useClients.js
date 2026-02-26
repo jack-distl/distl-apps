@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { mockClients } from '../lib/mockData'
 
 export function useClients() {
   const [clients, setClients] = useState([])
@@ -12,6 +13,8 @@ export function useClients() {
 
   async function fetchClients() {
     if (!supabase) {
+      // Fallback to mock data when Supabase isn't configured
+      setClients(mockClients)
       setLoading(false)
       return
     }
@@ -30,5 +33,30 @@ export function useClients() {
     setLoading(false)
   }
 
-  return { clients, loading, error, refetch: fetchClients }
+  async function addClient({ name, abbreviation, monthly_retainer }) {
+    if (!supabase) {
+      // Local fallback — no persistence
+      const newClient = {
+        id: crypto.randomUUID(),
+        name,
+        abbreviation,
+        monthly_retainer,
+        is_active: true,
+      }
+      setClients(prev => [...prev, newClient])
+      return newClient
+    }
+
+    const { data, error } = await supabase
+      .from('clients')
+      .insert({ name, abbreviation, monthly_retainer, is_active: true })
+      .select()
+      .single()
+
+    if (error) throw error
+    await fetchClients()
+    return data
+  }
+
+  return { clients, loading, error, refetch: fetchClients, addClient }
 }

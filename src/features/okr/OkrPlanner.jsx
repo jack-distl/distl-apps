@@ -5,7 +5,8 @@ import {
   Trash2, Check, Globe, FileText, Hash,
   AlertTriangle, Search, X, ClipboardCheck
 } from 'lucide-react'
-import { mockClients, mockOkrData } from '../../lib/mockData'
+import { useClients } from '../../hooks'
+import { mockOkrData } from '../../lib/mockData'
 import { TASK_LIBRARY, SCOPE_OPTIONS, getAllTemplatesResolved } from '../../lib/taskLibrary'
 import {
   HOURLY_RATE, AD_HOC_BUFFER, DEFAULT_OFFSITE_ALLOWANCE,
@@ -58,7 +59,8 @@ function createBlankPeriod() {
 
 export default function OkrPlanner() {
   const { clientId } = useParams()
-  const client = mockClients.find(c => c.id === clientId)
+  const { clients } = useClients()
+  const client = clients.find(c => c.id === clientId)
 
   // Initialise from mock data or blank
   const initialData = mockOkrData[clientId] || {
