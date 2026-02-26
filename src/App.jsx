@@ -4,9 +4,7 @@ import { Header, Sidebar } from './components'
 import Dashboard from './features/hub/Dashboard'
 import Clients from './features/hub/Clients'
 import PlannerHome from './features/okr/PlannerHome'
-import ClientPlanner from './features/okr/ClientPlanner'
-import ClientView from './features/okr/ClientView'
-import { OkrProvider } from './features/okr/OkrContext'
+import OkrPlanner from './features/okr/OkrPlanner'
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -15,25 +13,22 @@ export default function App() {
   const user = { name: 'Team Member' }
 
   return (
-    <OkrProvider>
-      <div className="min-h-screen bg-cream">
-        <Header
-          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-          user={user}
-        />
-        <div className="flex">
-          <Sidebar open={sidebarOpen} />
-          <main className="flex-1 p-6 lg:p-8">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/clients" element={<Clients />} />
-              <Route path="/okr" element={<PlannerHome />} />
-              <Route path="/okr/:clientId" element={<ClientPlanner />} />
-              <Route path="/okr/:clientId/view" element={<ClientView />} />
-            </Routes>
-          </main>
-        </div>
+    <div className="min-h-screen bg-cream">
+      <Header
+        onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+        user={user}
+      />
+      <div className="flex">
+        <Sidebar open={sidebarOpen} />
+        <main className="flex-1 p-6 lg:p-8">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/clients" element={<Clients />} />
+            <Route path="/okr" element={<PlannerHome />} />
+            <Route path="/okr/:clientId" element={<OkrPlanner />} />
+          </Routes>
+        </main>
       </div>
-    </OkrProvider>
+    </div>
   )
 }
