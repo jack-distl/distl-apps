@@ -4,6 +4,32 @@ Internal tools platform for Distl — a full-service digital marketing agency in
 
 **Tagline:** Brand Purity. Digital Potency.
 
+---
+
+## Git Workflow (IMPORTANT — read this first)
+
+This project uses a simple two-branch system:
+
+- **`main`** = Production. This is what's live on the real website. Never push directly to main.
+- **`testing`** = Staging. All new work goes here first. This has its own preview URL on Vercel.
+
+### Rules for Claude Code sessions
+
+1. **Default branch is `testing`.** Unless Jack specifically says "push to main" or "merge to main", all work happens on `testing` or on a feature branch that merges into `testing`.
+2. **Never push directly to `main`.** Changes reach `main` only through a Pull Request from `testing` → `main`.
+3. **Commit often with clear messages.** Every meaningful change should be a separate commit so it's easy to undo individual things.
+4. **If something breaks, say so.** Don't try to hide errors — explain what went wrong and how to fix it.
+
+### How Vercel deploys work
+
+- When code is pushed to `main` → Vercel auto-deploys to the **production** URL
+- When code is pushed to `testing` → Vercel auto-deploys to a **preview** URL
+- Every Pull Request also gets its own temporary preview URL
+
+This means Jack can always check the testing preview before anything goes live.
+
+---
+
 ## About Distl
 
 - **Location:** 3/73 Troy Terrace, Jolimont WA 6014
@@ -74,23 +100,41 @@ Building Australia's most unstoppable brands through the framework: **Differenti
 
 ---
 
-## Platform Architecture
+## Project Structure (actual, current)
+
+This is a **single React app** (not a monorepo). Everything lives in one place.
 
 ```
-distl-platform/
-├── packages/
-│   ├── hub/                  # Central dashboard (home base)
-│   ├── okr-planner/          # Quarterly objective & hour planning
-│   ├── sitemap-tool/         # Visual sitemap with GSC data
-│   ├── shared/               # Shared code across all apps
-│   │   ├── components/       # Reusable UI components
-│   │   ├── hooks/            # useClients, useAuth, useSupabase
-│   │   ├── lib/              # Supabase client, utilities
-│   │   └── styles/           # Shared Tailwind config, brand tokens
-│   └── [future-apps]/
-├── supabase/                 # Database migrations & types
-├── CLAUDE.md                 # This file
-└── package.json              # Monorepo root
+distl-apps/
+├── src/                          # All the app code
+│   ├── App.jsx                   # Main router — defines all pages/URLs
+│   ├── main.jsx                  # Entry point (boots React)
+│   ├── components/               # Reusable UI pieces (buttons, modals, etc.)
+│   ├── features/                 # Feature-specific pages
+│   │   ├── hub/                  # Dashboard & client list
+│   │   └── okr/                  # OKR Planner
+│   ├── hooks/                    # Data fetching (auth, clients, Supabase)
+│   ├── lib/                      # Utilities, constants, mock data
+│   └── styles/                   # Global CSS (Tailwind)
+├── supabase/                     # Database migrations (SQL files)
+│   └── migrations/               # Run these in order to set up the DB
+├── index.html                    # HTML shell
+├── package.json                  # Dependencies and scripts
+├── vite.config.js                # Build tool config
+├── tailwind.config.js            # Tailwind CSS config
+├── vercel.json                   # Vercel deployment config
+├── CLAUDE.md                     # This file (instructions for Claude Code)
+├── WORKFLOW.md                   # Plain-English guide for Jack
+└── .env.example                  # Environment variable template
+```
+
+### Key commands
+
+```bash
+pnpm install     # Install dependencies (run after cloning or adding packages)
+pnpm dev         # Start local dev server at http://localhost:3000
+pnpm build       # Build for production (Vercel runs this automatically)
+pnpm preview     # Preview the production build locally
 ```
 
 ---
@@ -117,7 +161,7 @@ Each client card shows:
 
 ## Apps
 
-### OKR Planner (`packages/okr-planner`)
+### OKR Planner (`src/features/okr/`)
 
 **Purpose:** Plan how retainer hours are allocated each quarter
 
@@ -132,9 +176,9 @@ Each client card shows:
 - Export tasks to Monday.com format
 - Period-based: Q1, Q2, etc. with history
 
-**Status:** Prototype complete, needs Supabase integration
+**Status:** Prototype complete, connected to Supabase
 
-### Sitemap Tool (`packages/sitemap-tool`)
+### Sitemap Tool (not yet integrated)
 
 **Purpose:** Visualise website structure with real Search Console data
 
@@ -146,7 +190,7 @@ Each client card shows:
 - Expand/collapse sections
 - Compare periods (this quarter vs last)
 
-**Status:** Exists separately, needs integration
+**Status:** Exists separately, needs integration into this app
 
 ### Future App Ideas
 
@@ -158,9 +202,9 @@ Each client card shows:
 
 ---
 
-## Shared Database (Supabase)
+## Database (Supabase)
 
-### Core Tables (used by all apps)
+### Core Tables
 
 ```
 clients
@@ -183,15 +227,13 @@ team_members
 
 ### App-Specific Tables
 
-Each app owns its own tables, linked to clients via `client_id`:
-
 ```sql
 -- OKR Planner
 okr_periods (client_id, start_date, end_date, goal, is_published, ...)
 okr_objectives (period_id, title, scope, ...)
 okr_tasks (objective_id, description, am_hours, seo_hours, status, ...)
 
--- Sitemap Tool
+-- Sitemap Tool (future)
 sitemaps (client_id, domain, last_synced, ...)
 sitemap_pages (sitemap_id, url, title, parent_id, ...)
 sitemap_metrics (page_id, period, clicks, impressions, position, ...)
@@ -217,65 +259,17 @@ sitemap_metrics (page_id, period, clicks, impressions, position, ...)
 | Database | Supabase (Postgres) |
 | Auth | Supabase Auth |
 | Hosting | Vercel |
-| Monorepo | pnpm workspaces |
-
-### Tailwind Config
-
-```js
-// tailwind.config.js
-module.exports = {
-  theme: {
-    extend: {
-      colors: {
-        coral: {
-          DEFAULT: '#E8806A',
-          dark: '#D66B55',
-          light: '#F2A090',
-        },
-        charcoal: '#1A1A1A',
-        cream: '#FAF9F7',
-      },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-      },
-    },
-  },
-}
-```
-
----
-
-## Shared Components (`packages/shared`)
-
-Build these once, use everywhere:
-
-```
-components/
-├── Header.jsx          # Top nav with Distl logo, user menu
-├── Sidebar.jsx         # App navigation
-├── ClientCard.jsx      # Client display card
-├── ClientSelector.jsx  # Dropdown to pick client
-├── Modal.jsx           # Reusable modal wrapper
-├── Button.jsx          # Styled button (coral primary)
-├── Badge.jsx           # Status/scope badges
-├── LoadingSpinner.jsx  # Loading state
-└── EmptyState.jsx      # No data placeholder
-```
+| Package Manager | pnpm |
 
 ---
 
 ## URL Structure
 
 ```
-distl-platform.vercel.app/
-├── /                     # Hub (dashboard)
-├── /clients              # All clients list
-├── /clients/[id]         # Single client overview
-├── /okr                  # OKR Planner
-├── /okr/[client-id]      # OKR for specific client
-├── /sitemap              # Sitemap tool
-├── /sitemap/[client-id]  # Sitemap for specific client
-└── /settings             # User/team settings
+/                     # Hub (dashboard)
+/clients              # All clients list
+/okr                  # OKR Planner home
+/okr/:clientId        # OKR for specific client
 ```
 
 ---
@@ -293,21 +287,11 @@ distl-platform.vercel.app/
 
 ## Current Status
 
-- [x] OKR Planner — Prototype complete, needs Supabase
-- [ ] Hub — Not started
+- [x] OKR Planner — Prototype complete, connected to Supabase
+- [x] Security — Auth gate, RLS policies, security headers
+- [ ] Hub — Basic dashboard exists, needs work
 - [ ] Sitemap Tool — Exists separately, needs integration
-- [ ] Shared components — Not extracted yet
-- [ ] Authentication — Not implemented
-- [ ] Database — Schema designed, not deployed
-
-## Immediate Next Steps
-
-1. Set up Supabase project and create core tables
-2. Build basic auth flow
-3. Create the Hub with client list
-4. Move OKR Planner into platform structure
-5. Connect OKR Planner to Supabase
-6. Deploy to Vercel
+- [ ] Full authentication — Login works, needs polish
 
 ---
 
