@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom'
 import { Header, Sidebar, LoginPage, LoadingSpinner } from './components'
 import { useAuth } from './hooks/useAuth'
 import { supabase } from './lib/supabase'
+import { TemplateProvider } from './contexts/TemplateContext'
 import Dashboard from './features/hub/Dashboard'
 import Clients from './features/hub/Clients'
 import PlannerHome from './features/okr/PlannerHome'
@@ -45,23 +46,25 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-cream">
-      <Header
-        onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-        user={{ name: displayName }}
-        onSignOut={handleSignOut}
-      />
-      <div className="flex">
-        <Sidebar open={sidebarOpen} />
-        <main className="flex-1 p-6 lg:p-8">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/clients" element={<Clients />} />
-            <Route path="/okr" element={<PlannerHome />} />
-            <Route path="/okr/:clientId" element={<OkrPlanner />} />
-          </Routes>
-        </main>
+    <TemplateProvider>
+      <div className="min-h-screen bg-cream">
+        <Header
+          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          user={{ name: displayName }}
+          onSignOut={handleSignOut}
+        />
+        <div className="flex">
+          <Sidebar open={sidebarOpen} />
+          <main className="flex-1 p-6 lg:p-8">
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/okr" element={<PlannerHome />} />
+              <Route path="/okr/:clientId" element={<OkrPlanner />} />
+            </Routes>
+          </main>
+        </div>
       </div>
-    </div>
+    </TemplateProvider>
   )
 }

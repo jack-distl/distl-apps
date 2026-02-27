@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, Settings } from 'lucide-react'
 import { Badge, Modal, LoadingSpinner } from '../../components'
-import { useClients } from '../../hooks'
+import { useClients, fetchLatestPeriods } from '../../hooks'
 import { mockOkrData } from '../../lib/mockData'
 import { HOURLY_RATE, getPeriodLabel } from '../../lib/constants'
+import TemplateEditor from './TemplateEditor'
 
 function generateAbbreviation(name) {
   return name
@@ -20,6 +21,15 @@ export default function PlannerHome() {
   const { clients, loading, addClient } = useClients()
   const activeClients = clients.filter(c => c.is_active)
 
+  const [periodsByClient, setPeriodsByClient] = useState(null)
+
+  useEffect(() => {
+    fetchLatestPeriods().then(data => {
+      if (data) setPeriodsByClient(data)
+    })
+  }, [])
+
+  const [editingTemplates, setEditingTemplates] = useState(false)
   const [showNewClient, setShowNewClient] = useState(false)
   const [newName, setNewName] = useState('')
   const [newAbbreviation, setNewAbbreviation] = useState('')
@@ -80,20 +90,39 @@ export default function PlannerHome() {
             Plan objectives and allocate retainer hours (${HOURLY_RATE}/hr)
           </p>
         </div>
-        <button
-          onClick={() => setShowNewClient(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-coral text-white rounded-lg hover:bg-coral-dark transition-colors text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          New Client
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setEditingTemplates(!editingTemplates)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              editingTemplates
+                ? 'bg-charcoal text-white'
+                : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            {editingTemplates ? 'Back to Clients' : 'Edit Templates'}
+          </button>
+          {!editingTemplates && (
+            <button
+              onClick={() => setShowNewClient(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-coral text-white rounded-lg hover:bg-coral-dark transition-colors text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              New Client
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {editingTemplates ? (
+        <TemplateEditor />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {activeClients.map(client => {
-          // Transitional: OKR summary from mock data until OKR persistence is wired up
-          const data = mockOkrData[client.id]
-          const latestPeriod = data?.periods[data.periods.length - 1]
+          // Use Supabase data if available, fall back to mock data
+          const dbPeriod = periodsByClient?.[client.id]
+          const mockPeriod = mockOkrData[client.id]?.periods?.at(-1)
+          const latestPeriod = dbPeriod || mockPeriod || null
           const hours = Math.round(client.monthly_retainer / HOURLY_RATE)
 
           return (
@@ -138,6 +167,7 @@ export default function PlannerHome() {
           )
         })}
       </div>
+      )}
 
       {/* New Client Modal */}
       <Modal
