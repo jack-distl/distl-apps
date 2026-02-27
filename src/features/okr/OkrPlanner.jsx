@@ -5,6 +5,7 @@ import {
   Trash2, Check, Globe, FileText, Hash,
   AlertTriangle, Search, X, ClipboardCheck
 } from 'lucide-react'
+import { UndoToast } from '../../components/UndoToast'
 import { useClients } from '../../hooks'
 import { mockOkrData } from '../../lib/mockData'
 import { TASK_LIBRARY, SCOPE_OPTIONS, getAllTemplatesResolved } from '../../lib/taskLibrary'
@@ -77,6 +78,7 @@ export default function OkrPlanner() {
   const [selectedPeriodId, setSelectedPeriodId] = useState(periods[0]?.id || null)
   const [collapsedObjectives, setCollapsedObjectives] = useState({})
   const [copiedToClipboard, setCopiedToClipboard] = useState(false)
+  const [deletedObjective, setDeletedObjective] = useState(null)
 
   // Modal states
   const [showNewPeriodModal, setShowNewPeriodModal] = useState(false)
@@ -218,12 +220,33 @@ export default function OkrPlanner() {
   }, [])
 
   const deleteObjective = useCallback((periodId, objectiveId) => {
-    setPeriods(prev => prev.map(p =>
-      p.id === periodId
-        ? { ...p, objectives: p.objectives.filter(o => o.id !== objectiveId) }
-        : p
-    ))
+    setPeriods(prev => {
+      const period = prev.find(p => p.id === periodId)
+      if (period) {
+        const index = period.objectives.findIndex(o => o.id === objectiveId)
+        if (index !== -1) {
+          setDeletedObjective({ periodId, objective: period.objectives[index], index })
+        }
+      }
+      return prev.map(p =>
+        p.id === periodId
+          ? { ...p, objectives: p.objectives.filter(o => o.id !== objectiveId) }
+          : p
+      )
+    })
   }, [])
+
+  const undoDeleteObjective = useCallback(() => {
+    if (!deletedObjective) return
+    const { periodId, objective, index } = deletedObjective
+    setPeriods(prev => prev.map(p => {
+      if (p.id !== periodId) return p
+      const objectives = [...p.objectives]
+      objectives.splice(index, 0, objective)
+      return { ...p, objectives }
+    }))
+    setDeletedObjective(null)
+  }, [deletedObjective])
 
   const duplicateObjective = useCallback((periodId, objectiveId) => {
     setPeriods(prev => prev.map(p => {
@@ -1015,6 +1038,14 @@ export default function OkrPlanner() {
             setShowAddTaskModal(false)
             setAddTaskObjectiveId(null)
           }}
+        />
+      )}
+
+      {deletedObjective && (
+        <UndoToast
+          message="Objective deleted"
+          onUndo={undoDeleteObjective}
+          onDismiss={() => setDeletedObjective(null)}
         />
       )}
     </div>
