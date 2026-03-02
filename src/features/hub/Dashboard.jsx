@@ -6,6 +6,7 @@ import { HOURLY_RATE } from '../../lib/constants'
 
 const apps = [
   { name: 'OKR Planner', description: 'Quarterly objective & hour planning', icon: Target, href: '/okr' },
+  { name: 'WFM Hours', description: 'Job hours from WorkflowMax', icon: Clock, href: '/hours' },
   { name: 'Sitemap Tool', description: 'Visual sitemap with GSC data', icon: Map, href: '/sitemap', comingSoon: true },
 ]
 
