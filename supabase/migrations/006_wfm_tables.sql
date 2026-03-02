@@ -25,6 +25,10 @@ create table if not exists wfm_connections (
   updated_at timestamptz not null default now()
 );
 
+create trigger wfm_connections_updated_at
+  before update on wfm_connections
+  for each row execute function update_updated_at();
+
 alter table wfm_connections enable row level security;
 
 create policy "Authenticated users can read wfm_connections"
@@ -54,6 +58,10 @@ create table if not exists wfm_jobs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create trigger wfm_jobs_updated_at
+  before update on wfm_jobs
+  for each row execute function update_updated_at();
 
 create index idx_wfm_jobs_client on wfm_jobs(client_id);
 create index idx_wfm_jobs_wfm_client on wfm_jobs(wfm_client_id);
