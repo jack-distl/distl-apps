@@ -2,6 +2,19 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { mockWfmJobs } from '../lib/mockWfmData'
 
+// Compute derived fields that the frontend components expect
+function enrichJob(job) {
+  const budgetHours = Number(job.budget_hours ?? job.allocated_hours ?? 0)
+  const usedHours = Number(job.used_hours ?? 0)
+  return {
+    ...job,
+    allocated_hours: budgetHours,
+    used_hours: usedHours,
+    remaining_hours: budgetHours - usedHours,
+    usage_percent: budgetHours > 0 ? (usedHours / budgetHours) * 100 : 0,
+  }
+}
+
 // ─── Hook: fetch jobs for a client (or all) ─────────────────
 
 export function useWfmJobs(clientId = null) {
@@ -23,7 +36,7 @@ export function useWfmJobs(clientId = null) {
     setError(null)
     try {
       let query = supabase
-        .from('wfm_job_hours')
+        .from('wfm_jobs')
         .select('*')
         .order('state')
         .order('name')
@@ -34,7 +47,7 @@ export function useWfmJobs(clientId = null) {
 
       const { data, error: fetchError } = await query
       if (fetchError) throw fetchError
-      setJobs(data || [])
+      setJobs((data || []).map(enrichJob))
     } catch (err) {
       setError('Failed to load WFM jobs.')
       console.error('useWfmJobs error:', err)
@@ -78,8 +91,8 @@ export async function fetchClientHoursSummaries() {
   }
 
   const { data, error } = await supabase
-    .from('wfm_job_hours')
-    .select('client_id, allocated_hours, used_hours, remaining_hours, state')
+    .from('wfm_jobs')
+    .select('client_id, budget_hours, used_hours, state')
 
   if (error) {
     console.error('fetchClientHoursSummaries error:', error)
@@ -98,9 +111,11 @@ export async function fetchClientHoursSummaries() {
         completedJobs: 0,
       }
     }
-    byClient[row.client_id].totalAllocated += Number(row.allocated_hours)
-    byClient[row.client_id].totalUsed += Number(row.used_hours)
-    byClient[row.client_id].totalRemaining += Number(row.remaining_hours)
+    const budgetHours = Number(row.budget_hours)
+    const usedHours = Number(row.used_hours)
+    byClient[row.client_id].totalAllocated += budgetHours
+    byClient[row.client_id].totalUsed += usedHours
+    byClient[row.client_id].totalRemaining += budgetHours - usedHours
     if (row.state === 'Completed') {
       byClient[row.client_id].completedJobs++
     } else {

@@ -1,5 +1,6 @@
 // POST /api/wfm/sync
-// Pulls jobs and time entries from WorkflowMax and upserts them into Supabase.
+// Pulls jobs from WorkflowMax and upserts them into Supabase.
+// For each job, fetches time entries and sums billable hours into used_hours.
 // This is the core sync function — idempotent, safe to re-run.
 
 import { getServiceSupabase } from './_lib/supabase.js'
@@ -55,12 +56,18 @@ export default async function handler(req, res) {
       if (c.wfm_client_id) clientMap[c.wfm_client_id] = c.id
     }
 
-    // 5. Fetch and upsert jobs
+    // 5. Fetch jobs, then fetch time entries per job and sum billable hours
     const jobs = await client.getJobs()
     let jobsSynced = 0
 
     for (const job of jobs) {
       const mappedClientId = clientMap[job.clientId] || null
+
+      // Fetch time entries for this job and sum billable hours
+      const entries = await client.getTimeEntries(job.id)
+      const usedHours = entries
+        .filter(e => e.billable)
+        .reduce((sum, e) => sum + e.hours, 0)
 
       await supabase.from('wfm_jobs').upsert({
         wfm_job_id: job.id,
@@ -73,6 +80,7 @@ export default async function handler(req, res) {
         start_date: job.startDate,
         due_date: job.dueDate,
         budget_hours: job.budget.hours,
+        used_hours: usedHours,
         budget_amount: job.budget.amount,
         budget_type: job.budget.type,
         category: job.category,
@@ -82,53 +90,21 @@ export default async function handler(req, res) {
       jobsSynced++
     }
 
-    // 6. Fetch and upsert time entries per job
-    let timeEntriesSynced = 0
-
-    for (const job of jobs) {
-      // Resolve the Supabase UUID for this job
-      const { data: jobRow } = await supabase
-        .from('wfm_jobs')
-        .select('id')
-        .eq('wfm_job_id', job.id)
-        .single()
-
-      const entries = await client.getTimeEntries(job.id)
-
-      for (const entry of entries) {
-        await supabase.from('wfm_time_entries').upsert({
-          wfm_time_id: entry.id,
-          wfm_job_id: job.id,
-          job_id: jobRow?.id || null,
-          staff_name: entry.staffName,
-          staff_wfm_id: entry.staffId,
-          date: entry.date,
-          hours: entry.hours,
-          description: entry.description,
-          billable: entry.billable,
-          synced_at: new Date().toISOString(),
-        }, { onConflict: 'wfm_time_id' })
-
-        timeEntriesSynced++
-      }
-    }
-
-    // 7. Update sync log — success
+    // 6. Update sync log — success
     await supabase.from('wfm_sync_log').update({
       completed_at: new Date().toISOString(),
       status: 'success',
       jobs_synced: jobsSynced,
-      time_entries_synced: timeEntriesSynced,
     }).eq('id', syncLog.id)
 
-    // 8. Update connection status
+    // 7. Update connection status
     await supabase.from('wfm_connections').update({
       last_sync_at: new Date().toISOString(),
       last_sync_status: 'success',
       last_sync_error: null,
     }).eq('id', conn.id)
 
-    res.json({ success: true, jobsSynced, timeEntriesSynced })
+    res.json({ success: true, jobsSynced })
   } catch (err) {
     console.error('Sync error:', err)
 
