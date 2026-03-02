@@ -8,6 +8,8 @@ import Dashboard from './features/hub/Dashboard'
 import Clients from './features/hub/Clients'
 import PlannerHome from './features/okr/PlannerHome'
 import OkrPlanner from './features/okr/OkrPlanner'
+import HoursHome from './features/hours/HoursHome'
+import ClientHours from './features/hours/ClientHours'
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -61,6 +63,8 @@ export default function App() {
               <Route path="/clients" element={<Clients />} />
               <Route path="/okr" element={<PlannerHome />} />
               <Route path="/okr/:clientId" element={<OkrPlanner />} />
+              <Route path="/hours" element={<HoursHome />} />
+              <Route path="/hours/:clientId" element={<ClientHours />} />
             </Routes>
           </main>
         </div>
