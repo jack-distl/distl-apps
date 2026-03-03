@@ -213,6 +213,14 @@ function extractXmlArray(data, wrapperKey, itemKey) {
 // Normalize a WFM XML job object into a consistent shape.
 function normalizeJob(raw) {
   const budget = raw.Budget || {}
+
+  // Sum ActualMinutes across all tasks (from detailed job response).
+  // This avoids needing a separate time.api call per job.
+  const tasks = extractXmlArray(raw, 'Tasks', 'Task')
+  const actualMinutes = tasks.reduce(
+    (sum, t) => sum + parseFloat(t.ActualMinutes || 0), 0
+  )
+
   return {
     id: String(raw.ID || raw.UUID || ''),
     jobNumber: raw.InternalID || raw.JobNumber || null,
@@ -231,6 +239,7 @@ function normalizeJob(raw) {
     category: typeof raw.Category === 'object'
       ? (raw.Category.Name || null)
       : (raw.Category || null),
+    actualMinutes,
   }
 }
 
