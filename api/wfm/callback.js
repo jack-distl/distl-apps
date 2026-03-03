@@ -35,7 +35,9 @@ export default async function handler(req, res) {
     if (!tokenRes.ok) {
       const text = await tokenRes.text()
       console.error('Token exchange failed:', text)
-      return res.redirect('/hours?error=token_exchange_failed')
+      let detail = ''
+      try { detail = JSON.parse(text).error || text } catch { detail = text }
+      return res.redirect(`/hours?error=token_exchange_failed&detail=${encodeURIComponent(detail)}`)
     }
 
     const tokens = await tokenRes.json()

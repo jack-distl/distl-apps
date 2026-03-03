@@ -1,5 +1,13 @@
 // GET /api/wfm/connect
 // Initiates the Xero OAuth2 flow — redirects the user to Xero's login page.
+//
+// Required Xero Developer Portal setup:
+//   - App type: "Web app"
+//   - Redirect URI: must match WFM_REDIRECT_URI exactly
+//   - Scopes: enable "Xero Practice Manager" (workflowmax)
+//
+// Required env vars: WFM_CLIENT_ID, WFM_REDIRECT_URI
+// Diagnostic endpoint: GET /api/wfm/health
 
 import crypto from 'crypto'
 
