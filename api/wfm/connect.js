@@ -1,5 +1,12 @@
 // GET /api/wfm/connect
-// Initiates the Xero OAuth2 flow — redirects the user to Xero's login page.
+// Initiates the WorkflowMax OAuth2 flow — redirects the user to WFM's login page.
+//
+// Required WorkflowMax Developer Portal setup (developer.workflowmax.com):
+//   - Create an app and note the Client ID and Client Secret
+//   - Redirect URI: must match WFM_REDIRECT_URI exactly
+//
+// Required env vars: WFM_CLIENT_ID, WFM_REDIRECT_URI
+// Diagnostic endpoint: GET /api/wfm/health
 
 import crypto from 'crypto'
 
@@ -25,7 +32,8 @@ export default function handler(req, res) {
     redirect_uri: redirectUri,
     scope: 'openid profile email workflowmax offline_access',
     state,
+    prompt: 'consent',
   })
 
-  res.redirect(`https://login.xero.com/identity/connect/authorize?${params}`)
+  res.redirect(`https://oauth.workflowmax2.com/oauth/authorize?${params}`)
 }

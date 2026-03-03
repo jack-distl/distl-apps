@@ -4,7 +4,7 @@
 // This is the core sync function — idempotent, safe to re-run.
 
 import { getServiceSupabase } from './_lib/supabase.js'
-import { XpmClient } from './_lib/xpm-client.js'
+import { WfmClient } from './_lib/wfm-client.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     .eq('id', conn.id)
 
   try {
-    const client = new XpmClient(conn.access_token, conn.tenant_id)
+    const client = new WfmClient(conn.access_token, conn.tenant_id)
     await client.refreshTokenIfNeeded(supabase, conn.id)
 
     // 4. Build a client mapping lookup: wfm_client_id -> distl client UUID
