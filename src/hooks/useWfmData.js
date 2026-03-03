@@ -131,29 +131,28 @@ export function useWfmConnection() {
   const [connection, setConnection] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetchStatus() {
-      if (!supabase) {
-        setConnection({ connected: true, lastSyncAt: new Date().toISOString() })
-        setLoading(false)
-        return
-      }
-      try {
-        const res = await window.fetch('/api/wfm/sync-status')
-        const data = await res.json()
-        setConnection(data)
-      } catch {
-        setConnection({ connected: false })
-      }
+  const fetchStatus = useCallback(async () => {
+    if (!supabase) {
+      setConnection({ connected: true, lastSyncAt: new Date().toISOString() })
       setLoading(false)
+      return
     }
-    fetchStatus()
+    try {
+      const res = await window.fetch('/api/wfm/sync-status')
+      const data = await res.json()
+      setConnection(data)
+    } catch {
+      setConnection({ connected: false })
+    }
+    setLoading(false)
   }, [])
+
+  useEffect(() => { fetchStatus() }, [fetchStatus])
 
   const triggerSync = useCallback(async () => {
     const res = await window.fetch('/api/wfm/sync', { method: 'POST' })
     return res.json()
   }, [])
 
-  return { connection, loading, triggerSync }
+  return { connection, loading, triggerSync, refetch: fetchStatus }
 }

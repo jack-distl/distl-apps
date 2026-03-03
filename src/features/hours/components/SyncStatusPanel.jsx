@@ -15,9 +15,10 @@ function timeAgo(dateStr) {
 }
 
 export function SyncStatusPanel({ onSyncComplete }) {
-  const { connection, loading: connLoading } = useWfmConnection()
+  const { connection, loading: connLoading, refetch } = useWfmConnection()
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState(null)
+  const [syncResult, setSyncResult] = useState(null)
 
   if (connLoading) return null
 
@@ -26,13 +27,17 @@ export function SyncStatusPanel({ onSyncComplete }) {
   async function handleSync() {
     setSyncing(true)
     setSyncError(null)
+    setSyncResult(null)
     try {
       const res = await window.fetch('/api/wfm/sync', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Sync failed')
+      setSyncResult(`Synced ${data.jobsSynced || 0} jobs`)
+      await refetch()
       onSyncComplete?.()
     } catch (err) {
       setSyncError(err.message)
+      await refetch()
     } finally {
       setSyncing(false)
     }
@@ -84,6 +89,12 @@ export function SyncStatusPanel({ onSyncComplete }) {
           )}
         </div>
       </div>
+
+      {syncResult && !syncError && (
+        <div className="mt-3 p-2.5 bg-green-50 border border-green-200 text-green-700 text-xs rounded-lg">
+          {syncResult}
+        </div>
+      )}
 
       {syncError && (
         <div className="mt-3 p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg">
