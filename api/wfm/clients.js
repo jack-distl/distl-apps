@@ -2,7 +2,7 @@
 // Fetches all clients from WorkflowMax (for the client mapping UI).
 
 import { getServiceSupabase } from './_lib/supabase.js'
-import { XpmClient } from './_lib/xpm-client.js'
+import { WfmClient } from './_lib/wfm-client.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'WFM not connected' })
     }
 
-    const client = new XpmClient(conn.access_token, conn.tenant_id)
+    const client = new WfmClient(conn.access_token, conn.tenant_id)
     await client.refreshTokenIfNeeded(supabase, conn.id)
 
     const wfmClients = await client.getClients()

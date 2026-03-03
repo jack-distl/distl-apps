@@ -1,11 +1,10 @@
 // GET /api/wfm/callback?code=...&state=...
-// Handles the Xero OAuth2 callback — exchanges the authorization code for tokens
-// and stores them in the wfm_connections table.
+// Handles the WorkflowMax OAuth2 callback — exchanges the authorization code for tokens,
+// decodes the JWT to extract the org_id, and stores everything in wfm_connections.
 
 import { getServiceSupabase } from './_lib/supabase.js'
 
-const TOKEN_URL = 'https://identity.xero.com/connect/token'
-const CONNECTIONS_URL = 'https://api.xero.com/connections'
+const TOKEN_URL = 'https://oauth.workflowmax2.com/oauth/token'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -42,26 +41,13 @@ export default async function handler(req, res) {
 
     const tokens = await tokenRes.json()
 
-    // 2. Get the list of connected tenants to find the XPM one
-    const connectionsRes = await fetch(CONNECTIONS_URL, {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
-    })
+    // 2. Decode the JWT access token to extract the org_id.
+    //    WFM2 embeds org_ids in the JWT payload (no separate /connections endpoint).
+    const orgId = extractOrgIdFromJwt(tokens.access_token)
 
-    if (!connectionsRes.ok) {
-      console.error('Connections fetch failed:', await connectionsRes.text())
-      return res.redirect('/hours?error=connections_failed')
-    }
-
-    const connections = await connectionsRes.json()
-
-    // Look for a Practice Manager tenant (XPM)
-    const xpmTenant = connections.find(
-      c => c.tenantType === 'PRACTICEMANAGER'
-    )
-
-    if (!xpmTenant) {
-      console.error('No Practice Manager tenant found. Available:', connections.map(c => c.tenantType))
-      return res.redirect('/hours?error=no_xpm_tenant')
+    if (!orgId) {
+      console.error('No org_id found in JWT access token')
+      return res.redirect('/hours?error=no_org_id')
     }
 
     // 3. Store in Supabase (upsert — only one connection row)
@@ -71,7 +57,7 @@ export default async function handler(req, res) {
     await supabase.from('wfm_connections').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
     const { error: insertError } = await supabase.from('wfm_connections').insert({
-      tenant_id: xpmTenant.tenantId,
+      tenant_id: orgId,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
@@ -88,5 +74,21 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error('OAuth callback error:', err)
     res.redirect('/hours?error=unexpected')
+  }
+}
+
+// Decode a JWT without signature verification to extract the org_id.
+// The WFM2 access token contains an `org_ids` array claim.
+function extractOrgIdFromJwt(token) {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString())
+    const orgIds = payload.org_ids || []
+    return orgIds[0] || null
+  } catch (err) {
+    console.error('Failed to decode JWT:', err)
+    return null
   }
 }

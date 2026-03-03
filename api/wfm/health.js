@@ -25,6 +25,7 @@ export default function handler(req, res) {
     redirect_uri: redirectUri,
     scope: SCOPES,
     state: 'health-check',
+    prompt: 'consent',
   })
 
   res.status(200).json({
@@ -33,13 +34,13 @@ export default function handler(req, res) {
     redirectUri: redirectUri || '❌ NOT SET',
     scopes: SCOPES,
     authorizeUrl: clientId && redirectUri
-      ? `https://login.xero.com/identity/connect/authorize?${params}`
+      ? `https://oauth.workflowmax2.com/oauth/authorize?${params}`
       : null,
     checklist: [
-      'Xero Developer Portal → App must be "Web app" type',
+      'WorkflowMax Developer Portal (developer.workflowmax.com) → Create an app',
       'Client ID must match WFM_CLIENT_ID env var',
-      `Redirect URI in Xero must be exactly: ${redirectUri || '(not set)'}`,
-      'App must have "Xero Practice Manager" (WorkflowMax) scope enabled',
+      `Redirect URI in WFM must be exactly: ${redirectUri || '(not set)'}`,
+      'Scopes: openid profile email workflowmax offline_access',
     ],
   })
 }

@@ -1,25 +1,23 @@
-// XPM (Xero Practice Manager / WorkflowMax) API client.
+// WorkflowMax by BlueRock API client (V2).
 // Handles token refresh, pagination, rate limiting, and response parsing.
 //
-// API base URL:
-//   XPM (Xero-integrated): https://api.xero.com/workflowmax/3.0/
-//   Classic WFM (legacy):   https://api.workflowmax.com/ (uses API keys, not OAuth)
-//
-// This implementation targets XPM with OAuth2.
+// API base URL: https://api.workflowmax2.com
+// Auth: Bearer token + account_id header (org ID decoded from JWT)
+// Docs: https://api-docs.workflowmax.com/v2
 
-const XPM_BASE_URL = 'https://api.xero.com/workflowmax/3.0'
-const TOKEN_URL = 'https://identity.xero.com/connect/token'
-const MIN_REQUEST_INTERVAL_MS = 1100 // ~55 requests/min (limit is 60/min)
+const WFM_BASE_URL = 'https://api.workflowmax2.com'
+const TOKEN_URL = 'https://oauth.workflowmax2.com/oauth/token'
+const MIN_REQUEST_INTERVAL_MS = 110 // ~9 requests/sec (limit is 10/sec)
 
-export class XpmClient {
-  constructor(accessToken, tenantId) {
+export class WfmClient {
+  constructor(accessToken, accountId) {
     this.accessToken = accessToken
-    this.tenantId = tenantId
+    this.accountId = accountId
     this.lastRequestTime = 0
   }
 
   // Refresh the access token if it has expired (or is about to expire).
-  // Updates the wfm_connections row in Supabase with the new tokens.
+  // WFM2 tokens last 30 minutes. Refresh tokens last 60 days.
   async refreshTokenIfNeeded(supabase, connectionId) {
     const { data: conn } = await supabase
       .from('wfm_connections')
@@ -37,14 +35,20 @@ export class XpmClient {
       return
     }
 
+    // WFM2 refresh: client credentials in Authorization header (Basic Auth)
+    const credentials = Buffer.from(
+      `${process.env.WFM_CLIENT_ID}:${process.env.WFM_CLIENT_SECRET}`
+    ).toString('base64')
+
     const res = await fetch(TOKEN_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${credentials}`,
+      },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: conn.refresh_token,
-        client_id: process.env.WFM_CLIENT_ID,
-        client_secret: process.env.WFM_CLIENT_SECRET,
       }),
     })
 
@@ -55,19 +59,24 @@ export class XpmClient {
 
     const tokens = await res.json()
 
+    // Extract org_id from the new JWT (it may change)
+    const newAccountId = extractOrgIdFromJwt(tokens.access_token) || this.accountId
+
     await supabase
       .from('wfm_connections')
       .update({
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token || conn.refresh_token,
         token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+        tenant_id: newAccountId,
       })
       .eq('id', connectionId)
 
     this.accessToken = tokens.access_token
+    this.accountId = newAccountId
   }
 
-  // Rate-limited HTTP request to the XPM API.
+  // Rate-limited HTTP request to the WFM V2 API.
   async request(method, path, { params = {}, body = null, retries = 2 } = {}) {
     // Enforce minimum interval between requests
     const now = Date.now()
@@ -76,14 +85,14 @@ export class XpmClient {
       await sleep(MIN_REQUEST_INTERVAL_MS - elapsed)
     }
 
-    const url = new URL(`${XPM_BASE_URL}${path}`)
+    const url = new URL(`${WFM_BASE_URL}${path}`)
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null) url.searchParams.set(k, v)
     }
 
     const headers = {
       'Authorization': `Bearer ${this.accessToken}`,
-      'xero-tenant-id': this.tenantId,
+      'account_id': this.accountId,
       'Accept': 'application/json',
     }
     if (body) {
@@ -107,7 +116,7 @@ export class XpmClient {
 
     if (!res.ok) {
       const text = await res.text()
-      throw new Error(`XPM API error ${res.status} on ${method} ${path}: ${text}`)
+      throw new Error(`WFM API error ${res.status} on ${method} ${path}: ${text}`)
     }
 
     const contentType = res.headers.get('content-type') || ''
@@ -115,13 +124,11 @@ export class XpmClient {
       return res.json()
     }
 
-    // Some XPM endpoints return XML even with Accept: application/json.
-    // For now, return raw text — caller can parse if needed.
     return res.text()
   }
 
   // Fetch all jobs, optionally filtered by modification date.
-  // Handles pagination (XPM uses page-based pagination).
+  // V2 endpoint: GET /v2/jobs
   async getJobs(modifiedAfter = null) {
     const allJobs = []
     let page = 1
@@ -133,15 +140,15 @@ export class XpmClient {
         params.modifiedAfter = modifiedAfter
       }
 
-      const data = await this.request('GET', '/jobs', { params })
+      const data = await this.request('GET', '/v2/jobs', { params })
 
-      // XPM returns jobs in a Jobs wrapper (JSON format)
-      const jobs = extractArray(data, 'Jobs', 'Job')
+      // V2 returns JSON — extract the jobs array from the response.
+      // Could be { jobs: [...] }, { Jobs: [...] }, or just [...]
+      const jobs = extractArray(data, ['jobs', 'Jobs'])
       if (!jobs || jobs.length === 0) break
 
       allJobs.push(...jobs)
 
-      // If we got fewer than pageSize, we've reached the end
       if (jobs.length < pageSize) break
       page++
     }
@@ -150,25 +157,27 @@ export class XpmClient {
   }
 
   // Fetch time entries for a specific job.
+  // V2 endpoint: GET /v2/jobs/{UUID}/timesheets
   async getTimeEntries(jobId) {
-    const data = await this.request('GET', `/jobs/${jobId}/time`)
+    const data = await this.request('GET', `/v2/jobs/${jobId}/timesheets`)
 
-    const entries = extractArray(data, 'Times', 'Time')
+    const entries = extractArray(data, ['timesheets', 'Timesheets', 'timeEntries', 'TimeEntries'])
     if (!entries) return []
 
     return entries.map(normalizeTimeEntry)
   }
 
   // Fetch all WFM clients (for the mapping UI).
+  // V2 endpoint: GET /v2/clients
   async getClients() {
     const allClients = []
     let page = 1
     const pageSize = 100
 
     while (true) {
-      const data = await this.request('GET', '/clients', { params: { page, pageSize } })
+      const data = await this.request('GET', '/v2/clients', { params: { page, pageSize } })
 
-      const clients = extractArray(data, 'Clients', 'Client')
+      const clients = extractArray(data, ['clients', 'Clients'])
       if (!clients || clients.length === 0) break
 
       allClients.push(...clients)
@@ -178,7 +187,7 @@ export class XpmClient {
     }
 
     return allClients.map(c => ({
-      id: c.ID || c.Id || c.id,
+      id: c.UUID || c.uuid || c.ID || c.Id || c.id,
       name: c.Name || c.name || 'Unknown',
     }))
   }
@@ -190,67 +199,83 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-// XPM JSON responses can vary in structure. This helper extracts
-// an array from nested wrapper objects.
-// e.g., { Jobs: { Job: [...] } } or { Jobs: [...] } or just [...]
-function extractArray(data, wrapperKey, itemKey) {
-  if (!data) return []
-  if (Array.isArray(data)) return data
-
-  let items = data
-  if (items[wrapperKey] !== undefined) items = items[wrapperKey]
-  if (items && items[itemKey] !== undefined) items = items[itemKey]
-
-  if (Array.isArray(items)) return items
-  if (items && typeof items === 'object') return [items] // Single item wrapped in object
-  return []
-}
-
-// Normalize a raw XPM job object into a consistent shape.
-function normalizeJob(raw) {
-  return {
-    id: raw.ID || raw.Id || raw.id,
-    jobNumber: raw.JobNumber || raw.Number || raw.jobNumber || null,
-    clientId: raw.ClientID || raw.ClientId || raw.clientId || null,
-    clientName: raw.ClientName || raw.clientName || null,
-    name: raw.Name || raw.name || 'Untitled',
-    description: raw.Description || raw.description || null,
-    state: raw.State || raw.state || 'In Progress',
-    startDate: parseXpmDate(raw.StartDate || raw.startDate),
-    dueDate: parseXpmDate(raw.DueDate || raw.dueDate),
-    budget: {
-      hours: parseFloat(raw.BudgetHours || raw.EstimateHours || 0),
-      amount: parseFloat(raw.BudgetAmount || raw.EstimateAmount || 0),
-      type: determineBudgetType(raw),
-    },
-    category: raw.CategoryName || raw.Category || raw.category || null,
+// Decode a JWT to extract org_id (used during token refresh).
+function extractOrgIdFromJwt(token) {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString())
+    return (payload.org_ids || [])[0] || null
+  } catch {
+    return null
   }
 }
 
-// Normalize a raw XPM time entry.
+// Extract an array from a JSON response that may be wrapped in various ways.
+// V2 API returns JSON directly, but wrapper key names may vary.
+function extractArray(data, possibleKeys) {
+  if (!data) return []
+  if (Array.isArray(data)) return data
+
+  // Try each possible wrapper key
+  for (const key of possibleKeys) {
+    if (data[key] !== undefined) {
+      const val = data[key]
+      if (Array.isArray(val)) return val
+      if (val && typeof val === 'object') return [val] // Single item
+    }
+  }
+
+  // If the data itself looks like it could be an array-like response
+  // (has numeric keys or is iterable), return empty
+  return []
+}
+
+// Normalize a raw WFM V2 job object into a consistent shape.
+// V2 uses UUIDs and likely PascalCase or camelCase field names.
+function normalizeJob(raw) {
+  return {
+    id: raw.UUID || raw.uuid || raw.ID || raw.Id || raw.id,
+    jobNumber: raw.JobNumber || raw.jobNumber || raw.Number || null,
+    clientId: raw.ClientUUID || raw.clientUUID || raw.ClientID || raw.ClientId || raw.clientId || null,
+    clientName: raw.ClientName || raw.clientName || null,
+    name: raw.Name || raw.name || 'Untitled',
+    description: raw.Description || raw.description || null,
+    state: raw.State || raw.state || raw.Status || raw.status || 'In Progress',
+    startDate: parseDate(raw.StartDate || raw.startDate),
+    dueDate: parseDate(raw.DueDate || raw.dueDate),
+    budget: {
+      hours: parseFloat(raw.BudgetHours || raw.budgetHours || raw.EstimateHours || raw.AllocatedHours || 0),
+      amount: parseFloat(raw.BudgetAmount || raw.budgetAmount || raw.EstimateAmount || 0),
+      type: determineBudgetType(raw),
+    },
+    category: raw.CategoryName || raw.categoryName || raw.Category || raw.category || null,
+  }
+}
+
+// Normalize a raw WFM V2 time entry.
 function normalizeTimeEntry(raw) {
   return {
-    id: raw.ID || raw.Id || raw.id,
-    staffName: raw.StaffName || raw.Staff?.Name || raw.staffName || null,
-    staffId: raw.StaffID || raw.Staff?.ID || raw.staffId || null,
-    date: parseXpmDate(raw.Date || raw.date),
-    hours: parseFloat(raw.Hours || raw.Duration || raw.hours || 0),
-    description: raw.Description || raw.Note || raw.description || null,
+    id: raw.UUID || raw.uuid || raw.ID || raw.Id || raw.id,
+    staffName: raw.StaffName || raw.staffName || raw.Staff?.Name || raw.staff?.name || null,
+    staffId: raw.StaffUUID || raw.staffUUID || raw.StaffID || raw.Staff?.UUID || null,
+    date: parseDate(raw.Date || raw.date),
+    hours: parseFloat(raw.Hours || raw.hours || raw.Duration || raw.duration || raw.Minutes ? (raw.Minutes / 60) : 0),
+    description: raw.Description || raw.description || raw.Note || raw.note || null,
     billable: raw.Billable !== false && raw.Billable !== 'false' && raw.billable !== false,
   }
 }
 
-// Parse XPM date formats (ISO string, .NET /Date()/ format, or plain date).
-function parseXpmDate(dateVal) {
+// Parse date values (ISO string or plain date).
+function parseDate(dateVal) {
   if (!dateVal) return null
 
-  // .NET /Date(timestamp)/ format
+  // .NET /Date(timestamp)/ format (unlikely in V2 but just in case)
   const dotNetMatch = String(dateVal).match(/\/Date\((\d+)([+-]\d+)?\)\//)
   if (dotNetMatch) {
     return new Date(parseInt(dotNetMatch[1], 10)).toISOString().split('T')[0]
   }
 
-  // Try ISO or plain date
   const d = new Date(dateVal)
   if (isNaN(d.getTime())) return null
   return d.toISOString().split('T')[0]
@@ -258,8 +283,8 @@ function parseXpmDate(dateVal) {
 
 // Determine budget type from raw job data.
 function determineBudgetType(raw) {
-  const hours = parseFloat(raw.BudgetHours || raw.EstimateHours || 0)
-  const amount = parseFloat(raw.BudgetAmount || raw.EstimateAmount || 0)
+  const hours = parseFloat(raw.BudgetHours || raw.budgetHours || raw.EstimateHours || raw.AllocatedHours || 0)
+  const amount = parseFloat(raw.BudgetAmount || raw.budgetAmount || raw.EstimateAmount || 0)
 
   if (hours > 0) return 'time'
   if (amount > 0) return 'fixed'
