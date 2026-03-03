@@ -35,5 +35,5 @@ export default function handler(req, res) {
     prompt: 'consent',
   })
 
-  res.redirect(`https://oauth.workflowmax2.com/oauth/authorize?${params}`)
+  res.redirect(`https://oauth.workflowmax.com/oauth/authorize?${params}`)
 }

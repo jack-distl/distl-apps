@@ -1,13 +1,25 @@
-// WorkflowMax by BlueRock API client (V2).
-// Handles token refresh, pagination, rate limiting, and response parsing.
+// WorkflowMax by BlueRock API client (V1).
+// Handles token refresh, rate limiting, and XML response parsing.
 //
-// API base URL: https://api.workflowmax2.com
+// V1 endpoints mirror the legacy WFM API (job.api, client.api, time.api).
+// V2 (JSON-based) is still in beta — V1 is the stable, working API.
+//
+// API base URL: https://api.workflowmax.com
 // Auth: Bearer token + account_id header (org ID decoded from JWT)
-// Docs: https://api-docs.workflowmax.com/v2
+// Response format: XML
 
-const WFM_BASE_URL = 'https://api.workflowmax2.com'
-const TOKEN_URL = 'https://oauth.workflowmax2.com/oauth/token'
+import { XMLParser } from 'fast-xml-parser'
+
+const WFM_BASE_URL = 'https://api.workflowmax.com'
+const TOKEN_URL = 'https://oauth.workflowmax.com/oauth/token'
 const MIN_REQUEST_INTERVAL_MS = 110 // ~9 requests/sec (limit is 10/sec)
+
+const xmlParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  textNodeName: '#text',
+  isArray: (name) => ['Job', 'Client', 'Time', 'Task'].includes(name),
+})
 
 export class WfmClient {
   constructor(accessToken, accountId) {
@@ -17,7 +29,7 @@ export class WfmClient {
   }
 
   // Refresh the access token if it has expired (or is about to expire).
-  // WFM2 tokens last 30 minutes. Refresh tokens last 60 days.
+  // WFM tokens last 30 minutes. Refresh tokens last 60 days.
   async refreshTokenIfNeeded(supabase, connectionId) {
     const { data: conn } = await supabase
       .from('wfm_connections')
@@ -35,7 +47,6 @@ export class WfmClient {
       return
     }
 
-    // WFM2 refresh: client credentials in POST body
     const res = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -53,8 +64,6 @@ export class WfmClient {
     }
 
     const tokens = await res.json()
-
-    // Extract org_id from the new JWT (it may change)
     const newAccountId = extractOrgIdFromJwt(tokens.access_token) || this.accountId
 
     await supabase
@@ -71,8 +80,8 @@ export class WfmClient {
     this.accountId = newAccountId
   }
 
-  // Rate-limited HTTP request to the WFM V2 API.
-  async request(method, path, { params = {}, body = null, retries = 2 } = {}) {
+  // Rate-limited HTTP request to the WFM API. Returns parsed XML as JS object.
+  async request(method, path, { params = {} } = {}) {
     // Enforce minimum interval between requests
     const now = Date.now()
     const elapsed = now - this.lastRequestTime
@@ -80,33 +89,27 @@ export class WfmClient {
       await sleep(MIN_REQUEST_INTERVAL_MS - elapsed)
     }
 
-    const url = new URL(`${WFM_BASE_URL}${path}`)
+    const url = new URL(`${WFM_BASE_URL}/${path}`)
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null) url.searchParams.set(k, v)
-    }
-
-    const headers = {
-      'Authorization': `Bearer ${this.accessToken}`,
-      'account_id': this.accountId,
-      'Accept': 'application/json',
-    }
-    if (body) {
-      headers['Content-Type'] = 'application/json'
     }
 
     this.lastRequestTime = Date.now()
 
     const res = await fetch(url.toString(), {
       method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'account_id': this.accountId,
+        'Accept': 'application/xml',
+      },
     })
 
     // Handle rate limiting
-    if (res.status === 429 && retries > 0) {
+    if (res.status === 429) {
       const retryAfter = parseInt(res.headers.get('retry-after') || '5', 10)
       await sleep(retryAfter * 1000)
-      return this.request(method, path, { params, body, retries: retries - 1 })
+      return this.request(method, path, { params })
     }
 
     if (!res.ok) {
@@ -114,76 +117,54 @@ export class WfmClient {
       throw new Error(`WFM API error ${res.status} on ${method} ${path}: ${text}`)
     }
 
-    const contentType = res.headers.get('content-type') || ''
-    if (contentType.includes('application/json')) {
-      return res.json()
+    const xml = await res.text()
+    const parsed = xmlParser.parse(xml)
+
+    // WFM wraps everything in <Response>. Check status.
+    const response = parsed.Response || parsed
+    if (response.Status && response.Status !== 'OK') {
+      throw new Error(`WFM API returned status: ${response.Status} — ${response.ErrorDescription || 'Unknown error'}`)
     }
 
-    return res.text()
+    return response
   }
 
-  // Fetch all jobs, optionally filtered by modification date.
-  // V2 endpoint: GET /v2/jobs
-  async getJobs(modifiedAfter = null) {
-    const allJobs = []
-    let page = 1
-    const pageSize = 100
+  // Fetch all current (active) jobs.
+  // V1 endpoint: GET /job.api/current
+  async getJobs() {
+    const data = await this.request('GET', 'job.api/current', {
+      params: { detailed: 'true' },
+    })
 
-    while (true) {
-      const params = { page, pageSize }
-      if (modifiedAfter) {
-        params.modifiedAfter = modifiedAfter
-      }
-
-      const data = await this.request('GET', '/v2/jobs', { params })
-
-      // V2 returns JSON — extract the jobs array from the response.
-      // Could be { jobs: [...] }, { Jobs: [...] }, or just [...]
-      const jobs = extractArray(data, ['jobs', 'Jobs'])
-      if (!jobs || jobs.length === 0) break
-
-      allJobs.push(...jobs)
-
-      if (jobs.length < pageSize) break
-      page++
-    }
-
-    return allJobs.map(normalizeJob)
+    // XML structure: <Response><Jobs><Job>...</Job></Jobs></Response>
+    const jobs = extractXmlArray(data, 'Jobs', 'Job')
+    return jobs.map(normalizeJob)
   }
 
   // Fetch time entries for a specific job.
-  // V2 endpoint: GET /v2/jobs/{UUID}/timesheets
+  // V1 endpoint: GET /time.api/list with jobid filter
   async getTimeEntries(jobId) {
-    const data = await this.request('GET', `/v2/jobs/${jobId}/timesheets`)
+    // Use a wide date range to capture all entries for this job
+    const from = '20200101'
+    const to = formatDateParam(new Date())
 
-    const entries = extractArray(data, ['timesheets', 'Timesheets', 'timeEntries', 'TimeEntries'])
-    if (!entries) return []
+    const data = await this.request('GET', 'time.api/list', {
+      params: { jobid: jobId, from, to },
+    })
 
+    const entries = extractXmlArray(data, 'Times', 'Time')
     return entries.map(normalizeTimeEntry)
   }
 
   // Fetch all WFM clients (for the mapping UI).
-  // V2 endpoint: GET /v2/clients
+  // V1 endpoint: GET /client.api/list
   async getClients() {
-    const allClients = []
-    let page = 1
-    const pageSize = 100
+    const data = await this.request('GET', 'client.api/list')
 
-    while (true) {
-      const data = await this.request('GET', '/v2/clients', { params: { page, pageSize } })
-
-      const clients = extractArray(data, ['clients', 'Clients'])
-      if (!clients || clients.length === 0) break
-
-      allClients.push(...clients)
-
-      if (clients.length < pageSize) break
-      page++
-    }
-
-    return allClients.map(c => ({
-      id: c.UUID || c.uuid || c.ID || c.Id || c.id,
-      name: c.Name || c.name || 'Unknown',
+    const clients = extractXmlArray(data, 'Clients', 'Client')
+    return clients.map(c => ({
+      id: String(c.ID || c.UUID || ''),
+      name: c.Name || 'Unknown',
     }))
   }
 }
@@ -206,82 +187,81 @@ function extractOrgIdFromJwt(token) {
   }
 }
 
-// Extract an array from a JSON response that may be wrapped in various ways.
-// V2 API returns JSON directly, but wrapper key names may vary.
-function extractArray(data, possibleKeys) {
+// Format a Date as YYYYMMDD for WFM API date params.
+function formatDateParam(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}${m}${d}`
+}
+
+// Extract an array from parsed XML.
+// XML like <Jobs><Job>...</Job><Job>...</Job></Jobs> becomes { Jobs: { Job: [...] } }
+// If there's only one item, fast-xml-parser may return it as an object (unless isArray handles it).
+function extractXmlArray(data, wrapperKey, itemKey) {
   if (!data) return []
-  if (Array.isArray(data)) return data
 
-  // Try each possible wrapper key
-  for (const key of possibleKeys) {
-    if (data[key] !== undefined) {
-      const val = data[key]
-      if (Array.isArray(val)) return val
-      if (val && typeof val === 'object') return [val] // Single item
-    }
-  }
+  const wrapper = data[wrapperKey]
+  if (!wrapper) return []
 
-  // If the data itself looks like it could be an array-like response
-  // (has numeric keys or is iterable), return empty
-  return []
+  const items = wrapper[itemKey]
+  if (!items) return []
+  if (Array.isArray(items)) return items
+  return [items]
 }
 
-// Normalize a raw WFM V2 job object into a consistent shape.
-// V2 uses UUIDs and likely PascalCase or camelCase field names.
+// Normalize a WFM XML job object into a consistent shape.
 function normalizeJob(raw) {
+  const budget = raw.Budget || {}
   return {
-    id: raw.UUID || raw.uuid || raw.ID || raw.Id || raw.id,
-    jobNumber: raw.JobNumber || raw.jobNumber || raw.Number || null,
-    clientId: raw.ClientUUID || raw.clientUUID || raw.ClientID || raw.ClientId || raw.clientId || null,
-    clientName: raw.ClientName || raw.clientName || null,
-    name: raw.Name || raw.name || 'Untitled',
-    description: raw.Description || raw.description || null,
-    state: raw.State || raw.state || raw.Status || raw.status || 'In Progress',
-    startDate: parseDate(raw.StartDate || raw.startDate),
-    dueDate: parseDate(raw.DueDate || raw.dueDate),
+    id: String(raw.ID || raw.UUID || ''),
+    jobNumber: raw.InternalID || raw.JobNumber || null,
+    clientId: String(raw.ClientID || raw.ClientUUID || ''),
+    clientName: raw.ClientName || null,
+    name: raw.Name || 'Untitled',
+    description: raw.Description || null,
+    state: raw.State || 'In Progress',
+    startDate: parseDate(raw.StartDate),
+    dueDate: parseDate(raw.DueDate),
     budget: {
-      hours: parseFloat(raw.BudgetHours || raw.budgetHours || raw.EstimateHours || raw.AllocatedHours || 0),
-      amount: parseFloat(raw.BudgetAmount || raw.budgetAmount || raw.EstimateAmount || 0),
-      type: determineBudgetType(raw),
+      hours: parseFloat(budget.Hours || 0),
+      amount: parseFloat(budget.Amount || 0),
+      type: budget.Type || (parseFloat(budget.Hours || 0) > 0 ? 'time' : 'no_budget'),
     },
-    category: raw.CategoryName || raw.categoryName || raw.Category || raw.category || null,
+    category: typeof raw.Category === 'object'
+      ? (raw.Category.Name || null)
+      : (raw.Category || null),
   }
 }
 
-// Normalize a raw WFM V2 time entry.
+// Normalize a WFM XML time entry.
 function normalizeTimeEntry(raw) {
+  const staff = raw.Staff || {}
+  const minutes = parseFloat(raw.Minutes || 0)
   return {
-    id: raw.UUID || raw.uuid || raw.ID || raw.Id || raw.id,
-    staffName: raw.StaffName || raw.staffName || raw.Staff?.Name || raw.staff?.name || null,
-    staffId: raw.StaffUUID || raw.staffUUID || raw.StaffID || raw.Staff?.UUID || null,
-    date: parseDate(raw.Date || raw.date),
-    hours: parseFloat(raw.Hours || raw.hours || raw.Duration || raw.duration || raw.Minutes ? (raw.Minutes / 60) : 0),
-    description: raw.Description || raw.description || raw.Note || raw.note || null,
-    billable: raw.Billable !== false && raw.Billable !== 'false' && raw.billable !== false,
+    id: String(raw.ID || raw.UUID || ''),
+    staffName: staff.Name || raw.StaffName || null,
+    staffId: String(staff.ID || staff.UUID || ''),
+    date: parseDate(raw.Date),
+    hours: minutes / 60,
+    description: raw.Note || raw.Description || null,
+    billable: raw.Billable === true || raw.Billable === 'Yes' || raw.Billable === 'true',
   }
 }
 
-// Parse date values (ISO string or plain date).
+// Parse date values (ISO string, plain date, or .NET format).
 function parseDate(dateVal) {
   if (!dateVal) return null
 
-  // .NET /Date(timestamp)/ format (unlikely in V2 but just in case)
-  const dotNetMatch = String(dateVal).match(/\/Date\((\d+)([+-]\d+)?\)\//)
+  const str = String(dateVal)
+
+  // .NET /Date(timestamp)/ format
+  const dotNetMatch = str.match(/\/Date\((\d+)([+-]\d+)?\)\//)
   if (dotNetMatch) {
     return new Date(parseInt(dotNetMatch[1], 10)).toISOString().split('T')[0]
   }
 
-  const d = new Date(dateVal)
+  const d = new Date(str)
   if (isNaN(d.getTime())) return null
   return d.toISOString().split('T')[0]
-}
-
-// Determine budget type from raw job data.
-function determineBudgetType(raw) {
-  const hours = parseFloat(raw.BudgetHours || raw.budgetHours || raw.EstimateHours || raw.AllocatedHours || 0)
-  const amount = parseFloat(raw.BudgetAmount || raw.budgetAmount || raw.EstimateAmount || 0)
-
-  if (hours > 0) return 'time'
-  if (amount > 0) return 'fixed'
-  return 'no_budget'
 }

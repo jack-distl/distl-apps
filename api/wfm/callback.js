@@ -4,7 +4,7 @@
 
 import { getServiceSupabase } from './_lib/supabase.js'
 
-const TOKEN_URL = 'https://oauth.workflowmax2.com/oauth/token'
+const TOKEN_URL = 'https://oauth.workflowmax.com/oauth/token'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

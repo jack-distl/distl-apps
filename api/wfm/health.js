@@ -34,7 +34,7 @@ export default function handler(req, res) {
     redirectUri: redirectUri || '❌ NOT SET',
     scopes: SCOPES,
     authorizeUrl: clientId && redirectUri
-      ? `https://oauth.workflowmax2.com/oauth/authorize?${params}`
+      ? `https://oauth.workflowmax.com/oauth/authorize?${params}`
       : null,
     checklist: [
       'WorkflowMax Developer Portal (developer.workflowmax.com) → Create an app',
