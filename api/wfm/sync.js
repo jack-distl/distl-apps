@@ -45,7 +45,10 @@ export default async function handler(req, res) {
     const client = new WfmClient(conn.access_token, conn.tenant_id)
     await client.refreshTokenIfNeeded(supabase, conn.id)
 
-    // 4. Build a client mapping lookup: wfm_client_id -> distl client UUID
+    // 4. Fetch active jobs from WFM
+    const jobs = await client.getJobs()
+
+    // 5. Build client mapping and auto-create missing clients
     const { data: distlClients } = await supabase
       .from('clients')
       .select('id, wfm_client_id')
@@ -56,8 +59,37 @@ export default async function handler(req, res) {
       if (c.wfm_client_id) clientMap[c.wfm_client_id] = c.id
     }
 
-    // 5. Fetch active jobs (detailed=true includes task ActualMinutes)
-    const jobs = await client.getJobs()
+    // Collect unique WFM clients from jobs that aren't already mapped
+    const unmappedWfmClients = new Map()
+    for (const job of jobs) {
+      if (job.clientId && !clientMap[job.clientId] && !unmappedWfmClients.has(job.clientId)) {
+        unmappedWfmClients.set(job.clientId, job.clientName || 'Unknown Client')
+      }
+    }
+
+    // Auto-create Distl clients for unmapped WFM clients
+    for (const [wfmClientId, wfmClientName] of unmappedWfmClients) {
+      const abbreviation = generateAbbreviation(wfmClientName)
+      const { data: newClient, error: insertErr } = await supabase
+        .from('clients')
+        .insert({
+          name: wfmClientName,
+          abbreviation,
+          wfm_client_id: wfmClientId,
+          wfm_client_name: wfmClientName,
+          is_active: true,
+        })
+        .select('id')
+        .single()
+
+      if (!insertErr && newClient) {
+        clientMap[wfmClientId] = newClient.id
+      } else {
+        console.error(`Failed to create client for WFM client ${wfmClientName}:`, insertErr)
+      }
+    }
+
+    // 6. Upsert jobs
     let jobsSynced = 0
 
     for (const job of jobs) {
@@ -87,14 +119,14 @@ export default async function handler(req, res) {
       jobsSynced++
     }
 
-    // 6. Update sync log — success
+    // 7. Update sync log — success
     await supabase.from('wfm_sync_log').update({
       completed_at: new Date().toISOString(),
       status: 'success',
       jobs_synced: jobsSynced,
     }).eq('id', syncLog.id)
 
-    // 7. Update connection status
+    // 8. Update connection status
     await supabase.from('wfm_connections').update({
       last_sync_at: new Date().toISOString(),
       last_sync_status: 'success',
@@ -120,4 +152,21 @@ export default async function handler(req, res) {
 
     res.status(500).json({ error: err.message })
   }
+}
+
+// Generate a 2-5 character abbreviation from a client name.
+// Takes the first letter of each word, uppercase.
+function generateAbbreviation(name) {
+  if (!name) return 'UNK'
+
+  const letters = name
+    .split(/\s+/)
+    .filter(w => w.length > 0)
+    .map(w => w[0].toUpperCase())
+    .join('')
+    .slice(0, 5)
+
+  // Abbreviation must be at least 2 chars
+  if (letters.length >= 2) return letters
+  return name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase() || 'UNK'
 }
