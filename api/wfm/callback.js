@@ -18,21 +18,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Exchange code for tokens (WFM2 requires Basic Auth for client credentials)
-    const credentials = Buffer.from(
-      `${process.env.WFM_CLIENT_ID}:${process.env.WFM_CLIENT_SECRET}`
-    ).toString('base64')
-
+    // 1. Exchange code for tokens (client credentials in POST body per WFM2 docs)
     const tokenRes = await fetch(TOKEN_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${credentials}`,
-      },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
         redirect_uri: process.env.WFM_REDIRECT_URI,
+        client_id: process.env.WFM_CLIENT_ID,
+        client_secret: process.env.WFM_CLIENT_SECRET,
       }),
     })
 
