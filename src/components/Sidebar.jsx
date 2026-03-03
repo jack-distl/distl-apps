@@ -1,9 +1,10 @@
-import { LayoutDashboard, Target, Map, Settings } from 'lucide-react'
+import { LayoutDashboard, Target, Clock, Map, Settings } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
 const navItems = [
   { label: 'Hub', href: '/', icon: LayoutDashboard },
   { label: 'OKR Planner', href: '/okr', icon: Target },
+  { label: 'WFM Hours', href: '/hours', icon: Clock },
   { label: 'Sitemap Tool', href: '/sitemap', icon: Map },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
