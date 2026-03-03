@@ -1,6 +1,6 @@
 // POST /api/wfm/sync
-// Pulls jobs from WorkflowMax and upserts them into Supabase.
-// For each job, fetches time entries and sums billable hours into used_hours.
+// Pulls active jobs from WorkflowMax (detailed=true) and upserts them into Supabase.
+// Used hours are extracted from task ActualMinutes in the job response (single API call).
 // This is the core sync function — idempotent, safe to re-run.
 
 import { getServiceSupabase } from './_lib/supabase.js'
@@ -56,18 +56,15 @@ export default async function handler(req, res) {
       if (c.wfm_client_id) clientMap[c.wfm_client_id] = c.id
     }
 
-    // 5. Fetch jobs, then fetch time entries per job and sum billable hours
+    // 5. Fetch active jobs (detailed=true includes task ActualMinutes)
     const jobs = await client.getJobs()
     let jobsSynced = 0
 
     for (const job of jobs) {
       const mappedClientId = clientMap[job.clientId] || null
 
-      // Fetch time entries for this job and sum billable hours
-      const entries = await client.getTimeEntries(job.id)
-      const usedHours = entries
-        .filter(e => e.billable)
-        .reduce((sum, e) => sum + e.hours, 0)
+      // Used hours from task ActualMinutes (already in the detailed job response)
+      const usedHours = job.actualMinutes / 60
 
       await supabase.from('wfm_jobs').upsert({
         wfm_job_id: job.id,
