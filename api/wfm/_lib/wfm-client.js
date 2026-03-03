@@ -35,20 +35,15 @@ export class WfmClient {
       return
     }
 
-    // WFM2 refresh: client credentials in Authorization header (Basic Auth)
-    const credentials = Buffer.from(
-      `${process.env.WFM_CLIENT_ID}:${process.env.WFM_CLIENT_SECRET}`
-    ).toString('base64')
-
+    // WFM2 refresh: client credentials in POST body
     const res = await fetch(TOKEN_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${credentials}`,
-      },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: conn.refresh_token,
+        client_id: process.env.WFM_CLIENT_ID,
+        client_secret: process.env.WFM_CLIENT_SECRET,
       }),
     })
 
