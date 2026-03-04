@@ -1,13 +1,13 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   ArrowLeft, Plus, Copy, ChevronDown, ChevronUp,
   Trash2, Check, Globe, FileText, Hash,
-  AlertTriangle, Search, X, ClipboardCheck
+  AlertTriangle, Search, X, ClipboardCheck, Loader2
 } from 'lucide-react'
 import { UndoToast } from '../../components/UndoToast'
 import { useClients } from '../../hooks'
-import { mockOkrData } from '../../lib/mockData'
+import { useOkrData } from '../../hooks/useOkrData'
 import { TASK_LIBRARY, SCOPE_OPTIONS, getAllTemplatesResolved } from '../../lib/taskLibrary'
 import {
   HOURLY_RATE, AD_HOC_BUFFER, DEFAULT_OFFSITE_ALLOWANCE,
@@ -38,7 +38,7 @@ function createBlankPeriod() {
   const endMonth = month + 2 > 12 ? (month + 2) - 12 : month + 2
   const endYear = month + 2 > 12 ? year + 1 : year
   return {
-    id: generateId('period'),
+    id: generateId(),
     startMonth: month,
     startYear: year,
     endMonth,
@@ -63,19 +63,18 @@ export default function OkrPlanner() {
   const { clients } = useClients()
   const client = clients.find(c => c.id === clientId)
 
-  // Initialise from mock data or blank
-  const initialData = mockOkrData[clientId] || {
-    abbreviation: client?.abbreviation || '',
-    retainerAmount: client?.monthly_retainer || 0,
-    periods: [],
-  }
+  // ─── Data from Supabase ──────────────────────────────────
+  const {
+    periods, setPeriods, loading, error, saving,
+    savePeriod, setPublished, removePeriod, refetch,
+  } = useOkrData(clientId)
+
+  const abbreviation = client?.abbreviation || ''
+  const retainerAmount = client?.monthly_retainer || 0
 
   // ─── State ───────────────────────────────────────────────
   const [viewMode, setViewMode] = useState('internal')
-  const [abbreviation, setAbbreviation] = useState(initialData.abbreviation)
-  const [retainerAmount, setRetainerAmount] = useState(initialData.retainerAmount)
-  const [periods, setPeriods] = useState(initialData.periods)
-  const [selectedPeriodId, setSelectedPeriodId] = useState(periods[0]?.id || null)
+  const [selectedPeriodId, setSelectedPeriodId] = useState(null)
   const [collapsedObjectives, setCollapsedObjectives] = useState({})
   const [copiedToClipboard, setCopiedToClipboard] = useState(false)
   const [deletedObjective, setDeletedObjective] = useState(null)
@@ -87,6 +86,41 @@ export default function OkrPlanner() {
   const [addTaskObjectiveId, setAddTaskObjectiveId] = useState(null)
 
   const isClientView = viewMode === 'client'
+
+  // Select first period when data loads
+  useEffect(() => {
+    if (periods.length > 0 && !selectedPeriodId) {
+      setSelectedPeriodId(periods[0].id)
+    }
+  }, [periods, selectedPeriodId])
+
+  // ─── Debounced Auto-Save ────────────────────────────────
+  const saveTimerRef = useRef(null)
+  const [saveError, setSaveError] = useState(null)
+
+  const triggerDebouncedSave = useCallback((periodId) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      setPeriods(current => {
+        const period = current.find(p => p.id === periodId)
+        if (period) {
+          savePeriod(period).catch(err => {
+            console.error('Auto-save failed:', err)
+            setSaveError('Failed to save. Your changes may not be persisted.')
+            setTimeout(() => setSaveError(null), 5000)
+          })
+        }
+        return current
+      })
+    }, 1500)
+  }, [savePeriod, setPeriods])
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
 
   // ─── Derived ─────────────────────────────────────────────
   const currentPeriod = periods.find(p => p.id === selectedPeriodId) || null
@@ -144,38 +178,45 @@ export default function OkrPlanner() {
   // ─── Period Handlers ─────────────────────────────────────
 
   const updatePeriod = useCallback((periodId, updates) => {
-    setPeriods(prev => prev.map(p =>
-      p.id === periodId ? { ...p, ...updates } : p
-    ))
-  }, [])
+    setPeriods(prev => {
+      const next = prev.map(p => p.id === periodId ? { ...p, ...updates } : p)
+      return next
+    })
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   const updateAdminTask = useCallback((periodId, field, value) => {
-    setPeriods(prev => prev.map(p =>
-      p.id === periodId
-        ? { ...p, adminTasks: { ...p.adminTasks, [field]: Math.round(Number(value) || 0) } }
-        : p
-    ))
-  }, [])
+    setPeriods(prev => {
+      const next = prev.map(p =>
+        p.id === periodId
+          ? { ...p, adminTasks: { ...p.adminTasks, [field]: Math.round(Number(value) || 0) } }
+          : p
+      )
+      return next
+    })
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   const addPeriod = useCallback((newPeriod) => {
     setPeriods(prev => [...prev, newPeriod])
     setSelectedPeriodId(newPeriod.id)
     setShowNewPeriodModal(false)
-  }, [])
+    savePeriod(newPeriod).catch(err => console.error('Failed to save new period:', err))
+  }, [setPeriods, savePeriod])
 
   const duplicatePeriod = useCallback((sourcePeriodId) => {
     const source = periods.find(p => p.id === sourcePeriodId)
     if (!source) return
     const newPeriod = {
       ...source,
-      id: generateId('period'),
+      id: generateId(),
       isPublished: false,
       objectives: source.objectives.map(obj => ({
         ...obj,
-        id: generateId('obj'),
+        id: generateId(),
         keyResults: obj.keyResults.map(kr => ({
           ...kr,
-          id: generateId('kr'),
+          id: generateId(),
           status: 'pending',
         })),
       })),
@@ -183,7 +224,8 @@ export default function OkrPlanner() {
     setPeriods(prev => [...prev, newPeriod])
     setSelectedPeriodId(newPeriod.id)
     setShowNewPeriodModal(false)
-  }, [periods])
+    savePeriod(newPeriod).catch(err => console.error('Failed to save duplicated period:', err))
+  }, [periods, setPeriods, savePeriod])
 
   const deletePeriod = useCallback((periodId) => {
     setPeriods(prev => {
@@ -193,7 +235,8 @@ export default function OkrPlanner() {
       }
       return updated
     })
-  }, [selectedPeriodId])
+    removePeriod(periodId).catch(err => console.error('Failed to delete period:', err))
+  }, [selectedPeriodId, setPeriods, removePeriod])
 
   // ─── Objective Handlers ──────────────────────────────────
 
@@ -204,7 +247,8 @@ export default function OkrPlanner() {
         : p
     ))
     setShowAddObjectiveModal(false)
-  }, [])
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   const updateObjective = useCallback((periodId, objectiveId, updates) => {
     setPeriods(prev => prev.map(p =>
@@ -217,7 +261,8 @@ export default function OkrPlanner() {
         }
         : p
     ))
-  }, [])
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   const deleteObjective = useCallback((periodId, objectiveId) => {
     setPeriods(prev => {
@@ -234,7 +279,8 @@ export default function OkrPlanner() {
           : p
       )
     })
-  }, [])
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   const undoDeleteObjective = useCallback(() => {
     if (!deletedObjective) return
@@ -246,7 +292,8 @@ export default function OkrPlanner() {
       return { ...p, objectives }
     }))
     setDeletedObjective(null)
-  }, [deletedObjective])
+    triggerDebouncedSave(deletedObjective.periodId)
+  }, [deletedObjective, setPeriods, triggerDebouncedSave])
 
   const duplicateObjective = useCallback((periodId, objectiveId) => {
     setPeriods(prev => prev.map(p => {
@@ -255,17 +302,18 @@ export default function OkrPlanner() {
       if (!source) return p
       const copy = {
         ...source,
-        id: generateId('obj'),
+        id: generateId(),
         title: `${source.title} (Copy)`,
         keyResults: source.keyResults.map(kr => ({
           ...kr,
-          id: generateId('kr'),
+          id: generateId(),
           status: 'pending',
         })),
       }
       return { ...p, objectives: [...p.objectives, copy] }
     }))
-  }, [])
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   const toggleCollapse = useCallback((objectiveId) => {
     setCollapsedObjectives(prev => ({
@@ -291,7 +339,8 @@ export default function OkrPlanner() {
     ))
     setShowAddTaskModal(false)
     setAddTaskObjectiveId(null)
-  }, [])
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   const updateKeyResult = useCallback((periodId, objectiveId, krId, updates) => {
     setPeriods(prev => prev.map(p =>
@@ -311,7 +360,8 @@ export default function OkrPlanner() {
         }
         : p
     ))
-  }, [])
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   const deleteKeyResult = useCallback((periodId, objectiveId, krId) => {
     setPeriods(prev => prev.map(p =>
@@ -326,7 +376,8 @@ export default function OkrPlanner() {
         }
         : p
     ))
-  }, [])
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   const toggleKeyResultStatus = useCallback((periodId, objectiveId, krId) => {
     setPeriods(prev => prev.map(p =>
@@ -348,7 +399,8 @@ export default function OkrPlanner() {
         }
         : p
     ))
-  }, [])
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   // ─── Clipboard Export ────────────────────────────────────
 
@@ -379,6 +431,49 @@ export default function OkrPlanner() {
     )
   }
 
+  // ─── Guard: loading ────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center gap-3 mb-6">
+          <Link to="/okr" className="text-gray-400 hover:text-gray-600">
+            <ArrowLeft size={20} />
+          </Link>
+          <h1 className="text-2xl font-semibold text-charcoal">{client.name}</h1>
+        </div>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={24} className="animate-spin text-coral" />
+          <span className="ml-2 text-gray-500">Loading OKR data...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Guard: error ──────────────────────────────────────
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center gap-3 mb-6">
+          <Link to="/okr" className="text-gray-400 hover:text-gray-600">
+            <ArrowLeft size={20} />
+          </Link>
+          <h1 className="text-2xl font-semibold text-charcoal">{client.name}</h1>
+        </div>
+        <div className="text-center py-20">
+          <p className="text-red-500 mb-4">{error}</p>
+          <button
+            onClick={refetch}
+            className="text-coral hover:text-coral-dark font-medium"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // When switching to client view and current period is unpublished, select first published
   if (isClientView && currentPeriod && !currentPeriod.isPublished) {
     const firstPublished = periods.find(p => p.isPublished)
@@ -392,6 +487,14 @@ export default function OkrPlanner() {
   return (
     <div className="max-w-7xl mx-auto">
 
+      {/* Save Error Banner */}
+      {saveError && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2">
+          <AlertTriangle size={16} className="text-red-500 shrink-0" />
+          <p className="text-sm text-red-700">{saveError}</p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -399,7 +502,15 @@ export default function OkrPlanner() {
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 className="text-2xl font-semibold text-charcoal">{client.name}</h1>
+            <h1 className="text-2xl font-semibold text-charcoal">
+              {client.name}
+              {saving && (
+                <span className="ml-3 text-xs font-normal text-gray-400 inline-flex items-center gap-1">
+                  <Loader2 size={12} className="animate-spin" />
+                  Saving...
+                </span>
+              )}
+            </h1>
             {isClientView && currentPeriod && (
               <p className="text-sm text-gray-500 mt-0.5">
                 Monthly Retainer: {formatCurrency(retainerAmount)}
@@ -453,7 +564,18 @@ export default function OkrPlanner() {
                 )}
               </button>
               <button
-                onClick={() => updatePeriod(currentPeriod.id, { isPublished: !currentPeriod.isPublished })}
+                onClick={() => {
+                  const newVal = !currentPeriod.isPublished
+                  setPeriods(prev => prev.map(p =>
+                    p.id === currentPeriod.id ? { ...p, isPublished: newVal } : p
+                  ))
+                  setPublished(currentPeriod.id, newVal).catch(err => {
+                    console.error('Failed to toggle publish:', err)
+                    setPeriods(prev => prev.map(p =>
+                      p.id === currentPeriod.id ? { ...p, isPublished: !newVal } : p
+                    ))
+                  })
+                }}
                 className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                   currentPeriod.isPublished
                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -486,27 +608,12 @@ export default function OkrPlanner() {
       {!isClientView && (
         <div className="flex flex-wrap items-center gap-4 mb-6">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-500">Abbreviation</label>
-            <input
-              type="text"
-              value={abbreviation}
-              onChange={e => setAbbreviation(e.target.value.toUpperCase().slice(0, 5))}
-              className="w-20 px-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30 uppercase"
-            />
+            <span className="text-sm font-medium text-gray-500">Abbreviation</span>
+            <span className="text-sm font-semibold text-charcoal uppercase">{abbreviation || '—'}</span>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-500">Monthly Retainer</label>
-            <div className="relative">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-              <input
-                type="number"
-                value={retainerAmount}
-                onChange={e => setRetainerAmount(Number(e.target.value) || 0)}
-                step={180}
-                min={0}
-                className="w-32 pl-6 pr-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30"
-              />
-            </div>
+            <span className="text-sm font-medium text-gray-500">Monthly Retainer</span>
+            <span className="text-sm font-semibold text-charcoal">{formatCurrency(retainerAmount)}</span>
           </div>
         </div>
       )}
@@ -1070,7 +1177,7 @@ function NewPeriodModal({ periods, onAdd, onDuplicate, onClose }) {
       onDuplicate(duplicateFrom)
     } else {
       onAdd({
-        id: generateId('period'),
+        id: generateId(),
         startMonth,
         startYear,
         endMonth,
@@ -1177,12 +1284,12 @@ function AddObjectiveModal({ onAdd, onClose }) {
 
   const handleSelectTemplate = (template) => {
     const objective = {
-      id: generateId('obj'),
+      id: generateId(),
       title: template.title,
       scope: template.defaultScope,
       scopeDetail: '',
       keyResults: template.resolvedTasks.map(task => ({
-        id: generateId('kr'),
+        id: generateId(),
         task: task.name,
         description: '',
         amHours: task.defaultAmHours,
@@ -1197,7 +1304,7 @@ function AddObjectiveModal({ onAdd, onClose }) {
     e.preventDefault()
     if (!customTitle.trim()) return
     onAdd({
-      id: generateId('obj'),
+      id: generateId(),
       title: customTitle.trim(),
       scope: 'sitewide',
       scopeDetail: '',
@@ -1307,7 +1414,7 @@ function AddTaskModal({ onAdd, onClose }) {
     const task = TASK_LIBRARY.find(t => t.id === selectedTaskId)
     if (!task) return
     onAdd({
-      id: generateId('kr'),
+      id: generateId(),
       task: task.name,
       description: description.trim(),
       amHours: roundToHalf(amHours),

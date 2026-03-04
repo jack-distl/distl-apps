@@ -50,8 +50,7 @@ export function getPeriodLabel(startMonth, startYear, endMonth, endYear) {
   return `${start} ${startYear} – ${end} ${endYear}`
 }
 
-// Generate unique IDs
-let idCounter = Date.now()
-export function generateId(prefix = 'id') {
-  return `${prefix}-${++idCounter}`
+// Generate unique IDs (must be valid UUIDs for Supabase)
+export function generateId() {
+  return crypto.randomUUID()
 }
