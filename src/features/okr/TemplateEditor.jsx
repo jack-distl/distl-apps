@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useTemplates } from '../../contexts/TemplateContext'
 import { ConfirmDialog } from '../../components'
+import { Input } from '../../components/ui/input'
 import { SCOPE_OPTIONS } from '../../lib/taskLibrary'
 import { formatHours, roundToHalf, generateId } from '../../lib/constants'
 
@@ -130,12 +131,12 @@ export default function TemplateEditor() {
 
         <div className="relative flex-1 max-w-xs">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-          <input
+          <Input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={activeTab === 'templates' ? 'Search templates...' : 'Search tasks...'}
-            className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
+            className="pl-9 pr-8"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">

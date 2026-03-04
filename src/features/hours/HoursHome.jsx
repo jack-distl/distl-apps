@@ -1,12 +1,26 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Settings, Clock } from 'lucide-react'
-import { Badge, LoadingSpinner } from '../../components'
+import { Settings } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { LoadingSpinner } from '../../components'
+import { Badge } from '../../components/ui/badge'
+import { Button } from '../../components/ui/button'
+import { Card, CardContent } from '../../components/ui/card'
 import { useClients } from '../../hooks'
 import { fetchClientHoursSummaries } from '../../hooks/useWfmData'
 import { HoursSummaryBar } from './components/HoursSummaryBar'
 import { SyncStatusPanel } from './components/SyncStatusPanel'
 import { ClientMappingModal } from './components/ClientMappingModal'
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+}
 
 export default function HoursHome() {
   const { clients, loading } = useClients()
@@ -40,58 +54,64 @@ export default function HoursHome() {
             Track allocated and used hours across WorkflowMax jobs
           </p>
         </div>
-        <button
-          onClick={() => setShowMapping(true)}
-          className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg text-sm font-medium transition-colors"
-        >
-          <Settings className="w-4 h-4" />
+        <Button variant="outline" onClick={() => setShowMapping(true)}>
+          <Settings className="w-4 h-4 mr-2" />
           Map Clients
-        </button>
+        </Button>
       </div>
 
       <SyncStatusPanel onSyncComplete={loadSummaries} />
 
       {/* Client grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <motion.div
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
         {activeClients.map(client => {
           const summary = summaries?.[client.id]
           const isMapped = !!client.wfm_client_id
 
           return (
-            <Link
-              key={client.id}
-              to={`/hours/${client.id}`}
-              className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow block"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <h3 className="font-semibold text-charcoal">{client.name}</h3>
-                  <span className="text-sm text-gray-500">{client.abbreviation}</span>
-                </div>
-                {!isMapped && !summary ? (
-                  <Badge>Not mapped</Badge>
-                ) : summary && summary.activeJobs > 0 && summary.totalAllocated > 0 && (summary.totalUsed / summary.totalAllocated) > 0.8 ? (
-                  <Badge variant="warning">Nearing budget</Badge>
-                ) : null}
-              </div>
+            <motion.div key={client.id} variants={fadeUp}>
+              <Link to={`/hours/${client.id}`}>
+                <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h3 className="font-semibold text-charcoal">{client.name}</h3>
+                          <span className="text-sm text-gray-500">{client.abbreviation}</span>
+                        </div>
+                        {!isMapped && !summary ? (
+                          <Badge>Not mapped</Badge>
+                        ) : summary && summary.activeJobs > 0 && summary.totalAllocated > 0 && (summary.totalUsed / summary.totalAllocated) > 0.8 ? (
+                          <Badge variant="warning">Nearing budget</Badge>
+                        ) : null}
+                      </div>
 
-              {summary ? (
-                <div className="mt-3">
-                  <HoursSummaryBar summary={summary} />
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400 mt-3">
-                  {isMapped ? 'No jobs synced yet' : 'Map this client to see hours'}
-                </p>
-              )}
+                      {summary ? (
+                        <div className="mt-3">
+                          <HoursSummaryBar summary={summary} />
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400 mt-3">
+                          {isMapped ? 'No jobs synced yet' : 'Map this client to see hours'}
+                        </p>
+                      )}
 
-              <span className="text-sm text-coral font-medium mt-3 block">
-                View jobs &rarr;
-              </span>
-            </Link>
+                      <span className="text-sm text-coral font-medium mt-3 block">
+                        View jobs &rarr;
+                      </span>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </Link>
+            </motion.div>
           )
         })}
-      </div>
+      </motion.div>
 
       <ClientMappingModal
         open={showMapping}

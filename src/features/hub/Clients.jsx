@@ -1,6 +1,17 @@
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { ClientCard, LoadingSpinner } from '../../components'
 import { useClients } from '../../hooks'
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+}
 
 export default function Clients() {
   const navigate = useNavigate()
@@ -21,16 +32,22 @@ export default function Clients() {
         <p className="text-gray-500 mt-1">{clients.length} clients total</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <motion.div
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
         {clients.map((client) => (
-          <ClientCard
-            key={client.id}
-            client={client}
-            apps={client.is_active ? ['OKR'] : []}
-            onSelect={() => navigate(`/okr/${client.id}`)}
-          />
+          <motion.div key={client.id} variants={fadeUp}>
+            <ClientCard
+              client={client}
+              apps={client.is_active ? ['OKR'] : []}
+              onSelect={() => navigate(`/okr/${client.id}`)}
+            />
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   )
 }

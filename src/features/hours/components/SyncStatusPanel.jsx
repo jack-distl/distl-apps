@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { RefreshCw, Wifi, WifiOff, Link as LinkIcon } from 'lucide-react'
+import { RefreshCw, Link as LinkIcon } from 'lucide-react'
+import { Button } from '../../../components/ui/button'
+import { Card, CardContent } from '../../../components/ui/card'
 import { useWfmConnection } from '../../../hooks/useWfmData'
 
 function timeAgo(dateStr) {
@@ -44,69 +46,66 @@ export function SyncStatusPanel({ onSyncComplete }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm mb-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {isConnected ? (
-            <>
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              <span className="text-sm text-gray-600">
-                Connected to WorkflowMax
-              </span>
-              {connection?.connection?.lastSyncAt && (
-                <span className="text-xs text-gray-400">
-                  · Last sync: {timeAgo(connection.connection.lastSyncAt)}
+    <Card className="mb-6">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {isConnected ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-sm text-gray-600">
+                  Connected to WorkflowMax
                 </span>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="w-2 h-2 rounded-full bg-gray-300" />
-              <span className="text-sm text-gray-500">Not connected</span>
-            </>
-          )}
+                {connection?.connection?.lastSyncAt && (
+                  <span className="text-xs text-gray-400">
+                    · Last sync: {timeAgo(connection.connection.lastSyncAt)}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="w-2 h-2 rounded-full bg-gray-300" />
+                <span className="text-sm text-gray-500">Not connected</span>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!isConnected && (
+              <Button variant="outline" size="sm" asChild>
+                <a href="/api/wfm/connect">
+                  <LinkIcon className="w-3.5 h-3.5 mr-2" />
+                  Connect WFM
+                </a>
+              </Button>
+            )}
+            {isConnected && (
+              <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+                <RefreshCw className={`w-3.5 h-3.5 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync Now'}
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {!isConnected && (
-            <a
-              href="/api/wfm/connect"
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-coral border border-coral/30 rounded-lg hover:bg-coral/5 transition-colors"
-            >
-              <LinkIcon className="w-3.5 h-3.5" />
-              Connect WFM
-            </a>
-          )}
-          {isConnected && (
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync Now'}
-            </button>
-          )}
-        </div>
-      </div>
+        {syncResult && !syncError && (
+          <div className="mt-3 p-2.5 bg-green-50 border border-green-200 text-green-700 text-xs rounded-lg">
+            {syncResult}
+          </div>
+        )}
 
-      {syncResult && !syncError && (
-        <div className="mt-3 p-2.5 bg-green-50 border border-green-200 text-green-700 text-xs rounded-lg">
-          {syncResult}
-        </div>
-      )}
+        {syncError && (
+          <div className="mt-3 p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg">
+            Sync failed: {syncError}
+          </div>
+        )}
 
-      {syncError && (
-        <div className="mt-3 p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg">
-          Sync failed: {syncError}
-        </div>
-      )}
-
-      {connection?.connection?.lastSyncStatus === 'error' && !syncError && (
-        <div className="mt-3 p-2.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-lg">
-          Last sync had an error: {connection.connection.lastSyncError}
-        </div>
-      )}
-    </div>
+        {connection?.connection?.lastSyncStatus === 'error' && !syncError && (
+          <div className="mt-3 p-2.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-lg">
+            Last sync had an error: {connection.connection.lastSyncError}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

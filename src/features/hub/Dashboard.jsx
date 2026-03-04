@@ -1,6 +1,9 @@
-import { Target, Map, Users, Clock } from 'lucide-react'
+import { Target, Map, Users, Clock, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Button, LoadingSpinner } from '../../components'
+import { motion } from 'framer-motion'
+import { LoadingSpinner } from '../../components'
+import { Card, CardContent } from '../../components/ui/card'
+import { Badge } from '../../components/ui/badge'
 import { useClients } from '../../hooks'
 import { HOURLY_RATE } from '../../lib/constants'
 
@@ -9,6 +12,16 @@ const apps = [
   { name: 'WFM Hours', description: 'Job hours from WorkflowMax', icon: Clock, href: '/hours' },
   { name: 'Sitemap Tool', description: 'Visual sitemap with GSC data', icon: Map, href: '/sitemap', comingSoon: true },
 ]
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+}
 
 export default function Dashboard() {
   const { clients, loading } = useClients()
@@ -21,53 +34,79 @@ export default function Dashboard() {
     )
   }
 
+  const activeClients = clients.filter(c => c.is_active)
+  const totalHours = Math.round(activeClients.reduce((sum, c) => sum + c.monthly_retainer, 0) / HOURLY_RATE)
+
   return (
     <div className="max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-charcoal">
-          G'day! Welcome to <span className="text-coral italic">distl</span> platform
+      {/* Coral welcome banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="bg-gradient-to-r from-coral to-coral-dark rounded-xl p-8 mb-8"
+      >
+        <h1 className="text-2xl font-semibold text-white">
+          G'day! Welcome to <span className="italic">distl</span> platform
         </h1>
-        <p className="text-gray-500 mt-1">Your internal tools, all in one spot.</p>
-      </div>
+        <p className="text-white/70 mt-1">Your internal tools, all in one spot.</p>
+      </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+      <motion.div
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10"
+      >
         {[
-          { label: 'Active Clients', value: clients.filter(c => c.is_active).length, icon: Users },
-          { label: 'Hours This Month', value: `~${Math.round(clients.filter(c => c.is_active).reduce((sum, c) => sum + c.monthly_retainer, 0) / HOURLY_RATE)}`, icon: Clock },
+          { label: 'Active Clients', value: activeClients.length, icon: Users },
+          { label: 'Hours This Month', value: `~${totalHours}`, icon: Clock },
         ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-            <div className="flex items-center gap-3 mb-2">
-              <stat.icon className="w-4 h-4 text-coral" />
-              <span className="text-sm text-gray-500">{stat.label}</span>
-            </div>
-            <p className="text-2xl font-semibold text-charcoal">{stat.value}</p>
-          </div>
+          <motion.div key={stat.label} variants={fadeUp}>
+            <Card className="border-l-4 border-l-coral">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <stat.icon className="w-4 h-4 text-coral" />
+                  <span className="text-sm text-gray-500">{stat.label}</span>
+                </div>
+                <p className="text-2xl font-semibold text-charcoal">{stat.value}</p>
+              </CardContent>
+            </Card>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {/* App Launcher */}
       <h2 className="text-lg font-semibold text-charcoal mb-4">Apps</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {apps.map((app) =>
-          app.comingSoon ? (
-            <div
-              key={app.name}
-              className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm opacity-50 cursor-not-allowed"
-            >
-              <AppCardContent app={app} />
-            </div>
-          ) : (
-            <Link
-              key={app.name}
-              to={app.href}
-              className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <AppCardContent app={app} />
-            </Link>
-          )
-        )}
-      </div>
+      <motion.div
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        {apps.map((app) => (
+          <motion.div key={app.name} variants={fadeUp}>
+            {app.comingSoon ? (
+              <Card className="opacity-50 cursor-not-allowed">
+                <CardContent className="p-5">
+                  <AppCardContent app={app} />
+                </CardContent>
+              </Card>
+            ) : (
+              <Link to={app.href}>
+                <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-5">
+                      <AppCardContent app={app} />
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </Link>
+            )}
+          </motion.div>
+        ))}
+      </motion.div>
     </div>
   )
 }
@@ -76,15 +115,20 @@ function AppCardContent({ app }) {
   return (
     <>
       <div className="flex items-center gap-3 mb-2">
-        <div className="w-10 h-10 rounded-lg bg-coral/10 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-lg bg-coral-50 flex items-center justify-center">
           <app.icon className="w-5 h-5 text-coral" />
         </div>
-        <div>
-          <h3 className="font-medium text-charcoal">{app.name}</h3>
-          {app.comingSoon && (
-            <span className="text-xs text-gray-400">Coming soon</span>
-          )}
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium text-charcoal">{app.name}</h3>
+            {app.comingSoon && (
+              <Badge variant="default" className="text-[10px] px-1.5 py-0">Soon</Badge>
+            )}
+          </div>
         </div>
+        {!app.comingSoon && (
+          <ArrowRight className="w-4 h-4 text-gray-300" />
+        )}
       </div>
       <p className="text-sm text-gray-500">{app.description}</p>
     </>
