@@ -13,7 +13,7 @@ export function TemplateProvider({ children }) {
 
   // ─── Task CRUD ─────────────────────────────────────────────
   const addTask = useCallback((task) => {
-    const newTask = { id: generateId('task'), ...task }
+    const newTask = { id: generateId(), ...task }
     setTasks(prev => [...prev, newTask])
     return newTask
   }, [])
@@ -33,7 +33,7 @@ export function TemplateProvider({ children }) {
 
   // ─── Template CRUD ─────────────────────────────────────────
   const addTemplate = useCallback((template) => {
-    const newTemplate = { id: generateId('tpl'), ...template }
+    const newTemplate = { id: generateId(), ...template }
     setTemplates(prev => [...prev, newTemplate])
     return newTemplate
   }, [])
