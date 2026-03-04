@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
-import { Header, Sidebar, LoginPage, LoadingSpinner } from './components'
+import { Routes, Route, useLocation } from 'react-router-dom'
+import { Header, Sidebar, LoginPage, LoadingSpinner, AuthCallback, SetPassword } from './components'
 import { useAuth } from './hooks/useAuth'
 import { supabase } from './lib/supabase'
 import { TemplateProvider } from './contexts/TemplateContext'
@@ -14,11 +14,17 @@ import ClientHours from './features/hours/ClientHours'
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { user, loading, signOut } = useAuth()
+  const location = useLocation()
 
   // Dev mode: no Supabase configured, allow bypass with mock user
   const [devUser, setDevUser] = useState(null)
 
   const activeUser = user || devUser
+
+  // Auth callback route must be accessible before auth resolves
+  if (location.pathname === '/auth/callback') {
+    return <AuthCallback />
+  }
 
   // Show loading spinner while auth state resolves
   if (supabase && loading) {
@@ -27,6 +33,11 @@ export default function App() {
         <LoadingSpinner size="lg" />
       </div>
     )
+  }
+
+  // Set-password page requires an active session but sits outside the main layout
+  if (location.pathname === '/auth/set-password' && activeUser) {
+    return <SetPassword />
   }
 
   // Show login page when not authenticated
