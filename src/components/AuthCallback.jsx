@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { LoadingSpinner } from './LoadingSpinner'
+import { Card, CardContent } from './ui/card'
 
 export function AuthCallback() {
   const navigate = useNavigate()
@@ -15,7 +17,6 @@ export function AuthCallback() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        // Check if this is an invite — user should set a password
         const hashParams = new URLSearchParams(window.location.hash.substring(1))
         const searchParams = new URLSearchParams(window.location.search)
         const isInvite = hashParams.get('type') === 'invite'
@@ -43,35 +44,36 @@ export function AuthCallback() {
     }
   }, [navigate])
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-cream flex items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <span className="text-coral font-bold text-3xl italic">distl</span>
-            <p className="text-gray-500 text-sm mt-2">platform</p>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
-            <p className="text-red-600 text-sm mb-4">{error}</p>
-            <a href="/" className="text-coral hover:text-coral-dark text-sm font-medium">
-              Back to login
-            </a>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center p-4">
-      <div className="w-full max-w-sm text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-sm text-center"
+      >
         <div className="mb-8">
-          <span className="text-coral font-bold text-3xl italic">distl</span>
-          <p className="text-gray-500 text-sm mt-2">platform</p>
+          <div className="w-12 h-12 bg-coral rounded-xl flex items-center justify-center mx-auto mb-4">
+            <img src="/logos/distl-symbol-white.svg" alt="" className="w-7 h-7" />
+          </div>
+          <img src="/logos/distl-type-coral.svg" alt="Distl" className="h-5 mx-auto" />
         </div>
-        <LoadingSpinner size="lg" />
-        <p className="text-gray-500 text-sm mt-4">Confirming your account...</p>
-      </div>
+
+        {error ? (
+          <Card className="shadow-lg border-0">
+            <CardContent className="p-6 text-center">
+              <p className="text-red-600 text-sm mb-4">{error}</p>
+              <a href="/" className="text-coral hover:text-coral-dark text-sm font-medium">
+                Back to login
+              </a>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <LoadingSpinner size="lg" />
+            <p className="text-gray-500 text-sm mt-4">Confirming your account...</p>
+          </>
+        )}
+      </motion.div>
     </div>
   )
 }
