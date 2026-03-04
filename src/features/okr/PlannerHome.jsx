@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Settings } from 'lucide-react'
-import { Badge, Modal, LoadingSpinner } from '../../components'
+import { motion } from 'framer-motion'
+import { Modal, LoadingSpinner } from '../../components'
+import { Badge } from '../../components/ui/badge'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Card, CardContent } from '../../components/ui/card'
 import { useClients, fetchLatestPeriods } from '../../hooks'
 import { mockOkrData } from '../../lib/mockData'
 import { HOURLY_RATE, getPeriodLabel } from '../../lib/constants'
@@ -15,6 +20,16 @@ function generateAbbreviation(name) {
     .join('')
     .toUpperCase()
     .slice(0, 5)
+}
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
 }
 
 export default function PlannerHome() {
@@ -91,25 +106,19 @@ export default function PlannerHome() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <Button
+            variant={editingTemplates ? 'default' : 'outline'}
             onClick={() => setEditingTemplates(!editingTemplates)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              editingTemplates
-                ? 'bg-charcoal text-white'
-                : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
+            className={editingTemplates ? 'bg-charcoal hover:bg-charcoal/90' : ''}
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4 h-4 mr-2" />
             {editingTemplates ? 'Back to Clients' : 'Edit Templates'}
-          </button>
+          </Button>
           {!editingTemplates && (
-            <button
-              onClick={() => setShowNewClient(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-coral text-white rounded-lg hover:bg-coral-dark transition-colors text-sm font-medium"
-            >
-              <Plus className="w-4 h-4" />
+            <Button onClick={() => setShowNewClient(true)}>
+              <Plus className="w-4 h-4 mr-2" />
               New Client
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -117,56 +126,64 @@ export default function PlannerHome() {
       {editingTemplates ? (
         <TemplateEditor />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {activeClients.map(client => {
-          // Use Supabase data if available, fall back to mock data
-          const dbPeriod = periodsByClient?.[client.id]
-          const mockPeriod = mockOkrData[client.id]?.periods?.at(-1)
-          const latestPeriod = dbPeriod || mockPeriod || null
-          const hours = Math.round(client.monthly_retainer / HOURLY_RATE)
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
+          {activeClients.map(client => {
+            const dbPeriod = periodsByClient?.[client.id]
+            const mockPeriod = mockOkrData[client.id]?.periods?.at(-1)
+            const latestPeriod = dbPeriod || mockPeriod || null
+            const hours = Math.round(client.monthly_retainer / HOURLY_RATE)
 
-          return (
-            <Link
-              key={client.id}
-              to={`/okr/${client.id}`}
-              className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow block"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <h3 className="font-semibold text-charcoal">{client.name}</h3>
-                  <span className="text-sm text-gray-500">{client.abbreviation}</span>
-                </div>
-                {latestPeriod ? (
-                  <Badge variant={latestPeriod.isPublished ? 'success' : 'coral'}>
-                    {latestPeriod.isPublished ? 'Published' : 'Draft'}
-                  </Badge>
-                ) : (
-                  <Badge>No plan</Badge>
-                )}
-              </div>
+            return (
+              <motion.div key={client.id} variants={fadeUp}>
+                <Link to={`/okr/${client.id}`}>
+                  <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+                    <Card className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="font-semibold text-charcoal">{client.name}</h3>
+                            <span className="text-sm text-gray-500">{client.abbreviation}</span>
+                          </div>
+                          {latestPeriod ? (
+                            <Badge variant={latestPeriod.isPublished ? 'success' : 'coral'}>
+                              {latestPeriod.isPublished ? 'Published' : 'Draft'}
+                            </Badge>
+                          ) : (
+                            <Badge>No plan</Badge>
+                          )}
+                        </div>
 
-              <p className="text-sm text-gray-600 mb-3">
-                ${client.monthly_retainer.toLocaleString()}/mo &middot; ~{hours} hrs
-              </p>
+                        <p className="text-sm text-gray-600 mb-3">
+                          ${client.monthly_retainer.toLocaleString()}/mo &middot; ~{hours} hrs
+                        </p>
 
-              {latestPeriod ? (
-                <>
-                  <p className="text-xs text-gray-400 line-clamp-2 mb-3">
-                    {latestPeriod.goal}
-                  </p>
-                  <span className="text-sm text-coral font-medium">
-                    {getPeriodLabel(latestPeriod.startMonth, latestPeriod.startYear, latestPeriod.endMonth, latestPeriod.endYear)} &rarr;
-                  </span>
-                </>
-              ) : (
-                <span className="text-sm text-coral font-medium">
-                  Start planning &rarr;
-                </span>
-              )}
-            </Link>
-          )
-        })}
-      </div>
+                        {latestPeriod ? (
+                          <>
+                            <p className="text-xs text-gray-400 line-clamp-2 mb-3">
+                              {latestPeriod.goal}
+                            </p>
+                            <span className="text-sm text-coral font-medium">
+                              {getPeriodLabel(latestPeriod.startMonth, latestPeriod.startYear, latestPeriod.endMonth, latestPeriod.endYear)} &rarr;
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-sm text-coral font-medium">
+                            Start planning &rarr;
+                          </span>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </Link>
+              </motion.div>
+            )
+          })}
+        </motion.div>
       )}
 
       {/* New Client Modal */}
@@ -185,12 +202,11 @@ export default function PlannerHome() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Client Name
             </label>
-            <input
+            <Input
               type="text"
               value={newName}
               onChange={e => handleNameChange(e.target.value)}
               placeholder="e.g. Swan River Brewing"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
               required
               autoFocus
             />
@@ -200,7 +216,7 @@ export default function PlannerHome() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Abbreviation
             </label>
-            <input
+            <Input
               type="text"
               value={newAbbreviation}
               onChange={e => {
@@ -209,10 +225,10 @@ export default function PlannerHome() {
               }}
               placeholder="e.g. SRB"
               maxLength={5}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral uppercase"
+              className="uppercase"
               required
             />
-            <p className="text-xs text-gray-400 mt-1">2–5 characters, auto-generated from name</p>
+            <p className="text-xs text-gray-400 mt-1">2-5 characters, auto-generated from name</p>
           </div>
 
           <div>
@@ -221,13 +237,13 @@ export default function PlannerHome() {
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-              <input
+              <Input
                 type="number"
                 value={newRetainer}
                 onChange={e => setNewRetainer(e.target.value)}
                 min={0}
                 step={180}
-                className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
+                className="pl-7"
                 required
               />
             </div>
@@ -237,20 +253,21 @@ export default function PlannerHome() {
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              className="flex-1"
               onClick={() => { setShowNewClient(false); resetForm() }}
-              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              className="flex-1"
               disabled={saving || !newName.trim() || !newAbbreviation.trim()}
-              className="flex-1 px-4 py-2 bg-coral text-white rounded-lg text-sm font-medium hover:bg-coral-dark transition-colors disabled:opacity-50"
             >
               {saving ? 'Adding...' : 'Add Client'}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
