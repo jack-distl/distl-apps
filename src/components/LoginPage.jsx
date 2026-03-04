@@ -4,11 +4,13 @@ import { supabase } from '../lib/supabase'
 import { LoadingSpinner } from './LoadingSpinner'
 
 export function LoginPage({ onDevBypass }) {
-  const { signIn } = useAuth()
+  const { signIn, resetPassword } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
 
   // If Supabase isn't configured, show dev mode option
   if (!supabase) {
@@ -33,6 +35,24 @@ export function LoginPage({ onDevBypass }) {
         </div>
       </div>
     )
+  }
+
+  async function handleResetPassword() {
+    if (!email) {
+      setError('Enter your email address first.')
+      return
+    }
+    setError(null)
+    setResetLoading(true)
+
+    const { error: resetError } = await resetPassword(email)
+
+    setResetLoading(false)
+    if (resetError) {
+      setError(resetError.message)
+    } else {
+      setResetSent(true)
+    }
   }
 
   async function handleSubmit(e) {
@@ -64,6 +84,12 @@ export function LoginPage({ onDevBypass }) {
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
               {error}
+            </div>
+          )}
+
+          {resetSent && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg">
+              Check your email for a password reset link.
             </div>
           )}
 
@@ -104,6 +130,15 @@ export function LoginPage({ onDevBypass }) {
             className="mt-6 w-full inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-coral/50 bg-coral text-white hover:bg-coral-dark px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? <LoadingSpinner size="sm" /> : 'Sign in'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResetPassword}
+            disabled={resetLoading}
+            className="mt-3 w-full text-sm text-gray-500 hover:text-coral transition-colors disabled:opacity-50"
+          >
+            {resetLoading ? 'Sending...' : 'Forgot password?'}
           </button>
         </form>
       </div>
