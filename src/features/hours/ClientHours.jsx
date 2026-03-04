@@ -1,12 +1,24 @@
 import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Search } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { LoadingSpinner } from '../../components'
+import { Input } from '../../components/ui/input'
 import { useClients } from '../../hooks'
 import { useWfmJobs } from '../../hooks/useWfmData'
 import { JobCard } from './components/JobCard'
 
 const FILTERS = ['All', 'Active', 'Completed']
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.04 } },
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+}
 
 export default function ClientHours() {
   const { clientId } = useParams()
@@ -102,12 +114,12 @@ export default function ClientHours() {
 
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
+          <Input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search jobs..."
-            className="w-full pl-9 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
+            className="pl-9"
           />
         </div>
       </div>
@@ -129,11 +141,18 @@ export default function ClientHours() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+        >
           {filteredJobs.map(job => (
-            <JobCard key={job.id} job={job} />
+            <motion.div key={job.id} variants={fadeUp}>
+              <JobCard job={job} />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   )
