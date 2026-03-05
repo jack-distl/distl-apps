@@ -1,11 +1,18 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Plus, Copy, ChevronDown, ChevronUp,
   Trash2, Check, Globe, FileText, Hash,
   AlertTriangle, Search, X, ClipboardCheck, Loader2
 } from 'lucide-react'
 import { UndoToast } from '../../components/UndoToast'
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
+import { Badge } from '../../components/ui/badge'
+import {
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+} from '../../components/ui/select'
+import ClientView from './ClientView'
 import { useClients } from '../../hooks'
 import { useOkrData } from '../../hooks/useOkrData'
 import { TASK_LIBRARY, SCOPE_OPTIONS, getAllTemplatesResolved } from '../../lib/taskLibrary'
@@ -30,6 +37,16 @@ const MONTH_OPTIONS = [
   { value: 9, label: 'September' }, { value: 10, label: 'October' },
   { value: 11, label: 'November' }, { value: 12, label: 'December' },
 ]
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+}
 
 function createBlankPeriod() {
   const now = new Date()
@@ -485,18 +502,18 @@ export default function OkrPlanner() {
   // ─── Render ──────────────────────────────────────────────
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className={isClientView ? '' : 'max-w-7xl mx-auto'}>
 
       {/* Save Error Banner */}
       {saveError && (
-        <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2">
+        <div className={`mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2 ${isClientView ? 'max-w-7xl mx-auto' : ''}`}>
           <AlertTriangle size={16} className="text-red-500 shrink-0" />
           <p className="text-sm text-red-700">{saveError}</p>
         </div>
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 ${isClientView ? 'max-w-7xl mx-auto px-4' : ''}`}>
         <div className="flex items-center gap-3">
           <Link to="/okr" className="text-gray-400 hover:text-gray-600">
             <ArrowLeft size={20} />
@@ -511,38 +528,27 @@ export default function OkrPlanner() {
                 </span>
               )}
             </h1>
-            {isClientView && currentPeriod && (
-              <p className="text-sm text-gray-500 mt-0.5">
-                Monthly Retainer: {formatCurrency(retainerAmount)}
-              </p>
-            )}
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* View Toggle */}
-          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-            <button
-              onClick={() => setViewMode('internal')}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                !isClientView
-                  ? 'bg-charcoal text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              Internal View
-            </button>
-            <button
-              onClick={() => setViewMode('client')}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                isClientView
-                  ? 'bg-charcoal text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              Client View
-            </button>
-          </div>
+          {/* View Toggle — shadcn Tabs */}
+          <Tabs value={viewMode} onValueChange={setViewMode}>
+            <TabsList className="bg-gray-100">
+              <TabsTrigger
+                value="internal"
+                className="data-[state=active]:bg-charcoal data-[state=active]:text-white"
+              >
+                Internal
+              </TabsTrigger>
+              <TabsTrigger
+                value="client"
+                className="data-[state=active]:bg-charcoal data-[state=active]:text-white"
+              >
+                Client View
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {/* Action Buttons (internal only) */}
           {!isClientView && currentPeriod && (
@@ -589,9 +595,48 @@ export default function OkrPlanner() {
         </div>
       </div>
 
+      {/* ── Client View ────────────────────────────────────── */}
+      <AnimatePresence mode="wait">
+        {isClientView ? (
+          <motion.div
+            key="client"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {currentPeriod ? (
+              <ClientView
+                clientName={client.name}
+                goal={currentPeriod.goal}
+                objectives={currentPeriod.objectives}
+                periods={visiblePeriods}
+                selectedPeriodId={selectedPeriodId}
+                onPeriodChange={setSelectedPeriodId}
+              />
+            ) : (
+              <div className="text-center py-20">
+                <p className="text-gray-400 text-lg">No published periods yet.</p>
+                <p className="text-gray-300 text-sm mt-2">Switch to Internal View to create and publish a period.</p>
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="internal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+
       {/* Over-allocation Warning */}
-      {calc && calc.remainingHours < 0 && !isClientView && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-start gap-3">
+      {calc && calc.remainingHours < 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-3"
+        >
           <AlertTriangle size={20} className="text-red-500 mt-0.5 shrink-0" />
           <div>
             <p className="text-sm font-medium text-red-800">
@@ -601,161 +646,149 @@ export default function OkrPlanner() {
               Reduce task hours or increase the retainer to bring this back into balance.
             </p>
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* Client Settings (internal only) */}
-      {!isClientView && (
-        <div className="flex flex-wrap items-center gap-4 mb-6">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-500">Abbreviation</span>
-            <span className="text-sm font-semibold text-charcoal uppercase">{abbreviation || '—'}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-500">Monthly Retainer</span>
-            <span className="text-sm font-semibold text-charcoal">{formatCurrency(retainerAmount)}</span>
-          </div>
+      {/* Client Settings */}
+      <div className="flex flex-wrap items-center gap-4 mb-6">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-500">Abbreviation</span>
+          <span className="text-sm font-semibold text-charcoal uppercase">{abbreviation || '—'}</span>
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-500">Monthly Retainer</span>
+          <span className="text-sm font-semibold text-charcoal">{formatCurrency(retainerAmount)}</span>
+        </div>
+      </div>
 
-      {/* Period Selector */}
+      {/* Period Selector — Radix Select */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        <select
-          value={selectedPeriodId || ''}
-          onChange={e => setSelectedPeriodId(e.target.value)}
-          className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-coral/30"
-        >
-          {visiblePeriods.length === 0 && <option value="">No periods</option>}
-          {visiblePeriods.map(p => (
-            <option key={p.id} value={p.id}>
-              {getPeriodLabel(p.startMonth, p.startYear, p.endMonth, p.endYear)}
-              {!isClientView && !p.isPublished ? ' (Draft)' : ''}
-            </option>
-          ))}
-        </select>
-
-        {!isClientView && (
-          <>
-            <button
-              onClick={() => setShowNewPeriodModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark transition-colors"
-            >
-              <Plus size={16} />
-              New Period
-            </button>
-            {currentPeriod && (
-              <button
-                onClick={() => deletePeriod(currentPeriod.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <Trash2 size={14} />
-                Delete
-              </button>
+        <Select value={selectedPeriodId || ''} onValueChange={setSelectedPeriodId}>
+          <SelectTrigger className="w-auto min-w-[200px]">
+            <SelectValue placeholder="No periods" />
+          </SelectTrigger>
+          <SelectContent>
+            {visiblePeriods.length === 0 ? (
+              <SelectItem value="" disabled>No periods</SelectItem>
+            ) : (
+              visiblePeriods.map(p => (
+                <SelectItem key={p.id} value={p.id}>
+                  {getPeriodLabel(p.startMonth, p.startYear, p.endMonth, p.endYear)}
+                  {!p.isPublished ? ' (Draft)' : ''}
+                </SelectItem>
+              ))
             )}
-          </>
+          </SelectContent>
+        </Select>
+
+        <button
+          onClick={() => setShowNewPeriodModal(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark transition-colors"
+        >
+          <Plus size={16} />
+          New Period
+        </button>
+        {currentPeriod && (
+          <button
+            onClick={() => deletePeriod(currentPeriod.id)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <Trash2 size={14} />
+            Delete
+          </button>
         )}
       </div>
 
       {/* No period state */}
       {!currentPeriod && (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
-          <p className="text-gray-400 mb-4">
-            {isClientView ? 'No published periods yet.' : 'No periods yet. Create one to get started.'}
-          </p>
-          {!isClientView && (
-            <button
-              onClick={() => setShowNewPeriodModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark transition-colors"
-            >
-              <Plus size={16} />
-              New Period
-            </button>
-          )}
+        <div className="text-center py-16 bg-white rounded-xl border border-gray-100 shadow-sm">
+          <p className="text-gray-400 mb-4">No periods yet. Create one to get started.</p>
+          <button
+            onClick={() => setShowNewPeriodModal(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark transition-colors"
+          >
+            <Plus size={16} />
+            New Period
+          </button>
         </div>
       )}
 
       {/* Period Content */}
       {currentPeriod && (
         <>
-          {/* Period Details (internal only) */}
-          {!isClientView && (
-            <div className="bg-white rounded-xl border border-gray-100 p-5 mb-6">
-              <div className="flex flex-wrap gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-500">Start</label>
-                  <select
-                    value={currentPeriod.startMonth}
-                    onChange={e => updatePeriod(currentPeriod.id, { startMonth: Number(e.target.value) })}
-                    className="px-2 py-1 text-sm border border-gray-200 rounded-lg"
-                  >
-                    {MONTH_OPTIONS.map(m => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    value={currentPeriod.startYear}
-                    onChange={e => updatePeriod(currentPeriod.id, { startYear: Number(e.target.value) })}
-                    className="w-20 px-2 py-1 text-sm border border-gray-200 rounded-lg"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-500">End</label>
-                  <select
-                    value={currentPeriod.endMonth}
-                    onChange={e => updatePeriod(currentPeriod.id, { endMonth: Number(e.target.value) })}
-                    className="px-2 py-1 text-sm border border-gray-200 rounded-lg"
-                  >
-                    {MONTH_OPTIONS.map(m => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    value={currentPeriod.endYear}
-                    onChange={e => updatePeriod(currentPeriod.id, { endYear: Number(e.target.value) })}
-                    className="w-20 px-2 py-1 text-sm border border-gray-200 rounded-lg"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-500">Offsite %</label>
-                  <input
-                    type="number"
-                    value={currentPeriod.offsiteAllowancePercent}
-                    onChange={e => updatePeriod(currentPeriod.id, { offsiteAllowancePercent: Number(e.target.value) || 0 })}
-                    min={0}
-                    max={100}
-                    className="w-16 px-2 py-1 text-sm border border-gray-200 rounded-lg"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 block mb-1">Goal</label>
+          {/* Period Details */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
+            <div className="flex flex-wrap gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-500">Start</label>
+                <select
+                  value={currentPeriod.startMonth}
+                  onChange={e => updatePeriod(currentPeriod.id, { startMonth: Number(e.target.value) })}
+                  className="px-2 py-1 text-sm border border-gray-200 rounded-lg"
+                >
+                  {MONTH_OPTIONS.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
                 <input
-                  type="text"
-                  value={currentPeriod.goal}
-                  onChange={e => updatePeriod(currentPeriod.id, { goal: e.target.value })}
-                  placeholder="e.g. Increase organic traffic by 30%"
-                  className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30"
+                  type="number"
+                  value={currentPeriod.startYear}
+                  onChange={e => updatePeriod(currentPeriod.id, { startYear: Number(e.target.value) })}
+                  className="w-20 px-2 py-1 text-sm border border-gray-200 rounded-lg"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-500">End</label>
+                <select
+                  value={currentPeriod.endMonth}
+                  onChange={e => updatePeriod(currentPeriod.id, { endMonth: Number(e.target.value) })}
+                  className="px-2 py-1 text-sm border border-gray-200 rounded-lg"
+                >
+                  {MONTH_OPTIONS.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  value={currentPeriod.endYear}
+                  onChange={e => updatePeriod(currentPeriod.id, { endYear: Number(e.target.value) })}
+                  className="w-20 px-2 py-1 text-sm border border-gray-200 rounded-lg"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-500">Offsite %</label>
+                <input
+                  type="number"
+                  value={currentPeriod.offsiteAllowancePercent}
+                  onChange={e => updatePeriod(currentPeriod.id, { offsiteAllowancePercent: Number(e.target.value) || 0 })}
+                  min={0}
+                  max={100}
+                  className="w-16 px-2 py-1 text-sm border border-gray-200 rounded-lg"
                 />
               </div>
             </div>
-          )}
-
-          {/* Goal in client view */}
-          {isClientView && currentPeriod.goal && (
-            <div className="bg-white rounded-xl border border-gray-100 p-5 mb-6">
-              <p className="text-sm text-gray-500 mb-1">Goal</p>
-              <p className="text-charcoal font-medium">{currentPeriod.goal}</p>
+            <div>
+              <label className="text-sm text-gray-500 block mb-1">Goal</label>
+              <input
+                type="text"
+                value={currentPeriod.goal}
+                onChange={e => updatePeriod(currentPeriod.id, { goal: e.target.value })}
+                placeholder="e.g. Increase organic traffic by 30%"
+                className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30"
+              />
             </div>
-          )}
+          </div>
 
-          {/* Hour Allocation Breakdown (internal only) */}
-          {!isClientView && calc && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-
+          {/* Hour Allocation Breakdown */}
+          {calc && (
+            <motion.div
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+              variants={stagger}
+              initial="hidden"
+              animate="show"
+            >
               {/* Retainer Calculation */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <motion.div variants={fadeUp} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Retainer</h3>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
@@ -775,10 +808,10 @@ export default function OkrPlanner() {
                     <span className="font-semibold text-charcoal">{formatHours(calc.baseHours)}</span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Ad Hoc Buffer */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <motion.div variants={fadeUp} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ad Hoc Buffer</h3>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
@@ -789,10 +822,10 @@ export default function OkrPlanner() {
                     Reserved for unplanned requests and ad hoc tasks.
                   </p>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Admin Tasks */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <motion.div variants={fadeUp} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Admin Tasks</h3>
                 <div className="space-y-2 text-sm">
                   <div>
@@ -858,10 +891,10 @@ export default function OkrPlanner() {
                     <span className="font-medium">{formatHours(calc.totalAdminHours)}</span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Available for Objectives */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <motion.div variants={fadeUp} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Available</h3>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
@@ -881,13 +914,18 @@ export default function OkrPlanner() {
                     <span className="font-semibold text-charcoal">{formatHours(calc.availableForObjectives)}</span>
                   </div>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           )}
 
-          {/* AM/SEO Split (internal only) */}
-          {!isClientView && calc && (
-            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6">
+          {/* AM/SEO Split */}
+          {calc && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6"
+            >
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">AM / SEO Split</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
@@ -913,31 +951,32 @@ export default function OkrPlanner() {
                   <p className="text-xs text-gray-400">to allocate</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* Objectives */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-charcoal">Objectives</h2>
-            {!isClientView && (
-              <button
-                onClick={() => setShowAddObjectiveModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark transition-colors"
-              >
-                <Plus size={16} />
-                Add Objective
-              </button>
-            )}
+            <button
+              onClick={() => setShowAddObjectiveModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark transition-colors"
+            >
+              <Plus size={16} />
+              Add Objective
+            </button>
           </div>
 
           {currentPeriod.objectives.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-              <p className="text-gray-400">
-                {isClientView ? 'No objectives planned for this period.' : 'No objectives yet. Add one to get started.'}
-              </p>
+            <div className="text-center py-12 bg-white rounded-xl border border-gray-100 shadow-sm">
+              <p className="text-gray-400">No objectives yet. Add one to get started.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            <motion.div
+              className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4"
+              variants={stagger}
+              initial="hidden"
+              animate="show"
+            >
               {currentPeriod.objectives.map(obj => {
                 const ScopeIcon = SCOPE_ICONS[obj.scope] || Globe
                 const scopeOption = SCOPE_OPTIONS.find(s => s.id === obj.scope)
@@ -947,55 +986,42 @@ export default function OkrPlanner() {
                 )
 
                 return (
-                  <div key={obj.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                  <motion.div
+                    key={obj.id}
+                    variants={fadeUp}
+                    className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200"
+                  >
                     {/* Objective Header */}
                     <div className="p-4 border-b border-gray-50">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          {!isClientView ? (
-                            <input
-                              type="text"
-                              value={obj.title}
-                              onChange={e => updateObjective(currentPeriod.id, obj.id, { title: e.target.value })}
-                              className="w-full font-semibold text-charcoal bg-transparent border-none focus:outline-none focus:ring-0 p-0"
-                            />
-                          ) : (
-                            <h3 className="font-semibold text-charcoal">{obj.title}</h3>
-                          )}
+                          <input
+                            type="text"
+                            value={obj.title}
+                            onChange={e => updateObjective(currentPeriod.id, obj.id, { title: e.target.value })}
+                            className="w-full font-semibold text-charcoal bg-transparent border-none focus:outline-none focus:ring-0 p-0"
+                          />
                           <div className="flex items-center gap-2 mt-1.5">
-                            {!isClientView ? (
-                              <select
-                                value={obj.scope}
-                                onChange={e => updateObjective(currentPeriod.id, obj.id, { scope: e.target.value })}
-                                className={`text-xs px-2 py-0.5 rounded-full ${scopeOption?.color || 'bg-gray-100 text-gray-600'}`}
-                              >
-                                {SCOPE_OPTIONS.map(s => (
-                                  <option key={s.id} value={s.id}>{s.label}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${scopeOption?.color || 'bg-gray-100 text-gray-600'}`}>
-                                <ScopeIcon size={12} />
-                                {scopeOption?.label || obj.scope}
-                              </span>
-                            )}
-                            {!isClientView && (
-                              <span className="text-xs text-gray-400">{formatHours(objTotalHours)}</span>
-                            )}
+                            <select
+                              value={obj.scope}
+                              onChange={e => updateObjective(currentPeriod.id, obj.id, { scope: e.target.value })}
+                              className={`text-xs px-2 py-0.5 rounded-full ${scopeOption?.color || 'bg-gray-100 text-gray-600'}`}
+                            >
+                              {SCOPE_OPTIONS.map(s => (
+                                <option key={s.id} value={s.id}>{s.label}</option>
+                              ))}
+                            </select>
+                            <span className="text-xs text-gray-400">{formatHours(objTotalHours)}</span>
                           </div>
                           {/* Scope detail */}
                           {(obj.scope === 'specific-pages' || obj.scope === 'keyword-group') && (
-                            !isClientView ? (
-                              <input
-                                type="text"
-                                value={obj.scopeDetail || ''}
-                                onChange={e => updateObjective(currentPeriod.id, obj.id, { scopeDetail: e.target.value })}
-                                placeholder={obj.scope === 'specific-pages' ? 'Which pages?' : 'Which keyword group?'}
-                                className="w-full text-xs text-gray-500 mt-1 bg-transparent border-none focus:outline-none focus:ring-0 p-0 placeholder:text-gray-300"
-                              />
-                            ) : obj.scopeDetail ? (
-                              <p className="text-xs text-gray-500 mt-1">{obj.scopeDetail}</p>
-                            ) : null
+                            <input
+                              type="text"
+                              value={obj.scopeDetail || ''}
+                              onChange={e => updateObjective(currentPeriod.id, obj.id, { scopeDetail: e.target.value })}
+                              placeholder={obj.scope === 'specific-pages' ? 'Which pages?' : 'Which keyword group?'}
+                              className="w-full text-xs text-gray-500 mt-1 bg-transparent border-none focus:outline-none focus:ring-0 p-0 placeholder:text-gray-300"
+                            />
                           )}
                         </div>
                         <button
@@ -1035,90 +1061,89 @@ export default function OkrPlanner() {
                                   {kr.description && (
                                     <p className="text-xs text-gray-400 mt-0.5">{kr.description}</p>
                                   )}
-                                  {/* Inline hour editing (internal only) */}
-                                  {!isClientView && (
-                                    <div className="flex items-center gap-3 mt-1">
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-xs text-gray-400">AM</span>
-                                        <input
-                                          type="number"
-                                          value={kr.amHours}
-                                          onChange={e => updateKeyResult(
-                                            currentPeriod.id, obj.id, kr.id,
-                                            { amHours: roundToHalf(Number(e.target.value) || 0) }
-                                          )}
-                                          min={0}
-                                          step={0.5}
-                                          className="w-14 px-1.5 py-0.5 text-xs border border-gray-200 rounded text-center"
-                                        />
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-xs text-gray-400">SEO</span>
-                                        <input
-                                          type="number"
-                                          value={kr.seoHours}
-                                          onChange={e => updateKeyResult(
-                                            currentPeriod.id, obj.id, kr.id,
-                                            { seoHours: roundToHalf(Number(e.target.value) || 0) }
-                                          )}
-                                          min={0}
-                                          step={0.5}
-                                          className="w-14 px-1.5 py-0.5 text-xs border border-gray-200 rounded text-center"
-                                        />
-                                      </div>
-                                      <span className="text-xs text-gray-400">{formatHours(kr.amHours + kr.seoHours)}</span>
-                                      <button
-                                        onClick={() => deleteKeyResult(currentPeriod.id, obj.id, kr.id)}
-                                        className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all ml-auto"
-                                      >
-                                        <Trash2 size={12} />
-                                      </button>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs text-gray-400">AM</span>
+                                      <input
+                                        type="number"
+                                        value={kr.amHours}
+                                        onChange={e => updateKeyResult(
+                                          currentPeriod.id, obj.id, kr.id,
+                                          { amHours: roundToHalf(Number(e.target.value) || 0) }
+                                        )}
+                                        min={0}
+                                        step={0.5}
+                                        className="w-14 px-1.5 py-0.5 text-xs border border-gray-200 rounded text-center"
+                                      />
                                     </div>
-                                  )}
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs text-gray-400">SEO</span>
+                                      <input
+                                        type="number"
+                                        value={kr.seoHours}
+                                        onChange={e => updateKeyResult(
+                                          currentPeriod.id, obj.id, kr.id,
+                                          { seoHours: roundToHalf(Number(e.target.value) || 0) }
+                                        )}
+                                        min={0}
+                                        step={0.5}
+                                        className="w-14 px-1.5 py-0.5 text-xs border border-gray-200 rounded text-center"
+                                      />
+                                    </div>
+                                    <span className="text-xs text-gray-400">{formatHours(kr.amHours + kr.seoHours)}</span>
+                                    <button
+                                      onClick={() => deleteKeyResult(currentPeriod.id, obj.id, kr.id)}
+                                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all ml-auto"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
                                 </div>
                               </li>
                             ))}
                           </ul>
                         )}
 
-                        {/* Objective actions (internal only) */}
-                        {!isClientView && (
-                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
-                            <button
-                              onClick={() => {
-                                setAddTaskObjectiveId(obj.id)
-                                setShowAddTaskModal(true)
-                              }}
-                              className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-coral transition-colors"
-                            >
-                              <Plus size={12} />
-                              Add Task
-                            </button>
-                            <button
-                              onClick={() => duplicateObjective(currentPeriod.id, obj.id)}
-                              className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-coral transition-colors"
-                            >
-                              <Copy size={12} />
-                              Duplicate
-                            </button>
-                            <button
-                              onClick={() => deleteObjective(currentPeriod.id, obj.id)}
-                              className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors ml-auto"
-                            >
-                              <Trash2 size={12} />
-                              Delete
-                            </button>
-                          </div>
-                        )}
+                        {/* Objective actions */}
+                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
+                          <button
+                            onClick={() => {
+                              setAddTaskObjectiveId(obj.id)
+                              setShowAddTaskModal(true)
+                            }}
+                            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-coral transition-colors"
+                          >
+                            <Plus size={12} />
+                            Add Task
+                          </button>
+                          <button
+                            onClick={() => duplicateObjective(currentPeriod.id, obj.id)}
+                            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-coral transition-colors"
+                          >
+                            <Copy size={12} />
+                            Duplicate
+                          </button>
+                          <button
+                            onClick={() => deleteObjective(currentPeriod.id, obj.id)}
+                            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors ml-auto"
+                          >
+                            <Trash2 size={12} />
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     )}
-                  </div>
+                  </motion.div>
                 )
               })}
-            </div>
+            </motion.div>
           )}
         </>
       )}
+
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ─── Modals ──────────────────────────────────────────── */}
 
