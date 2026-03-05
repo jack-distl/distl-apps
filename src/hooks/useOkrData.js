@@ -48,6 +48,8 @@ function objectiveFromDb(row) {
     title: row.title,
     scope: row.scope,
     scopeDetail: row.scope_detail || '',
+    isActioned: row.is_actioned ?? true,
+    notActionedReason: row.not_actioned_reason || '',
     keyResults: [],
   }
 }
@@ -59,6 +61,8 @@ function objectiveToDb(obj, periodId, sortOrder) {
     title: obj.title,
     scope: obj.scope,
     scope_detail: obj.scopeDetail || '',
+    is_actioned: obj.isActioned ?? true,
+    not_actioned_reason: obj.notActionedReason || '',
     sort_order: sortOrder,
   }
 }
@@ -70,7 +74,6 @@ function keyResultFromDb(row) {
     description: row.description || '',
     amHours: Number(row.am_hours),
     seoHours: Number(row.seo_hours),
-    status: row.status,
   }
 }
 
@@ -82,7 +85,6 @@ function keyResultToDb(kr, objectiveId, sortOrder) {
     description: kr.description || '',
     am_hours: kr.amHours,
     seo_hours: kr.seoHours,
-    status: kr.status,
     sort_order: sortOrder,
   }
 }
