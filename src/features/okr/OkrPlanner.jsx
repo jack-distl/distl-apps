@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Plus, Copy, ChevronDown, ChevronUp,
-  Trash2, Check, Globe, FileText, Hash,
+  Trash2, Globe, FileText, Hash, CheckCircle, XCircle,
   AlertTriangle, Search, X, ClipboardCheck, Loader2
 } from 'lucide-react'
 import { UndoToast } from '../../components/UndoToast'
@@ -234,7 +234,7 @@ export default function OkrPlanner() {
         keyResults: obj.keyResults.map(kr => ({
           ...kr,
           id: generateId(),
-          status: 'pending',
+
         })),
       })),
     }
@@ -324,7 +324,7 @@ export default function OkrPlanner() {
         keyResults: source.keyResults.map(kr => ({
           ...kr,
           id: generateId(),
-          status: 'pending',
+
         })),
       }
       return { ...p, objectives: [...p.objectives, copy] }
@@ -388,29 +388,6 @@ export default function OkrPlanner() {
           objectives: p.objectives.map(o =>
             o.id === objectiveId
               ? { ...o, keyResults: o.keyResults.filter(kr => kr.id !== krId) }
-              : o
-          ),
-        }
-        : p
-    ))
-    triggerDebouncedSave(periodId)
-  }, [setPeriods, triggerDebouncedSave])
-
-  const toggleKeyResultStatus = useCallback((periodId, objectiveId, krId) => {
-    setPeriods(prev => prev.map(p =>
-      p.id === periodId
-        ? {
-          ...p,
-          objectives: p.objectives.map(o =>
-            o.id === objectiveId
-              ? {
-                ...o,
-                keyResults: o.keyResults.map(kr =>
-                  kr.id === krId
-                    ? { ...kr, status: kr.status === 'complete' ? 'pending' : 'complete' }
-                    : kr
-                ),
-              }
               : o
           ),
         }
@@ -989,7 +966,9 @@ export default function OkrPlanner() {
                   <motion.div
                     key={obj.id}
                     variants={fadeUp}
-                    className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200"
+                    className={`bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 ${
+                      obj.isActioned === false ? 'opacity-60' : ''
+                    }`}
                   >
                     {/* Objective Header */}
                     <div className="p-4 border-b border-gray-50">
@@ -1023,6 +1002,32 @@ export default function OkrPlanner() {
                               className="w-full text-xs text-gray-500 mt-1 bg-transparent border-none focus:outline-none focus:ring-0 p-0 placeholder:text-gray-300"
                             />
                           )}
+                          {/* Actioned toggle */}
+                          <button
+                            onClick={() => updateObjective(currentPeriod.id, obj.id, {
+                              isActioned: !obj.isActioned,
+                              notActionedReason: !obj.isActioned ? '' : obj.notActionedReason,
+                            })}
+                            className={`mt-2 inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
+                              obj.isActioned !== false
+                                ? 'bg-green-50 text-green-600'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            {obj.isActioned !== false
+                              ? <><CheckCircle size={12} /> Actioned</>
+                              : <><XCircle size={12} /> Not Actioned</>
+                            }
+                          </button>
+                          {obj.isActioned === false && (
+                            <input
+                              type="text"
+                              value={obj.notActionedReason || ''}
+                              onChange={e => updateObjective(currentPeriod.id, obj.id, { notActionedReason: e.target.value })}
+                              placeholder="Reason not actioned..."
+                              className="w-full text-xs text-gray-500 mt-1.5 bg-gray-50 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-coral/30 placeholder:text-gray-300"
+                            />
+                          )}
                         </div>
                         <button
                           onClick={() => toggleCollapse(obj.id)}
@@ -1042,20 +1047,9 @@ export default function OkrPlanner() {
                           <ul className="space-y-2">
                             {obj.keyResults.map(kr => (
                               <li key={kr.id} className="group flex items-start gap-2">
-                                {/* Status checkbox */}
-                                <button
-                                  onClick={() => toggleKeyResultStatus(currentPeriod.id, obj.id, kr.id)}
-                                  className={`mt-0.5 shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                                    kr.status === 'complete'
-                                      ? 'bg-green-500 border-green-500 text-white'
-                                      : 'border-gray-300 hover:border-gray-400'
-                                  }`}
-                                >
-                                  {kr.status === 'complete' && <Check size={12} />}
-                                </button>
-
+                                <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300" />
                                 <div className="flex-1 min-w-0">
-                                  <p className={`text-sm ${kr.status === 'complete' ? 'text-gray-400 line-through' : 'text-charcoal'}`}>
+                                  <p className="text-sm text-charcoal">
                                     {kr.task}
                                   </p>
                                   {kr.description && (
@@ -1319,8 +1313,9 @@ function AddObjectiveModal({ onAdd, onClose }) {
         description: '',
         amHours: task.defaultAmHours,
         seoHours: task.defaultSeoHours,
-        status: 'pending',
       })),
+      isActioned: true,
+      notActionedReason: '',
     }
     onAdd(objective)
   }
@@ -1333,6 +1328,8 @@ function AddObjectiveModal({ onAdd, onClose }) {
       title: customTitle.trim(),
       scope: 'sitewide',
       scopeDetail: '',
+      isActioned: true,
+      notActionedReason: '',
       keyResults: [],
     })
   }
@@ -1444,7 +1441,6 @@ function AddTaskModal({ onAdd, onClose }) {
       description: description.trim(),
       amHours: roundToHalf(amHours),
       seoHours: roundToHalf(seoHours),
-      status: 'pending',
     })
   }
 

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Globe, FileText, Hash, Check, Target, ListTodo, ChevronDown } from 'lucide-react'
+import { Globe, FileText, Hash, Target, ListTodo, CheckCircle, ChevronDown } from 'lucide-react'
 import { Card, CardHeader, CardContent } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
 import {
@@ -40,37 +40,6 @@ const cardFadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
 }
 
-// ─── Progress Ring SVG ─────────────────────────────────────────
-
-function ProgressRing({ percent, size = 80, strokeWidth = 6 }) {
-  const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (percent / 100) * circumference
-
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="transform -rotate-90">
-        <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke="#E5E7EB" strokeWidth={strokeWidth}
-        />
-        <motion.circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke="#E8806A" strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-sm font-bold text-charcoal">{percent}%</span>
-      </div>
-    </div>
-  )
-}
-
 // ─── Main Client View ──────────────────────────────────────────
 
 export default function ClientView({
@@ -87,12 +56,8 @@ export default function ClientView({
     ? getPeriodLabel(selectedPeriod.startMonth, selectedPeriod.startYear, selectedPeriod.endMonth, selectedPeriod.endYear)
     : ''
 
-  // Completion calculations
   const totalTasks = objectives.reduce((sum, obj) => sum + obj.keyResults.length, 0)
-  const completedTasks = objectives.reduce(
-    (sum, obj) => sum + obj.keyResults.filter(kr => kr.status === 'complete').length, 0
-  )
-  const completionPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+  const actionedCount = objectives.filter(obj => obj.isActioned !== false).length
 
   return (
     <div className="-mx-4 sm:-mx-6 lg:-mx-8">
@@ -159,7 +124,7 @@ export default function ClientView({
         </motion.div>
       </motion.div>
 
-      {/* ── Section B: Progress Summary ─────────────────────── */}
+      {/* ── Section B: Summary Stats ──────────────────────── */}
       <motion.div
         className="bg-white border-b border-gray-100 px-6 py-10"
         initial={{ opacity: 0, y: 20 }}
@@ -184,10 +149,15 @@ export default function ClientView({
               <p className="text-sm text-gray-500 uppercase tracking-wider mt-1">Objectives</p>
             </motion.div>
 
-            {/* Completion ring */}
-            <motion.div variants={fadeUp} className="text-center flex flex-col items-center">
-              <ProgressRing percent={completionPercent} />
-              <p className="text-sm text-gray-500 uppercase tracking-wider mt-2">Complete</p>
+            {/* Actioned count */}
+            <motion.div variants={fadeUp} className="text-center">
+              <div className="flex justify-center mb-2">
+                <div className="w-10 h-10 rounded-full bg-coral/10 flex items-center justify-center">
+                  <CheckCircle size={20} className="text-coral" />
+                </div>
+              </div>
+              <p className="text-3xl md:text-4xl font-bold text-charcoal">{actionedCount}/{objectives.length}</p>
+              <p className="text-sm text-gray-500 uppercase tracking-wider mt-1">Actioned</p>
             </motion.div>
 
             {/* Tasks count */}
@@ -232,9 +202,8 @@ export default function ClientView({
                 const ScopeIcon = SCOPE_ICONS[obj.scope] || Globe
                 const scopeOption = SCOPE_OPTIONS.find(s => s.id === obj.scope)
                 const borderColor = SCOPE_BORDER_COLORS[obj.scope] || 'border-t-gray-300'
-                const objCompleted = obj.keyResults.filter(kr => kr.status === 'complete').length
+                const isActioned = obj.isActioned !== false
                 const objTotal = obj.keyResults.length
-                const objPercent = objTotal > 0 ? Math.round((objCompleted / objTotal) * 100) : 0
 
                 return (
                   <motion.div
@@ -243,7 +212,9 @@ export default function ClientView({
                     whileHover={{ y: -4 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                   >
-                    <Card className={`overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow duration-300 border-t-4 ${borderColor}`}>
+                    <Card className={`overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 border-t-4 ${borderColor} ${
+                      !isActioned ? 'opacity-60' : ''
+                    }`}>
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
@@ -253,23 +224,21 @@ export default function ClientView({
                                 <ScopeIcon size={12} className="mr-1" />
                                 {scopeOption?.label || obj.scope}
                               </Badge>
+                              {!isActioned && (
+                                <Badge className="bg-gray-100 text-gray-500">Not Actioned</Badge>
+                              )}
                             </div>
                             {obj.scopeDetail && (
                               <p className="text-sm text-gray-500 mt-1.5">{obj.scopeDetail}</p>
                             )}
+                            {!isActioned && obj.notActionedReason && (
+                              <p className="text-xs text-gray-400 italic mt-1.5">{obj.notActionedReason}</p>
+                            )}
                           </div>
                           {objTotal > 0 && (
                             <div className="text-right shrink-0">
-                              <p className="text-sm font-medium text-charcoal">{objCompleted}/{objTotal}</p>
+                              <p className="text-sm font-medium text-charcoal">{objTotal}</p>
                               <p className="text-xs text-gray-400">tasks</p>
-                              <div className="w-16 h-1 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
-                                <motion.div
-                                  className="h-full bg-coral rounded-full"
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${objPercent}%` }}
-                                  transition={{ duration: 0.8, ease: 'easeOut', delay: 0.5 }}
-                                />
-                              </div>
                             </div>
                           )}
                         </div>
@@ -280,44 +249,22 @@ export default function ClientView({
                           <p className="text-sm text-gray-300 py-2">No tasks defined.</p>
                         ) : (
                           <ul className="space-y-3">
-                            {obj.keyResults.map(kr => {
-                              const isDone = kr.status === 'complete'
-                              return (
-                                <li key={kr.id} className="flex items-start gap-2.5">
-                                  {/* Status indicator (non-interactive) */}
-                                  <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
-                                    isDone
-                                      ? 'bg-coral text-white'
-                                      : 'border-2 border-gray-200'
-                                  }`}>
-                                    {isDone && <Check size={12} />}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`text-sm ${isDone ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-                                      {kr.task}
-                                    </p>
-                                    {kr.description && (
-                                      <p className="text-xs text-gray-400 mt-0.5">{kr.description}</p>
-                                    )}
-                                  </div>
-                                </li>
-                              )
-                            })}
+                            {obj.keyResults.map(kr => (
+                              <li key={kr.id} className="flex items-start gap-2.5">
+                                <span className="mt-2 shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-gray-700">
+                                    {kr.task}
+                                  </p>
+                                  {kr.description && (
+                                    <p className="text-xs text-gray-400 mt-0.5">{kr.description}</p>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
                           </ul>
                         )}
                       </CardContent>
-
-                      {/* Full-width progress bar footer */}
-                      {objTotal > 0 && (
-                        <div className="h-1 bg-gray-100">
-                          <motion.div
-                            className="h-full bg-coral"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${objPercent}%` }}
-                            transition={{ duration: 1, ease: 'easeOut', delay: 0.6 }}
-                          />
-                        </div>
-                      )}
                     </Card>
                   </motion.div>
                 )
