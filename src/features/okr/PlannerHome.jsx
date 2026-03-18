@@ -242,7 +242,6 @@ export default function PlannerHome() {
                 value={newRetainer}
                 onChange={e => setNewRetainer(e.target.value)}
                 min={0}
-                step={180}
                 className="pl-7"
                 required
               />
