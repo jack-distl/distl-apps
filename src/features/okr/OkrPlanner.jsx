@@ -609,9 +609,11 @@ export default function OkrPlanner() {
                 onPeriodChange={setSelectedPeriodId}
               />
             ) : (
-              <div className="text-center py-20">
-                <p className="text-gray-400 text-lg">No published periods yet.</p>
-                <p className="text-gray-300 text-sm mt-2">Switch to Internal View to create and publish a period.</p>
+              <div className="text-center py-20 bg-white rounded-xl border border-gray-200 shadow-sm max-w-lg mx-auto">
+                <h3 className="text-lg font-semibold text-charcoal mb-2">No published periods yet</h3>
+                <p className="text-gray-500 text-sm">
+                  Switch to Internal View to create and publish a period.
+                </p>
               </div>
             )}
           </motion.div>
@@ -655,25 +657,23 @@ export default function OkrPlanner() {
         </div>
       </div>
 
-      {/* Period Selector — Radix Select */}
+      {/* Period Selector — only show dropdown when periods exist */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        <Select value={selectedPeriodId || ''} onValueChange={setSelectedPeriodId}>
-          <SelectTrigger className="w-auto min-w-[200px]">
-            <SelectValue placeholder="No periods" />
-          </SelectTrigger>
-          <SelectContent>
-            {visiblePeriods.length === 0 ? (
-              <SelectItem value="" disabled>No periods</SelectItem>
-            ) : (
-              visiblePeriods.map(p => (
+        {visiblePeriods.length > 0 && (
+          <Select value={selectedPeriodId || ''} onValueChange={setSelectedPeriodId}>
+            <SelectTrigger className="w-auto min-w-[200px]">
+              <SelectValue placeholder="Select a period" />
+            </SelectTrigger>
+            <SelectContent>
+              {visiblePeriods.map(p => (
                 <SelectItem key={p.id} value={p.id}>
                   {getPeriodLabel(p.startMonth, p.startYear, p.endMonth, p.endYear)}
                   {!p.isPublished ? ' (Draft)' : ''}
                 </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <button
           onClick={() => setShowNewPeriodModal(true)}
@@ -695,11 +695,17 @@ export default function OkrPlanner() {
 
       {/* No period state */}
       {!currentPeriod && (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-100 shadow-sm">
-          <p className="text-gray-400 mb-4">No periods yet. Create one to get started.</p>
+        <div className="text-center py-20 bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="w-12 h-12 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Plus size={24} className="text-coral" />
+          </div>
+          <h3 className="text-lg font-semibold text-charcoal mb-2">No periods yet</h3>
+          <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+            Create your first OKR period to start planning objectives and allocating retainer hours.
+          </p>
           <button
             onClick={() => setShowNewPeriodModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark transition-colors"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark transition-colors"
           >
             <Plus size={16} />
             New Period
