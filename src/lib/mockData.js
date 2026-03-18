@@ -54,6 +54,7 @@ export const mockOkrData = {
         endYear: 2026,
         isPublished: false,
         goal: 'Increase organic traffic by 30% and improve local SEO rankings',
+        monthlyRetainer: 5400,
         offsiteAllowancePercent: 5,
         adminTasks: {
           monthlyReportingAM: 1,
@@ -104,6 +105,7 @@ export const mockOkrData = {
         endYear: 2026,
         isPublished: true,
         goal: 'Launch new eCommerce store and drive initial traffic',
+        monthlyRetainer: 3600,
         offsiteAllowancePercent: 5,
         adminTasks: {
           monthlyReportingAM: 1,

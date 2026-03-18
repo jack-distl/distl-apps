@@ -13,6 +13,7 @@ function periodFromDb(row) {
     endYear: row.end_year,
     isPublished: row.is_published,
     goal: row.goal || '',
+    monthlyRetainer: row.monthly_retainer ?? null,
     offsiteAllowancePercent: Number(row.offsite_allowance_percent),
     adminTasks: {
       monthlyReportingAM: Number(row.admin_monthly_reporting_am),
@@ -34,6 +35,7 @@ function periodToDb(period, clientId) {
     end_year: period.endYear,
     is_published: period.isPublished,
     goal: period.goal,
+    monthly_retainer: period.monthlyRetainer ?? null,
     offsite_allowance_percent: period.offsiteAllowancePercent,
     admin_monthly_reporting_am: period.adminTasks.monthlyReportingAM,
     admin_monthly_reporting_seo: period.adminTasks.monthlyReportingSEO,
