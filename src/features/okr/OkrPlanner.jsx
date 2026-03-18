@@ -396,6 +396,23 @@ export default function OkrPlanner() {
     triggerDebouncedSave(periodId)
   }, [setPeriods, triggerDebouncedSave])
 
+  const duplicateKeyResult = useCallback((periodId, objectiveId, krId) => {
+    setPeriods(prev => prev.map(p => {
+      if (p.id !== periodId) return p
+      return {
+        ...p,
+        objectives: p.objectives.map(o => {
+          if (o.id !== objectiveId) return o
+          const source = o.keyResults.find(kr => kr.id === krId)
+          if (!source) return o
+          const copy = { ...source, id: generateId() }
+          return { ...o, keyResults: [...o.keyResults, copy] }
+        }),
+      }
+    }))
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
+
   // ─── Clipboard Export ────────────────────────────────────
 
   const copyToClipboard = useCallback(() => {
@@ -1086,8 +1103,15 @@ export default function OkrPlanner() {
                                     </div>
                                     <span className="text-xs text-gray-400">{formatHours(kr.amHours + kr.seoHours)}</span>
                                     <button
+                                      onClick={() => duplicateKeyResult(currentPeriod.id, obj.id, kr.id)}
+                                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-coral transition-all ml-auto"
+                                      title="Duplicate key result"
+                                    >
+                                      <Copy size={12} />
+                                    </button>
+                                    <button
                                       onClick={() => deleteKeyResult(currentPeriod.id, obj.id, kr.id)}
-                                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all ml-auto"
+                                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all"
                                     >
                                       <Trash2 size={12} />
                                     </button>
