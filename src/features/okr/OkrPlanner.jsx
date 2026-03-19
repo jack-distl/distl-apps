@@ -14,6 +14,7 @@ import {
 } from '../../components/ui/select'
 import ClientView from './ClientView'
 import { useClients } from '../../hooks'
+import { useClientRetainers } from '../../hooks/useClientRetainers'
 import { useOkrData } from '../../hooks/useOkrData'
 import { TASK_LIBRARY, SCOPE_OPTIONS, getAllTemplatesResolved } from '../../lib/taskLibrary'
 import {
@@ -86,8 +87,8 @@ export default function OkrPlanner() {
     savePeriod, setPublished, removePeriod, refetch,
   } = useOkrData(clientId)
 
+  const { seoRetainer: clientSeoRetainer } = useClientRetainers(clientId)
   const abbreviation = client?.abbreviation || ''
-  const clientRetainer = client?.monthly_retainer || 0
 
   // ─── State ───────────────────────────────────────────────
   const [viewMode, setViewMode] = useState('internal')
@@ -149,7 +150,7 @@ export default function OkrPlanner() {
 
   const calc = useMemo(() => {
     if (!currentPeriod) return null
-    const retainerAmount = currentPeriod.monthlyRetainer ?? clientRetainer
+    const retainerAmount = currentPeriod.seoRetainer ?? clientSeoRetainer
     const months = calculatePeriodMonths(
       currentPeriod.startMonth, currentPeriod.startYear,
       currentPeriod.endMonth, currentPeriod.endYear
@@ -191,7 +192,7 @@ export default function OkrPlanner() {
       availableForObjectives, totalSeoHours, totalAmHours,
       totalObjectiveHours, remainingHours, idealSeoHours, idealAmHours,
     }
-  }, [currentPeriod, clientRetainer])
+  }, [currentPeriod, clientSeoRetainer])
 
   // ─── Period Handlers ─────────────────────────────────────
 
@@ -653,7 +654,7 @@ export default function OkrPlanner() {
           <span className="text-sm font-semibold text-charcoal uppercase">{abbreviation || '—'}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-500">Monthly Retainer</span>
+          <span className="text-sm font-medium text-gray-500">SEO Retainer</span>
           {currentPeriod ? (
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-400">$</span>
@@ -661,16 +662,16 @@ export default function OkrPlanner() {
                 type="number"
                 min="0"
                 step="100"
-                value={currentPeriod.monthlyRetainer ?? clientRetainer}
-                onChange={e => updatePeriod(currentPeriod.id, { monthlyRetainer: Number(e.target.value) || 0 })}
+                value={currentPeriod.seoRetainer ?? clientSeoRetainer}
+                onChange={e => updatePeriod(currentPeriod.id, { seoRetainer: Number(e.target.value) || 0 })}
                 className="w-24 px-2 py-0.5 text-sm font-semibold text-charcoal border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-coral/40"
               />
-              {currentPeriod.monthlyRetainer != null && currentPeriod.monthlyRetainer !== clientRetainer && (
-                <span className="text-xs text-gray-400">(client default: {formatCurrency(clientRetainer)})</span>
+              {currentPeriod.seoRetainer != null && currentPeriod.seoRetainer !== clientSeoRetainer && (
+                <span className="text-xs text-gray-400">(client default: {formatCurrency(clientSeoRetainer)})</span>
               )}
             </div>
           ) : (
-            <span className="text-sm font-semibold text-charcoal">{formatCurrency(clientRetainer)}</span>
+            <span className="text-sm font-semibold text-charcoal">{formatCurrency(clientSeoRetainer)}</span>
           )}
         </div>
       </div>
@@ -1251,7 +1252,7 @@ function NewPeriodModal({ periods, onAdd, onDuplicate, onClose }) {
         endYear,
         isPublished: false,
         goal,
-        monthlyRetainer: null,
+        seoRetainer: null,
         offsiteAllowancePercent: DEFAULT_OFFSITE_ALLOWANCE,
         adminTasks: {
           monthlyReportingAM: 1,

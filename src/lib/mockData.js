@@ -39,6 +39,15 @@ export const mockClients = [
   },
 ]
 
+// Client retainers keyed by client ID → service_type → monthly_amount
+export const mockClientRetainers = {
+  '1': { seo: 5400 },
+  '2': { seo: 3600 },
+  '3': { seo: 7200 },
+  '4': { seo: 4500 },
+  '5': { seo: 2700 },
+}
+
 // OKR planner data keyed by client ID
 // Each client has periods → objectives → key results
 export const mockOkrData = {
@@ -54,7 +63,7 @@ export const mockOkrData = {
         endYear: 2026,
         isPublished: false,
         goal: 'Increase organic traffic by 30% and improve local SEO rankings',
-        monthlyRetainer: 5400,
+        seoRetainer: 5400,
         offsiteAllowancePercent: 5,
         adminTasks: {
           monthlyReportingAM: 1,
@@ -105,7 +114,7 @@ export const mockOkrData = {
         endYear: 2026,
         isPublished: true,
         goal: 'Launch new eCommerce store and drive initial traffic',
-        monthlyRetainer: 3600,
+        seoRetainer: 3600,
         offsiteAllowancePercent: 5,
         adminTasks: {
           monthlyReportingAM: 1,

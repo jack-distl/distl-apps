@@ -7,8 +7,9 @@ import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Card, CardContent } from '../../components/ui/card'
-import { useClients, fetchLatestPeriods } from '../../hooks'
-import { mockOkrData } from '../../lib/mockData'
+import { useClients, fetchLatestPeriods, fetchAllClientRetainers } from '../../hooks'
+import { supabase } from '../../lib/supabase'
+import { mockOkrData, mockClientRetainers } from '../../lib/mockData'
 import { HOURLY_RATE, getPeriodLabel } from '../../lib/constants'
 import TemplateEditor from './TemplateEditor'
 
@@ -37,10 +38,14 @@ export default function PlannerHome() {
   const activeClients = clients.filter(c => c.is_active)
 
   const [periodsByClient, setPeriodsByClient] = useState(null)
+  const [retainersByClient, setRetainersByClient] = useState(null)
 
   useEffect(() => {
     fetchLatestPeriods().then(data => {
       if (data) setPeriodsByClient(data)
+    })
+    fetchAllClientRetainers().then(data => {
+      setRetainersByClient(data || mockClientRetainers)
     })
   }, [])
 
@@ -48,7 +53,7 @@ export default function PlannerHome() {
   const [showNewClient, setShowNewClient] = useState(false)
   const [newName, setNewName] = useState('')
   const [newAbbreviation, setNewAbbreviation] = useState('')
-  const [newRetainer, setNewRetainer] = useState(3600)
+  const [newSeoRetainer, setNewSeoRetainer] = useState(3600)
   const [abbrevEdited, setAbbrevEdited] = useState(false)
   const [saving, setSaving] = useState(false)
   const [submitError, setSubmitError] = useState(null)
@@ -63,7 +68,7 @@ export default function PlannerHome() {
   function resetForm() {
     setNewName('')
     setNewAbbreviation('')
-    setNewRetainer(3600)
+    setNewSeoRetainer(3600)
     setAbbrevEdited(false)
     setSaving(false)
   }
@@ -75,11 +80,26 @@ export default function PlannerHome() {
     setSaving(true)
     setSubmitError(null)
     try {
-      await addClient({
+      const newClient = await addClient({
         name: newName.trim(),
         abbreviation: newAbbreviation.trim().toUpperCase(),
-        monthly_retainer: Number(newRetainer),
+        monthly_retainer: 0,
       })
+      // Create SEO retainer for the new client
+      const seoAmount = Number(newSeoRetainer) || 0
+      if (newClient && seoAmount > 0) {
+        if (supabase) {
+          await supabase.from('client_retainers').upsert({
+            client_id: newClient.id,
+            service_type: 'seo',
+            monthly_amount: seoAmount,
+          }, { onConflict: 'client_id,service_type' })
+        }
+        setRetainersByClient(prev => ({
+          ...prev,
+          [newClient.id]: { seo: seoAmount },
+        }))
+      }
       setShowNewClient(false)
       resetForm()
     } catch {
@@ -136,7 +156,8 @@ export default function PlannerHome() {
             const dbPeriod = periodsByClient?.[client.id]
             const mockPeriod = mockOkrData[client.id]?.periods?.at(-1)
             const latestPeriod = dbPeriod || mockPeriod || null
-            const hours = Math.round(client.monthly_retainer / HOURLY_RATE)
+            const seoRetainer = retainersByClient?.[client.id]?.seo || 0
+            const hours = Math.round(seoRetainer / HOURLY_RATE)
 
             return (
               <motion.div key={client.id} variants={fadeUp}>
@@ -158,9 +179,11 @@ export default function PlannerHome() {
                           )}
                         </div>
 
-                        <p className="text-sm text-gray-600 mb-3">
-                          ${client.monthly_retainer.toLocaleString()}/mo &middot; ~{hours} hrs
-                        </p>
+                        {seoRetainer > 0 && (
+                          <p className="text-sm text-gray-600 mb-3">
+                            SEO: ${seoRetainer.toLocaleString()}/mo &middot; ~{hours} hrs
+                          </p>
+                        )}
 
                         {latestPeriod ? (
                           <>
@@ -233,21 +256,21 @@ export default function PlannerHome() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Monthly Retainer
+              SEO Retainer
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
               <Input
                 type="number"
-                value={newRetainer}
-                onChange={e => setNewRetainer(e.target.value)}
+                value={newSeoRetainer}
+                onChange={e => setNewSeoRetainer(e.target.value)}
                 min={0}
                 className="pl-7"
                 required
               />
             </div>
             <p className="text-xs text-gray-400 mt-1">
-              ~{Math.round(Number(newRetainer) / HOURLY_RATE)} hours at ${HOURLY_RATE}/hr
+              ~{Math.round(Number(newSeoRetainer) / HOURLY_RATE)} hours at ${HOURLY_RATE}/hr
             </p>
           </div>
 
