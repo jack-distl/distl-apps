@@ -14,6 +14,7 @@ import {
 } from '../../components/ui/select'
 import ClientView from './ClientView'
 import { useClients } from '../../hooks'
+import { useClientRetainers } from '../../hooks/useClientRetainers'
 import { useOkrData } from '../../hooks/useOkrData'
 import { TASK_LIBRARY, SCOPE_OPTIONS, getAllTemplatesResolved } from '../../lib/taskLibrary'
 import {
@@ -86,8 +87,8 @@ export default function OkrPlanner() {
     savePeriod, setPublished, removePeriod, refetch,
   } = useOkrData(clientId)
 
+  const { seoRetainer: clientSeoRetainer } = useClientRetainers(clientId)
   const abbreviation = client?.abbreviation || ''
-  const retainerAmount = client?.monthly_retainer || 0
 
   // ─── State ───────────────────────────────────────────────
   const [viewMode, setViewMode] = useState('internal')
@@ -149,6 +150,7 @@ export default function OkrPlanner() {
 
   const calc = useMemo(() => {
     if (!currentPeriod) return null
+    const retainerAmount = currentPeriod.seoRetainer ?? clientSeoRetainer
     const months = calculatePeriodMonths(
       currentPeriod.startMonth, currentPeriod.startYear,
       currentPeriod.endMonth, currentPeriod.endYear
@@ -185,12 +187,12 @@ export default function OkrPlanner() {
     const idealAmHours = roundToHalf(availableForObjectives * AM_HOUR_TARGET)
 
     return {
-      months, gross, offsiteDeduction, net, baseHours, bufferHours,
+      retainerAmount, months, gross, offsiteDeduction, net, baseHours, bufferHours,
       monthlyReportingTotal, okrReportingTotal, totalAdminHours,
       availableForObjectives, totalSeoHours, totalAmHours,
       totalObjectiveHours, remainingHours, idealSeoHours, idealAmHours,
     }
-  }, [currentPeriod, retainerAmount])
+  }, [currentPeriod, clientSeoRetainer])
 
   // ─── Period Handlers ─────────────────────────────────────
 
@@ -652,8 +654,25 @@ export default function OkrPlanner() {
           <span className="text-sm font-semibold text-charcoal uppercase">{abbreviation || '—'}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-500">Monthly Retainer</span>
-          <span className="text-sm font-semibold text-charcoal">{formatCurrency(retainerAmount)}</span>
+          <span className="text-sm font-medium text-gray-500">SEO Retainer</span>
+          {currentPeriod ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">$</span>
+              <input
+                type="number"
+                min="0"
+                step="100"
+                value={currentPeriod.seoRetainer ?? clientSeoRetainer}
+                onChange={e => updatePeriod(currentPeriod.id, { seoRetainer: Number(e.target.value) || 0 })}
+                className="w-24 px-2 py-0.5 text-sm font-semibold text-charcoal border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-coral/40"
+              />
+              {currentPeriod.seoRetainer != null && currentPeriod.seoRetainer !== clientSeoRetainer && (
+                <span className="text-xs text-gray-400">(client default: {formatCurrency(clientSeoRetainer)})</span>
+              )}
+            </div>
+          ) : (
+            <span className="text-sm font-semibold text-charcoal">{formatCurrency(clientSeoRetainer)}</span>
+          )}
         </div>
       </div>
 
@@ -792,7 +811,7 @@ export default function OkrPlanner() {
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Retainer</h3>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">{formatCurrency(retainerAmount)}/mo × {calc.months} mo</span>
+                    <span className="text-gray-500">{formatCurrency(calc.retainerAmount)}/mo × {calc.months} mo</span>
                     <span className="font-medium">{formatCurrency(calc.gross)}</span>
                   </div>
                   <div className="flex justify-between text-gray-400">
@@ -1233,6 +1252,7 @@ function NewPeriodModal({ periods, onAdd, onDuplicate, onClose }) {
         endYear,
         isPublished: false,
         goal,
+        seoRetainer: null,
         offsiteAllowancePercent: DEFAULT_OFFSITE_ALLOWANCE,
         adminTasks: {
           monthlyReportingAM: 1,

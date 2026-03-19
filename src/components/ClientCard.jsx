@@ -2,8 +2,9 @@ import { motion } from 'framer-motion'
 import { Badge } from './Badge'
 import { Card, CardContent } from './ui/card'
 
-export function ClientCard({ client, apps = [], onSelect }) {
-  const hoursPerMonth = client.monthly_retainer ? Math.round(client.monthly_retainer / 180) : 0
+export function ClientCard({ client, retainers = {}, apps = [], onSelect }) {
+  const seoRetainer = retainers.seo || 0
+  const hoursPerMonth = seoRetainer ? Math.round(seoRetainer / 180) : 0
 
   return (
     <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
@@ -24,9 +25,9 @@ export function ClientCard({ client, apps = [], onSelect }) {
             )}
           </div>
 
-          {client.monthly_retainer && (
+          {seoRetainer > 0 && (
             <p className="text-sm text-gray-600 mb-3">
-              ${client.monthly_retainer.toLocaleString()}/mo &middot; ~{hoursPerMonth} hrs
+              SEO: ${seoRetainer.toLocaleString()}/mo &middot; ~{hoursPerMonth} hrs
             </p>
           )}
 

@@ -1,10 +1,12 @@
+import { useState, useEffect } from 'react'
 import { Target, Map, Users, Clock, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { LoadingSpinner } from '../../components'
 import { Card, CardContent } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
-import { useClients } from '../../hooks'
+import { useClients, fetchAllClientRetainers } from '../../hooks'
+import { mockClientRetainers } from '../../lib/mockData'
 import { HOURLY_RATE } from '../../lib/constants'
 
 const apps = [
@@ -25,6 +27,13 @@ const fadeUp = {
 
 export default function Dashboard() {
   const { clients, loading } = useClients()
+  const [retainersByClient, setRetainersByClient] = useState(null)
+
+  useEffect(() => {
+    fetchAllClientRetainers().then(data => {
+      setRetainersByClient(data || mockClientRetainers)
+    })
+  }, [])
 
   if (loading) {
     return (
@@ -35,7 +44,8 @@ export default function Dashboard() {
   }
 
   const activeClients = clients.filter(c => c.is_active)
-  const totalHours = Math.round(activeClients.reduce((sum, c) => sum + c.monthly_retainer, 0) / HOURLY_RATE)
+  const totalSeoRetainer = activeClients.reduce((sum, c) => sum + (retainersByClient?.[c.id]?.seo || 0), 0)
+  const totalHours = Math.round(totalSeoRetainer / HOURLY_RATE)
 
   return (
     <div className="max-w-5xl">
@@ -61,7 +71,7 @@ export default function Dashboard() {
       >
         {[
           { label: 'Active Clients', value: activeClients.length, icon: Users },
-          { label: 'Hours This Month', value: `~${totalHours}`, icon: Clock },
+          { label: 'SEO Hours/Month', value: `~${totalHours}`, icon: Clock },
         ].map((stat) => (
           <motion.div key={stat.label} variants={fadeUp}>
             <Card className="border-l-4 border-l-coral">

@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ClientCard, LoadingSpinner } from '../../components'
-import { useClients } from '../../hooks'
+import { useClients, fetchAllClientRetainers } from '../../hooks'
+import { mockClientRetainers } from '../../lib/mockData'
 
 const stagger = {
   hidden: {},
@@ -16,6 +18,13 @@ const fadeUp = {
 export default function Clients() {
   const navigate = useNavigate()
   const { clients, loading } = useClients()
+  const [retainersByClient, setRetainersByClient] = useState(null)
+
+  useEffect(() => {
+    fetchAllClientRetainers().then(data => {
+      setRetainersByClient(data || mockClientRetainers)
+    })
+  }, [])
 
   if (loading) {
     return (
@@ -42,6 +51,7 @@ export default function Clients() {
           <motion.div key={client.id} variants={fadeUp}>
             <ClientCard
               client={client}
+              retainers={retainersByClient?.[client.id] || {}}
               apps={client.is_active ? ['OKR'] : []}
               onSelect={() => navigate(`/okr/${client.id}`)}
             />
