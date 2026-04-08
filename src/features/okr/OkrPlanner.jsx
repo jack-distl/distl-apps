@@ -131,12 +131,18 @@ export default function OkrPlanner() {
           savePeriod(period)
             .then(() => {
               setSaveStatus('saved')
+              setSaveError(null)
               if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
               savedTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
             })
             .catch(err => {
               console.error('Auto-save failed:', err)
-              setSaveError('Failed to save. Your changes may not be persisted.')
+              const detail = err?.message || err?.details || ''
+              setSaveError(
+                detail
+                  ? `Save failed: ${detail}`
+                  : 'Failed to save. Your changes may not be persisted.'
+              )
               setSaveStatus('unsaved')
             })
         }
@@ -158,7 +164,12 @@ export default function OkrPlanner() {
       })
       .catch(err => {
         console.error('Retry save failed:', err)
-        setSaveError('Failed to save. Your changes may not be persisted.')
+        const detail = err?.message || err?.details || ''
+        setSaveError(
+          detail
+            ? `Save failed: ${detail}`
+            : 'Failed to save. Your changes may not be persisted.'
+        )
         setSaveStatus('unsaved')
       })
   }, [periods, selectedPeriodId, savePeriod])
