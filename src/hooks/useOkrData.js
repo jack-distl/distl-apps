@@ -258,13 +258,9 @@ export function useOkrData(clientId) {
         if (kErr) throw kErr
       }
 
-      // Update local state
-      setPeriods(prev => {
-        const exists = prev.some(p => p.id === period.id)
-        return exists
-          ? prev.map(p => p.id === period.id ? period : p)
-          : [...prev, period]
-      })
+      // Local state is already up-to-date (updated by the caller before
+      // triggerDebouncedSave). Skipping setPeriods here avoids a race
+      // condition where a stale snapshot overwrites concurrent edits.
     } catch (err) {
       console.error('savePeriod error:', err)
       throw err

@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useBlocker } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Plus, Copy, ChevronDown, ChevronUp,
   Trash2, Globe, FileText, Hash, CheckCircle, XCircle,
-  AlertTriangle, Search, X, ClipboardCheck, Loader2
+  AlertTriangle, Search, X, ClipboardCheck, Loader2, Check, Circle
 } from 'lucide-react'
 import { UndoToast } from '../../components/UndoToast'
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
@@ -112,33 +112,93 @@ export default function OkrPlanner() {
     }
   }, [periods, selectedPeriodId])
 
-  // ─── Debounced Auto-Save ────────────────────────────────
+  // ─── Debounced Auto-Save + Unsaved Changes Tracking ─────
   const saveTimerRef = useRef(null)
+  const savedTimerRef = useRef(null)
   const [saveError, setSaveError] = useState(null)
+  // 'idle' | 'unsaved' | 'saved'
+  const [saveStatus, setSaveStatus] = useState('idle')
+
+  const hasUnsavedChanges = saveStatus === 'unsaved' || saving
 
   const triggerDebouncedSave = useCallback((periodId) => {
+    setSaveStatus('unsaved')
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       setPeriods(current => {
         const period = current.find(p => p.id === periodId)
         if (period) {
-          savePeriod(period).catch(err => {
-            console.error('Auto-save failed:', err)
-            setSaveError('Failed to save. Your changes may not be persisted.')
-            setTimeout(() => setSaveError(null), 5000)
-          })
+          savePeriod(period)
+            .then(() => {
+              setSaveStatus('saved')
+              if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+              savedTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
+            })
+            .catch(err => {
+              console.error('Auto-save failed:', err)
+              setSaveError('Failed to save. Your changes may not be persisted.')
+              setSaveStatus('unsaved')
+            })
         }
         return current
       })
     }, 1500)
   }, [savePeriod, setPeriods])
 
-  // Clean up timer on unmount
+  // Retry save immediately (used by error banner)
+  const retrySave = useCallback(() => {
+    setSaveError(null)
+    const period = periods.find(p => p.id === selectedPeriodId)
+    if (!period) return
+    savePeriod(period)
+      .then(() => {
+        setSaveStatus('saved')
+        if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+        savedTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
+      })
+      .catch(err => {
+        console.error('Retry save failed:', err)
+        setSaveError('Failed to save. Your changes may not be persisted.')
+        setSaveStatus('unsaved')
+      })
+  }, [periods, selectedPeriodId, savePeriod])
+
+  // Flush pending save on unmount instead of dropping it
   useEffect(() => {
     return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        // Fire the save immediately on unmount
+        // We read state via ref-style setter to get the latest
+        setPeriods(current => {
+          const period = current.find(p => p.id === selectedPeriodId)
+          if (period) {
+            savePeriod(period).catch(() => {})
+          }
+          return current
+        })
+      }
     }
-  }, [])
+  }, [selectedPeriodId, savePeriod, setPeriods])
+
+  // ─── Navigation Guards ──────────────────────────────────
+  // Warn on tab close / refresh
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+    const handleBeforeUnload = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
+  // Warn on in-app navigation (React Router)
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
+  )
 
   // ─── Derived ─────────────────────────────────────────────
   const currentPeriod = periods.find(p => p.id === selectedPeriodId) || null
@@ -500,11 +560,23 @@ export default function OkrPlanner() {
   return (
     <div className={isClientView ? '' : 'max-w-7xl mx-auto'}>
 
-      {/* Save Error Banner */}
+      {/* Save Error Banner — sticky until dismissed or retried */}
       {saveError && (
         <div className={`mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2 ${isClientView ? 'max-w-7xl mx-auto' : ''}`}>
           <AlertTriangle size={16} className="text-red-500 shrink-0" />
-          <p className="text-sm text-red-700">{saveError}</p>
+          <p className="text-sm text-red-700 flex-1">{saveError}</p>
+          <button
+            onClick={retrySave}
+            className="text-xs font-medium text-red-700 hover:text-red-900 bg-red-100 hover:bg-red-200 px-2.5 py-1 rounded transition-colors shrink-0"
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => setSaveError(null)}
+            className="text-red-400 hover:text-red-600 shrink-0"
+          >
+            <X size={14} />
+          </button>
         </div>
       )}
 
@@ -517,12 +589,27 @@ export default function OkrPlanner() {
           <div>
             <h1 className="text-2xl font-semibold text-charcoal">
               {client.name}
-              {saving && (
+              {saving ? (
                 <span className="ml-3 text-xs font-normal text-gray-400 inline-flex items-center gap-1">
                   <Loader2 size={12} className="animate-spin" />
                   Saving...
                 </span>
-              )}
+              ) : saveError ? (
+                <span className="ml-3 text-xs font-normal text-red-500 inline-flex items-center gap-1">
+                  <Circle size={8} fill="currentColor" />
+                  Save failed
+                </span>
+              ) : saveStatus === 'unsaved' ? (
+                <span className="ml-3 text-xs font-normal text-amber-500 inline-flex items-center gap-1">
+                  <Circle size={8} fill="currentColor" />
+                  Unsaved changes
+                </span>
+              ) : saveStatus === 'saved' ? (
+                <span className="ml-3 text-xs font-normal text-green-500 inline-flex items-center gap-1">
+                  <Check size={12} />
+                  Saved
+                </span>
+              ) : null}
             </h1>
           </div>
         </div>
@@ -1091,12 +1178,25 @@ export default function OkrPlanner() {
                               <li key={kr.id} className="group flex items-start gap-2">
                                 <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm text-charcoal">
-                                    {kr.task}
-                                  </p>
-                                  {kr.description && (
-                                    <p className="text-xs text-gray-400 mt-0.5">{kr.description}</p>
-                                  )}
+                                  <input
+                                    type="text"
+                                    value={kr.task}
+                                    onChange={e => updateKeyResult(
+                                      currentPeriod.id, obj.id, kr.id,
+                                      { task: e.target.value }
+                                    )}
+                                    className="w-full text-sm text-charcoal bg-transparent border-none focus:outline-none focus:ring-0 p-0"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={kr.description}
+                                    onChange={e => updateKeyResult(
+                                      currentPeriod.id, obj.id, kr.id,
+                                      { description: e.target.value }
+                                    )}
+                                    placeholder="Add details..."
+                                    className="w-full text-xs text-gray-400 mt-0.5 bg-transparent border-none focus:outline-none focus:ring-0 p-0 placeholder:text-gray-300"
+                                  />
                                   <div className="flex items-center gap-3 mt-1">
                                     <div className="flex items-center gap-1">
                                       <span className="text-xs text-gray-400">AM</span>
@@ -1222,6 +1322,30 @@ export default function OkrPlanner() {
           onUndo={undoDeleteObjective}
           onDismiss={() => setDeletedObjective(null)}
         />
+      )}
+
+      {/* Navigation guard — unsaved changes confirmation */}
+      {blocker.state === 'blocked' && (
+        <ModalBackdrop onClose={() => blocker.reset()}>
+          <h2 className="text-lg font-semibold text-charcoal mb-2">Unsaved changes</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            You have unsaved changes that will be lost if you leave this page.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => blocker.reset()}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+            >
+              Stay on page
+            </button>
+            <button
+              onClick={() => blocker.proceed()}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+            >
+              Leave anyway
+            </button>
+          </div>
+        </ModalBackdrop>
       )}
     </div>
   )
