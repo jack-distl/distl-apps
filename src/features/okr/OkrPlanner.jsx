@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { useParams, Link, useBlocker } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Plus, Copy, ChevronDown, ChevronUp,
@@ -194,11 +194,13 @@ export default function OkrPlanner() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [hasUnsavedChanges])
 
-  // Warn on in-app navigation (React Router)
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
-  )
+  // Guarded navigation for in-app links
+  const navigate = useNavigate()
+  const guardedNavigate = useCallback((to) => {
+    if (!hasUnsavedChanges || window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
+      navigate(to)
+    }
+  }, [hasUnsavedChanges, navigate])
 
   // ─── Derived ─────────────────────────────────────────────
   const currentPeriod = periods.find(p => p.id === selectedPeriodId) || null
@@ -583,9 +585,9 @@ export default function OkrPlanner() {
       {/* Header */}
       <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 ${isClientView ? 'max-w-7xl mx-auto px-4' : ''}`}>
         <div className="flex items-center gap-3">
-          <Link to="/okr" className="text-gray-400 hover:text-gray-600">
+          <button onClick={() => guardedNavigate('/okr')} className="text-gray-400 hover:text-gray-600">
             <ArrowLeft size={20} />
-          </Link>
+          </button>
           <div>
             <h1 className="text-2xl font-semibold text-charcoal">
               {client.name}
@@ -1324,29 +1326,6 @@ export default function OkrPlanner() {
         />
       )}
 
-      {/* Navigation guard — unsaved changes confirmation */}
-      {blocker.state === 'blocked' && (
-        <ModalBackdrop onClose={() => blocker.reset()}>
-          <h2 className="text-lg font-semibold text-charcoal mb-2">Unsaved changes</h2>
-          <p className="text-sm text-gray-500 mb-6">
-            You have unsaved changes that will be lost if you leave this page.
-          </p>
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => blocker.reset()}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
-            >
-              Stay on page
-            </button>
-            <button
-              onClick={() => blocker.proceed()}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
-            >
-              Leave anyway
-            </button>
-          </div>
-        </ModalBackdrop>
-      )}
     </div>
   )
 }
