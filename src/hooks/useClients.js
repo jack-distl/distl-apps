@@ -58,5 +58,35 @@ export function useClients() {
     return data
   }
 
-  return { clients, loading, error, refetch: fetchClients, addClient }
+  async function updateClient(id, fields) {
+    if (!supabase) {
+      setClients(prev => prev.map(c => c.id === id ? { ...c, ...fields } : c))
+      return
+    }
+
+    const { error } = await supabase
+      .from('clients')
+      .update(fields)
+      .eq('id', id)
+
+    if (error) throw new Error('Failed to update client.')
+    await fetchClients()
+  }
+
+  async function deleteClient(id) {
+    if (!supabase) {
+      setClients(prev => prev.filter(c => c.id !== id))
+      return
+    }
+
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw new Error('Failed to delete client.')
+    await fetchClients()
+  }
+
+  return { clients, loading, error, refetch: fetchClients, addClient, updateClient, deleteClient }
 }

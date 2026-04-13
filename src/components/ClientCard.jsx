@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion'
+import { Pencil } from 'lucide-react'
 import { Badge } from './Badge'
 import { Card, CardContent } from './ui/card'
 
-export function ClientCard({ client, retainers = {}, apps = [], onSelect }) {
+export function ClientCard({ client, retainers = {}, apps = [], onSelect, onEdit }) {
   const seoRetainer = retainers.seo || 0
   const hoursPerMonth = seoRetainer ? Math.round(seoRetainer / 180) : 0
 
@@ -18,11 +19,22 @@ export function ClientCard({ client, retainers = {}, apps = [], onSelect }) {
               <h3 className="font-semibold text-charcoal">{client.name}</h3>
               <span className="text-sm text-gray-500">{client.abbreviation}</span>
             </div>
-            {client.is_active ? (
-              <Badge variant="success">Active</Badge>
-            ) : (
-              <Badge>Inactive</Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {client.is_active ? (
+                <Badge variant="success">Active</Badge>
+              ) : (
+                <Badge>Inactive</Badge>
+              )}
+              {onEdit && (
+                <button
+                  onClick={e => { e.stopPropagation(); onEdit(client) }}
+                  className="text-gray-300 hover:text-gray-500 transition-colors"
+                  title="Edit client"
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
+            </div>
           </div>
 
           {seoRetainer > 0 && (

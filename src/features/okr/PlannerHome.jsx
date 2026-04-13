@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { Plus, Settings } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Plus, Settings, Pencil } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { Modal, LoadingSpinner } from '../../components'
+import { Modal, LoadingSpinner, ClientEditModal } from '../../components'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -34,8 +34,10 @@ const fadeUp = {
 }
 
 export default function PlannerHome() {
-  const { clients, loading, addClient } = useClients()
+  const navigate = useNavigate()
+  const { clients, loading, addClient, updateClient, deleteClient } = useClients()
   const activeClients = clients.filter(c => c.is_active)
+  const [editingClient, setEditingClient] = useState(null)
 
   const [periodsByClient, setPeriodsByClient] = useState(null)
   const [retainersByClient, setRetainersByClient] = useState(null)
@@ -161,22 +163,33 @@ export default function PlannerHome() {
 
             return (
               <motion.div key={client.id} variants={fadeUp}>
-                <Link to={`/okr/${client.id}`}>
-                  <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
-                    <Card className="hover:shadow-md transition-shadow">
+                <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+                  <Card
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => navigate(`/okr/${client.id}`)}
+                  >
                       <CardContent className="p-5">
                         <div className="flex items-start justify-between mb-2">
                           <div>
                             <h3 className="font-semibold text-charcoal">{client.name}</h3>
                             <span className="text-sm text-gray-500">{client.abbreviation}</span>
                           </div>
-                          {latestPeriod ? (
-                            <Badge variant={latestPeriod.isPublished ? 'success' : 'coral'}>
-                              {latestPeriod.isPublished ? 'Published' : 'Draft'}
-                            </Badge>
-                          ) : (
-                            <Badge>No plan</Badge>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {latestPeriod ? (
+                              <Badge variant={latestPeriod.isPublished ? 'success' : 'coral'}>
+                                {latestPeriod.isPublished ? 'Published' : 'Draft'}
+                              </Badge>
+                            ) : (
+                              <Badge>No plan</Badge>
+                            )}
+                            <button
+                              onClick={e => { e.stopPropagation(); setEditingClient(client) }}
+                              className="text-gray-300 hover:text-gray-500 transition-colors"
+                              title="Edit client"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          </div>
                         </div>
 
                         {seoRetainer > 0 && (
@@ -200,9 +213,8 @@ export default function PlannerHome() {
                           </span>
                         )}
                       </CardContent>
-                    </Card>
-                  </motion.div>
-                </Link>
+                  </Card>
+                </motion.div>
               </motion.div>
             )
           })}
@@ -293,6 +305,16 @@ export default function PlannerHome() {
           </div>
         </form>
       </Modal>
+
+      <ClientEditModal
+        client={editingClient}
+        isOpen={!!editingClient}
+        onClose={() => setEditingClient(null)}
+        onSaved={() => setEditingClient(null)}
+        onDeleted={() => setEditingClient(null)}
+        updateClient={updateClient}
+        deleteClient={deleteClient}
+      />
     </div>
   )
 }

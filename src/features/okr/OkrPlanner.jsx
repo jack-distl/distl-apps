@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Plus, Copy, ChevronDown, ChevronUp,
   Trash2, Globe, FileText, Hash, CheckCircle, XCircle,
-  AlertTriangle, Search, X, ClipboardCheck, Loader2, Check, Circle
+  AlertTriangle, Search, X, ClipboardCheck, Loader2, Check, Circle, Pencil
 } from 'lucide-react'
 import { UndoToast } from '../../components/UndoToast'
+import { ClientEditModal } from '../../components/ClientEditModal'
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Badge } from '../../components/ui/badge'
 import {
@@ -78,7 +79,7 @@ function createBlankPeriod() {
 
 export default function OkrPlanner() {
   const { clientId } = useParams()
-  const { clients } = useClients()
+  const { clients, updateClient, deleteClient } = useClients()
   const client = clients.find(c => c.id === clientId)
 
   // ─── Data from Supabase ──────────────────────────────────
@@ -102,6 +103,7 @@ export default function OkrPlanner() {
   const [showAddObjectiveModal, setShowAddObjectiveModal] = useState(false)
   const [showAddTaskModal, setShowAddTaskModal] = useState(false)
   const [addTaskObjectiveId, setAddTaskObjectiveId] = useState(null)
+  const [showEditClient, setShowEditClient] = useState(false)
 
   const isClientView = viewMode === 'client'
 
@@ -600,8 +602,15 @@ export default function OkrPlanner() {
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 className="text-2xl font-semibold text-charcoal">
+            <h1 className="text-2xl font-semibold text-charcoal flex items-center gap-2">
               {client.name}
+              <button
+                onClick={() => setShowEditClient(true)}
+                className="text-gray-300 hover:text-gray-500 transition-colors"
+                title="Edit client"
+              >
+                <Pencil size={16} />
+              </button>
               {saving ? (
                 <span className="ml-3 text-xs font-normal text-gray-400 inline-flex items-center gap-1">
                   <Loader2 size={12} className="animate-spin" />
@@ -1336,6 +1345,16 @@ export default function OkrPlanner() {
           onDismiss={() => setDeletedObjective(null)}
         />
       )}
+
+      <ClientEditModal
+        client={client}
+        isOpen={showEditClient}
+        onClose={() => setShowEditClient(false)}
+        onSaved={() => setShowEditClient(false)}
+        onDeleted={() => navigate('/okr')}
+        updateClient={updateClient}
+        deleteClient={deleteClient}
+      />
 
     </div>
   )
