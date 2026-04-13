@@ -310,7 +310,11 @@ export default function PlannerHome() {
         client={editingClient}
         isOpen={!!editingClient}
         onClose={() => setEditingClient(null)}
-        onSaved={() => setEditingClient(null)}
+        onSaved={async () => {
+          const data = await fetchAllClientRetainers()
+          if (data) setRetainersByClient(data)
+          setEditingClient(null)
+        }}
         onDeleted={() => setEditingClient(null)}
         updateClient={updateClient}
         deleteClient={deleteClient}

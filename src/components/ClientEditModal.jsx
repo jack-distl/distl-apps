@@ -4,6 +4,7 @@ import { Modal } from './Modal'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Input } from './ui/input'
 import { useClientRetainers, SERVICE_TYPES, SERVICE_LABELS } from '../hooks/useClientRetainers'
+import { supabase } from '../lib/supabase'
 
 function generateAbbreviation(name) {
   return name
@@ -64,12 +65,20 @@ export function ClientEditModal({ client, isOpen, onClose, onSaved, onDeleted, u
         is_active: isActive,
       })
 
-      // Save all retainer values in parallel
-      await Promise.all(
-        SERVICE_TYPES.map(type =>
-          setRetainer(type, Number(localRetainers[type]) || 0)
-        )
-      )
+      // Save all retainer values in a single batch upsert
+      if (supabase) {
+        const rows = SERVICE_TYPES.map(type => ({
+          client_id: client.id,
+          service_type: type,
+          monthly_amount: Number(localRetainers[type]) || 0,
+        }))
+        const { error: retainerError } = await supabase
+          .from('client_retainers')
+          .upsert(rows, { onConflict: 'client_id,service_type' })
+        if (retainerError) throw new Error('Failed to save service retainers.')
+      } else {
+        SERVICE_TYPES.forEach(type => setRetainer(type, Number(localRetainers[type]) || 0))
+      }
 
       onSaved()
     } catch (err) {
