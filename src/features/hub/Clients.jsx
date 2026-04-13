@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ClientCard, LoadingSpinner } from '../../components'
+import { ClientCard, ClientEditModal, LoadingSpinner } from '../../components'
 import { useClients, fetchAllClientRetainers } from '../../hooks'
 import { mockClientRetainers } from '../../lib/mockData'
 
@@ -17,8 +17,9 @@ const fadeUp = {
 
 export default function Clients() {
   const navigate = useNavigate()
-  const { clients, loading } = useClients()
+  const { clients, loading, updateClient, deleteClient } = useClients()
   const [retainersByClient, setRetainersByClient] = useState(null)
+  const [editingClient, setEditingClient] = useState(null)
 
   useEffect(() => {
     fetchAllClientRetainers().then(data => {
@@ -54,10 +55,21 @@ export default function Clients() {
               retainers={retainersByClient?.[client.id] || {}}
               apps={client.is_active ? ['OKR'] : []}
               onSelect={() => navigate(`/okr/${client.id}`)}
+              onEdit={setEditingClient}
             />
           </motion.div>
         ))}
       </motion.div>
+
+      <ClientEditModal
+        client={editingClient}
+        isOpen={!!editingClient}
+        onClose={() => setEditingClient(null)}
+        onSaved={() => setEditingClient(null)}
+        onDeleted={() => setEditingClient(null)}
+        updateClient={updateClient}
+        deleteClient={deleteClient}
+      />
     </div>
   )
 }
