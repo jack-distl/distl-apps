@@ -496,9 +496,10 @@ export default function OkrPlanner() {
     if (!currentPeriod) return
     const lines = []
     for (const obj of currentPeriod.objectives) {
-      for (const kr of obj.keyResults) {
-        lines.push(`${abbreviation} | ${kr.task}${kr.description ? ' — ' + kr.description : ''} | ${obj.title}`)
-      }
+      const total = obj.keyResults.length
+      obj.keyResults.forEach((kr, i) => {
+        lines.push(`${abbreviation} | ${kr.task}${kr.description ? ' — ' + kr.description : ''} | ${obj.title} | ${i + 1} of ${total}`)
+      })
     }
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
       setCopiedToClipboard(true)
@@ -1145,13 +1146,18 @@ export default function OkrPlanner() {
                           </div>
                           {/* Scope detail */}
                           {(obj.scope === 'specific-pages' || obj.scope === 'keyword-group') && (
-                            <input
-                              type="text"
-                              value={obj.scopeDetail || ''}
-                              onChange={e => updateObjective(currentPeriod.id, obj.id, { scopeDetail: e.target.value })}
-                              placeholder={obj.scope === 'specific-pages' ? 'Which pages?' : 'Which keyword group?'}
-                              className="w-full text-xs text-gray-500 mt-1 bg-transparent border-none focus:outline-none focus:ring-0 p-0 placeholder:text-gray-300"
-                            />
+                            <div className="mt-2">
+                              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">
+                                {obj.scope === 'specific-pages' ? 'Pages / Clusters' : 'Keyword Group'}
+                              </label>
+                              <input
+                                type="text"
+                                value={obj.scopeDetail || ''}
+                                onChange={e => updateObjective(currentPeriod.id, obj.id, { scopeDetail: e.target.value })}
+                                placeholder={obj.scope === 'specific-pages' ? 'e.g. homepage, product pages...' : 'e.g. branded keywords...'}
+                                className="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-coral/30 placeholder:text-gray-300"
+                              />
+                            </div>
                           )}
                           {/* Actioned toggle */}
                           <button
@@ -1196,9 +1202,11 @@ export default function OkrPlanner() {
                           <p className="text-sm text-gray-300 py-2">No tasks yet.</p>
                         ) : (
                           <ul className="space-y-2">
-                            {obj.keyResults.map(kr => (
+                            {obj.keyResults.map((kr, krIndex) => (
                               <li key={kr.id} className="group flex items-start gap-2">
-                                <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300" />
+                                <span className="shrink-0 text-xs font-medium text-gray-400 w-7 text-center leading-5 mt-1">
+                                  {krIndex + 1}/{obj.keyResults.length}
+                                </span>
                                 <div className="flex-1 min-w-0">
                                   <input
                                     type="text"
@@ -1218,6 +1226,16 @@ export default function OkrPlanner() {
                                     )}
                                     placeholder="Add details..."
                                     className="w-full text-xs text-gray-400 mt-0.5 bg-transparent border-none focus:outline-none focus:ring-0 p-0 placeholder:text-gray-300"
+                                  />
+                                  <textarea
+                                    value={kr.internalNotes}
+                                    onChange={e => updateKeyResult(
+                                      currentPeriod.id, obj.id, kr.id,
+                                      { internalNotes: e.target.value }
+                                    )}
+                                    placeholder="Internal notes (not visible to client)..."
+                                    rows={2}
+                                    className="w-full mt-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300 placeholder:text-amber-300"
                                   />
                                   <div className="flex items-center gap-3 mt-1">
                                     <div className="flex items-center gap-1">

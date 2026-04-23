@@ -74,6 +74,7 @@ function keyResultFromDb(row) {
     id: row.id,
     task: row.task,
     description: row.description || '',
+    internalNotes: row.internal_notes || '',
     amHours: Number(row.am_hours),
     seoHours: Number(row.seo_hours),
   }
@@ -85,6 +86,7 @@ function keyResultToDb(kr, objectiveId, sortOrder) {
     objective_id: objectiveId,
     task: kr.task,
     description: kr.description || '',
+    internal_notes: kr.internalNotes || '',
     am_hours: kr.amHours,
     seo_hours: kr.seoHours,
     sort_order: sortOrder,
