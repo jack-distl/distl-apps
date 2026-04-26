@@ -496,9 +496,14 @@ export default function OkrPlanner() {
     if (!currentPeriod) return
     const lines = []
     for (const obj of currentPeriod.objectives) {
+      const scopeLabel = SCOPE_OPTIONS.find(s => s.id === obj.scope)?.label
+      const detail = (obj.scopeDetail || '').trim()
+      const objSegment = detail && scopeLabel
+        ? `${obj.title} — ${scopeLabel}: ${detail}`
+        : obj.title
       const total = obj.keyResults.length
       obj.keyResults.forEach((kr, i) => {
-        lines.push(`${abbreviation} | ${kr.task}${kr.description ? ' — ' + kr.description : ''} | ${obj.title} | ${i + 1} of ${total}`)
+        lines.push(`${abbreviation} | ${kr.task}${kr.description ? ' — ' + kr.description : ''} | ${objSegment} | ${i + 1} of ${total}`)
       })
     }
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
