@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight,
-  Link2, Check, Copy, Camera, ExternalLink,
+  ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Check, Camera,
 } from 'lucide-react'
-import { Card, CardContent } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '../../components/ui/select'
@@ -14,16 +14,47 @@ import { Dialog, DialogContent } from '../../components/ui/dialog'
 import { cn } from '../../lib/utils'
 import { LoadingSpinner } from '../../components'
 import { useBlueprint, useBlueprintLibrary } from '../../hooks'
-import {
-  STATUS_META, STATUSES, PHASES, PHASE_META, STAGES, STAGE_LABELS,
-} from '../../lib/blueprintConstants'
+import { STATUS_META, STATUSES, PHASES, PHASE_META } from '../../lib/blueprintConstants'
+import BlueprintClientView from './BlueprintClientView'
+
+function formatDate(iso) {
+  try {
+    return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+  } catch {
+    return ''
+  }
+}
 
 export default function BlueprintEditor() {
   const { clientId } = useParams()
   const bp = useBlueprint(clientId)
   const lib = useBlueprintLibrary()
+
+  const [viewMode, setViewMode] = useState('internal') // 'internal' | 'external'
+  const [selectedCheckpointId, setSelectedCheckpointId] = useState('live')
+  const [checkpoints, setCheckpoints] = useState([])
   const [adding, setAdding] = useState(null) // domainId being added to
   const [checkpointMsg, setCheckpointMsg] = useState(null)
+
+  // Load the checkpoint list (with snapshots) once the blueprint is ready.
+  useEffect(() => {
+    if (bp.blueprint) {
+      bp.fetchCheckpoints().then(setCheckpoints).catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bp.blueprint?.id])
+
+  const isLive = selectedCheckpointId === 'live'
+  const activeCheckpoint = isLive ? null : checkpoints.find(c => c.id === selectedCheckpointId)
+
+  // The board being viewed: either the live working board or a frozen snapshot.
+  const board = useMemo(() => {
+    if (isLive) {
+      return { blueprint: bp.blueprint, elements: bp.elements }
+    }
+    const snap = activeCheckpoint?.snapshot || {}
+    return { blueprint: snap.blueprint || bp.blueprint, elements: snap.elements || [] }
+  }, [isLive, activeCheckpoint, bp.blueprint, bp.elements])
 
   if (bp.loading) {
     return <div className="py-20 flex justify-center"><LoadingSpinner size="lg" /></div>
@@ -37,98 +68,118 @@ export default function BlueprintEditor() {
     )
   }
 
-  const shareUrl = `${window.location.origin}/blueprint/share/${bp.blueprint.share_token}`
-
   async function handleCheckpoint() {
-    const label = prompt('Label this checkpoint (e.g. "March 2026 review")')
+    const label = prompt('Name this checkpoint (e.g. "Proposal", "Year One", "March 2026")')
     if (label === null) return
     try {
       const cp = await bp.createCheckpoint(label)
-      setCheckpointMsg(`Checkpoint v${cp.version} saved.`)
+      const next = await bp.fetchCheckpoints()
+      setCheckpoints(next)
+      setCheckpointMsg(`Checkpoint "${cp.label || `v${cp.version}`}" saved.`)
       setTimeout(() => setCheckpointMsg(null), 3000)
     } catch (e) {
       alert(e.message)
     }
   }
 
+  const goal = board.blueprint?.goal_statement
+
   return (
-    <div className="max-w-[100rem] mx-auto">
-      <Link to="/blueprint" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-coral mb-4">
-        <ArrowLeft className="w-4 h-4" /> Back to blueprints
-      </Link>
+    <div className={viewMode === 'external' ? '' : 'max-w-[100rem] mx-auto'}>
+      <div className={viewMode === 'external' ? 'max-w-[100rem] mx-auto px-1' : ''}>
+        <Link to="/blueprint" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-coral mb-4">
+          <ArrowLeft className="w-4 h-4" /> Back to blueprints
+        </Link>
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-charcoal">{bp.blueprint.client?.name}</h1>
-          <GoalEditor
-            value={bp.blueprint.goal_statement}
-            onSave={(v) => bp.updateBlueprint({ goal_statement: v })}
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={bp.blueprint.stage} onValueChange={(v) => bp.updateBlueprint({ stage: v })}>
-            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={handleCheckpoint}>
-            <Camera className="w-4 h-4" /> Save checkpoint
-          </Button>
-        </div>
-      </div>
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-charcoal">{bp.blueprint.client?.name}</h1>
+            {isLive ? (
+              <GoalEditor
+                value={bp.blueprint.goal_statement}
+                onSave={(v) => bp.updateBlueprint({ goal_statement: v })}
+              />
+            ) : (
+              goal && <p className="text-sm text-gray-600 italic mt-1">"{goal}"</p>
+            )}
+          </div>
 
-      {checkpointMsg && (
-        <div className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-          {checkpointMsg}
-        </div>
-      )}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View toggle */}
+            <Tabs value={viewMode} onValueChange={setViewMode}>
+              <TabsList className="bg-gray-100">
+                <TabsTrigger value="internal" className="data-[state=active]:bg-charcoal data-[state=active]:text-white">
+                  Internal
+                </TabsTrigger>
+                <TabsTrigger value="external" className="data-[state=active]:bg-charcoal data-[state=active]:text-white">
+                  External
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-      <SharePanel blueprint={bp.blueprint} shareUrl={shareUrl} onToggle={(v) => bp.updateBlueprint({ share_enabled: v })} />
-
-      {/* Board columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mt-6">
-        {lib.domains.map(domain => {
-          const els = bp.elements
-            .filter(e => e.domain_id === domain.id)
-            .sort((a, b) => a.sort_order - b.sort_order)
-          return (
-            <div key={domain.id} className="bg-cream/60 rounded-xl p-3">
-              <div className="px-1 mb-3">
-                <h2 className="font-semibold text-charcoal text-sm">{domain.name}</h2>
-                {domain.outcome_line && (
-                  <p className="text-xs text-gray-400 mt-0.5 leading-snug">{domain.outcome_line}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                {els.map((el, i) => (
-                  <ElementCard
-                    key={el.id}
-                    element={el}
-                    isFirst={i === 0}
-                    isLast={i === els.length - 1}
-                    onUpdate={(fields) => bp.updateElement(el.id, fields)}
-                    onRemove={() => bp.removeElement(el.id)}
-                    onMove={(dir) => bp.moveElement(el.id, dir)}
-                  />
+            {/* Board / checkpoint selector */}
+            <Select value={selectedCheckpointId} onValueChange={setSelectedCheckpointId}>
+              <SelectTrigger className="w-auto min-w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="live">Live board</SelectItem>
+                {checkpoints.map(c => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {(c.label || `Version ${c.version}`)} · {formatDate(c.created_at)}
+                  </SelectItem>
                 ))}
-              </div>
-              <Button
-                variant="ghost" size="sm"
-                className="w-full mt-2 text-gray-500"
-                onClick={() => setAdding(domain.id)}
-              >
-                <Plus className="w-4 h-4" /> Add element
+              </SelectContent>
+            </Select>
+
+            {isLive && (
+              <Button variant="outline" onClick={handleCheckpoint}>
+                <Camera className="w-4 h-4" /> Save checkpoint
               </Button>
-            </div>
-          )
-        })}
+            )}
+          </div>
+        </div>
+
+        {checkpointMsg && (
+          <div className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+            {checkpointMsg}
+          </div>
+        )}
+
+        {!isLive && (
+          <div className="mb-4 text-sm text-gray-600 bg-cream border border-gray-200 rounded-lg px-3 py-2">
+            Viewing a saved checkpoint (read-only). Switch to <strong>Live board</strong> to edit.
+          </div>
+        )}
       </div>
+
+      {/* Body: internal rows (editable on live) or external columns (read-only) */}
+      <AnimatePresence mode="wait">
+        {viewMode === 'external' ? (
+          <motion.div key="external" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+            <BlueprintClientView
+              clientName={bp.blueprint.client?.name}
+              goal={goal}
+              domains={lib.domains}
+              elements={board.elements}
+            />
+          </motion.div>
+        ) : (
+          <motion.div key="internal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+            <BoardRows
+              domains={lib.domains}
+              elements={board.elements}
+              readOnly={!isLive}
+              onUpdate={bp.updateElement}
+              onRemove={bp.removeElement}
+              onMove={bp.moveElement}
+              onAdd={setAdding}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {adding && (
         <AddElementDialog
-          domainId={adding}
           domain={lib.domains.find(d => d.id === adding)}
           library={lib.elements.filter(e => e.is_active)}
           existingLibraryIds={bp.elements.map(e => e.library_element_id).filter(Boolean)}
@@ -141,145 +192,125 @@ export default function BlueprintEditor() {
   )
 }
 
-function GoalEditor({ value, onSave }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value || '')
-  if (editing) {
-    return (
-      <div className="flex items-center gap-2 mt-1">
-        <Input value={draft} onChange={e => setDraft(e.target.value)} className="w-80" autoFocus />
-        <Button size="sm" onClick={() => { onSave(draft); setEditing(false) }}><Check className="w-4 h-4" /></Button>
-      </div>
-    )
-  }
+// ── Internal layout: columns as stacked sections, elements as full-width rows ──
+function BoardRows({ domains, elements, readOnly, onUpdate, onRemove, onMove, onAdd }) {
   return (
-    <button onClick={() => { setDraft(value || ''); setEditing(true) }} className="text-left mt-1 group">
-      <span className={cn('text-sm', value ? 'text-gray-600 italic' : 'text-gray-400')}>
-        {value ? `"${value}"` : 'Add a goal statement…'}
-      </span>
-      <span className="text-gray-300 group-hover:text-coral ml-2 text-xs">edit</span>
-    </button>
-  )
-}
-
-function SharePanel({ blueprint, shareUrl, onToggle }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <Card>
-      <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link2 className="w-5 h-5 text-gray-400" />
-          <div>
-            <p className="text-sm font-medium text-charcoal">Client view sharing</p>
-            <p className="text-xs text-gray-500">
-              {blueprint.share_enabled ? 'On — anyone with the link can view (read-only).' : 'Off — the link will not work.'}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {blueprint.share_enabled && (
-            <>
-              <button
-                onClick={() => { navigator.clipboard?.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-coral border border-gray-200 rounded-lg px-2 py-1.5"
-              >
-                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied ? 'Copied' : 'Copy link'}
-              </button>
-              <a
-                href={shareUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-coral border border-gray-200 rounded-lg px-2 py-1.5"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> Open
-              </a>
-            </>
-          )}
-          <Button
-            variant={blueprint.share_enabled ? 'outline' : 'default'}
-            size="sm"
-            onClick={() => onToggle(!blueprint.share_enabled)}
-          >
-            {blueprint.share_enabled ? 'Turn off' : 'Enable sharing'}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function ElementCard({ element, isFirst, isLast, onUpdate, onRemove, onMove }) {
-  const [open, setOpen] = useState(false)
-  const meta = STATUS_META[element.status]
-
-  return (
-    <div className="bg-white rounded-lg border border-gray-100 shadow-sm">
-      <div className="p-3">
-        <div className="flex items-start gap-2">
-          <button onClick={() => setOpen(o => !o)} className="mt-0.5 text-gray-300 hover:text-gray-500 shrink-0">
-            <ChevronRight className={cn('w-4 h-4 transition-transform', open && 'rotate-90')} />
-          </button>
-          <InlineText
-            value={element.title}
-            onSave={(v) => onUpdate({ title: v })}
-            className="flex-1 text-sm font-medium text-charcoal leading-snug"
-          />
-        </div>
-
-        {/* Status pills */}
-        <div className="flex items-center gap-1 mt-2 ml-6">
-          {STATUSES.map(s => (
-            <button
-              key={s}
-              onClick={() => onUpdate({ status: s })}
-              title={STATUS_META[s].label}
-              className={cn(
-                'inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full border transition-colors',
-                element.status === s
-                  ? `${STATUS_META[s].chip} ${STATUS_META[s].ring}`
-                  : 'border-transparent text-gray-400 hover:bg-gray-50'
+    <div className="space-y-8">
+      {domains.map(domain => {
+        const els = elements
+          .filter(e => e.domain_id === domain.id)
+          .sort((a, b) => a.sort_order - b.sort_order)
+        return (
+          <section key={domain.id}>
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold text-charcoal">{domain.name}</h2>
+              {domain.outcome_line && <p className="text-sm text-gray-400">{domain.outcome_line}</p>}
+            </div>
+            <div className="space-y-3">
+              {els.length === 0 && (
+                <p className="text-sm text-gray-300 pl-1">No elements in this column yet.</p>
               )}
-            >
-              <span className={cn('w-2 h-2 rounded-full', STATUS_META[s].dot)} />
-              {STATUS_META[s].label}
-            </button>
-          ))}
-        </div>
-      </div>
+              {els.map((el, i) => (
+                <ElementRow
+                  key={el.id}
+                  element={el}
+                  isFirst={i === 0}
+                  isLast={i === els.length - 1}
+                  readOnly={readOnly}
+                  onUpdate={(fields) => onUpdate(el.id, fields)}
+                  onRemove={() => onRemove(el.id)}
+                  onMove={(dir) => onMove(el.id, dir)}
+                />
+              ))}
+            </div>
+            {!readOnly && (
+              <Button variant="ghost" size="sm" className="mt-2 text-gray-500" onClick={() => onAdd(domain.id)}>
+                <Plus className="w-4 h-4" /> Add element to {domain.name}
+              </Button>
+            )}
+          </section>
+        )
+      })}
+    </div>
+  )
+}
 
-      {open && (
-        <div className="px-3 pb-3 ml-6 space-y-3 border-t border-gray-50 pt-3">
-          <EditField label="Why we need it" value={element.why} onSave={(v) => onUpdate({ why: v })} />
-          <EditField label="What we'd recommend" value={element.recommend} onSave={(v) => onUpdate({ recommend: v })} />
-          <EditField label="Example inclusions" value={element.examples} onSave={(v) => onUpdate({ examples: v })} />
+function ElementRow({ element, isFirst, isLast, readOnly, onUpdate, onRemove, onMove }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          {readOnly ? (
+            <p className="text-sm font-semibold text-charcoal">{element.title}</p>
+          ) : (
+            <InlineText
+              value={element.title}
+              onSave={(v) => onUpdate({ title: v })}
+              className="text-sm font-semibold text-charcoal leading-snug"
+            />
+          )}
 
-          <div className="flex items-center justify-between gap-2 pt-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">Phase</span>
-              <Select
-                value={element.phase || 'none'}
-                onValueChange={(v) => onUpdate({ phase: v === 'none' ? null : v })}
+          {/* Status pills */}
+          <div className="flex items-center gap-1 mt-2">
+            {STATUSES.map(s => (
+              <button
+                key={s}
+                disabled={readOnly}
+                onClick={() => !readOnly && onUpdate({ status: s })}
+                title={STATUS_META[s].label}
+                className={cn(
+                  'inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full border transition-colors',
+                  element.status === s
+                    ? `${STATUS_META[s].chip} ${STATUS_META[s].ring}`
+                    : 'border-transparent text-gray-400',
+                  !readOnly && element.status !== s && 'hover:bg-gray-50',
+                  readOnly && 'cursor-default'
+                )}
               >
-                <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">—</SelectItem>
-                  {PHASES.map(p => <SelectItem key={p} value={p}>{PHASE_META[p].label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" disabled={isFirst} onClick={() => onMove('up')} title="Move up">
-                <ChevronUp className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="icon" disabled={isLast} onClick={() => onMove('down')} title="Move down">
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={onRemove} title="Remove from board" className="text-gray-400 hover:text-red-500">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
+                <span className={cn('w-2 h-2 rounded-full', STATUS_META[s].dot)} />
+                {STATUS_META[s].label}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+
+        {!readOnly && (
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="icon" disabled={isFirst} onClick={() => onMove('up')} title="Move up">
+              <ChevronUp className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" disabled={isLast} onClick={() => onMove('down')} title="Move down">
+              <ChevronDown className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onRemove} title="Remove from board" className="text-gray-400 hover:text-red-500">
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* The three fields, always visible as rows */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
+        <FieldBox label="Why we need it" value={element.why} readOnly={readOnly} onSave={(v) => onUpdate({ why: v })} />
+        <FieldBox label="What we'd recommend" value={element.recommend} readOnly={readOnly} onSave={(v) => onUpdate({ recommend: v })} />
+        <FieldBox label="Example inclusions" value={element.examples} readOnly={readOnly} onSave={(v) => onUpdate({ examples: v })} />
+      </div>
+
+      {/* Phase */}
+      <div className="flex items-center gap-2 mt-3">
+        <span className="text-xs text-gray-400">Phase</span>
+        {readOnly ? (
+          <span className="text-xs text-gray-600">{element.phase ? PHASE_META[element.phase]?.label : '—'}</span>
+        ) : (
+          <Select value={element.phase || 'none'} onValueChange={(v) => onUpdate({ phase: v === 'none' ? null : v })}>
+            <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">—</SelectItem>
+              {PHASES.map(p => <SelectItem key={p} value={p}>{PHASE_META[p].label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
     </div>
   )
 }
@@ -307,21 +338,48 @@ function InlineText({ value, onSave, className }) {
   )
 }
 
-// Multi-line field, saves on blur.
-function EditField({ label, value, onSave }) {
+// Labelled field box. Read-only renders plain text; editable saves on blur.
+function FieldBox({ label, value, readOnly, onSave }) {
   const [draft, setDraft] = useState(value || '')
+  useEffect(() => { setDraft(value || '') }, [value])
+
   return (
     <div>
       <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-400 mb-1">{label}</label>
-      <textarea
-        rows={2}
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        onBlur={() => { if ((draft || '') !== (value || '')) onSave(draft.trim() || null) }}
-        placeholder="—"
-        className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-coral"
-      />
+      {readOnly ? (
+        <p className="text-sm text-gray-600 whitespace-pre-wrap min-h-[1.25rem]">{value || '—'}</p>
+      ) : (
+        <textarea
+          rows={3}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={() => { if ((draft || '') !== (value || '')) onSave(draft.trim() || null) }}
+          placeholder="—"
+          className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-coral"
+        />
+      )}
     </div>
+  )
+}
+
+function GoalEditor({ value, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value || '')
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 mt-1">
+        <Input value={draft} onChange={e => setDraft(e.target.value)} className="w-80" autoFocus />
+        <Button size="sm" onClick={() => { onSave(draft); setEditing(false) }}><Check className="w-4 h-4" /></Button>
+      </div>
+    )
+  }
+  return (
+    <button onClick={() => { setDraft(value || ''); setEditing(true) }} className="text-left mt-1 group">
+      <span className={cn('text-sm', value ? 'text-gray-600 italic' : 'text-gray-400')}>
+        {value ? `"${value}"` : 'Add a goal statement…'}
+      </span>
+      <span className="text-gray-300 group-hover:text-coral ml-2 text-xs">edit</span>
+    </button>
   )
 }
 

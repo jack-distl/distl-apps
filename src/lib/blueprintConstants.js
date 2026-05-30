@@ -35,14 +35,6 @@ export const PHASE_META = {
   later: { label: 'Later' },
 }
 
-// Board stage (its mode).
-export const STAGES = ['draft', 'proposal', 'live']
-export const STAGE_LABELS = {
-  draft: 'Draft',
-  proposal: 'Proposal',
-  live: 'Live',
-}
-
 // The three client-facing fields, in display order.
 export const FIELD_LABELS = {
   why: 'Why we need it',

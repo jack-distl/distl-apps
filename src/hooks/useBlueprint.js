@@ -43,7 +43,6 @@ export function useBlueprintsList() {
         client_id: client.id,
         goal_statement: goal || null,
         industry_template_id: templateId || null,
-        stage: 'proposal',
       })
       .select()
       .single()
@@ -238,7 +237,7 @@ export function useBlueprint(clientId) {
   async function fetchCheckpoints() {
     const { data, error: err } = await supabase
       .from('bp_checkpoints')
-      .select('id, version, label, created_at')
+      .select('id, version, label, created_at, snapshot')
       .eq('blueprint_id', blueprint.id)
       .order('version', { ascending: false })
     if (err) return []
@@ -251,33 +250,4 @@ export function useBlueprint(clientId) {
     updateElement, removeElement, moveElement,
     createCheckpoint, fetchCheckpoints,
   }
-}
-
-// ── Public board (read-only, by share token, no login) ───────────
-export function usePublicBoard(token) {
-  const [board, setBoard] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      if (!supabase || !token) { setLoading(false); return }
-      setLoading(true)
-      setError(null)
-      const { data, error: err } = await supabase.rpc('bp_get_public_board', { p_token: token })
-      if (cancelled) return
-      if (err) {
-        console.error('usePublicBoard error:', err)
-        setError('Could not load this board.')
-      } else {
-        setBoard(data) // null if not shared / not found
-      }
-      setLoading(false)
-    }
-    load()
-    return () => { cancelled = true }
-  }, [token])
-
-  return { board, loading, error }
 }

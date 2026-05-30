@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, ExternalLink, Library, Trash2, ArrowRight } from 'lucide-react'
+import { Plus, Library, Trash2, ArrowRight } from 'lucide-react'
 import { Card, CardContent } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -10,7 +10,6 @@ import {
 import { Dialog, DialogContent, DialogTrigger } from '../../components/ui/dialog'
 import { LoadingSpinner } from '../../components'
 import { useBlueprintsList, useBlueprintLibrary } from '../../hooks'
-import { STAGE_LABELS } from '../../lib/blueprintConstants'
 
 export default function BlueprintHome() {
   const { blueprints, loading, createBlueprint, deleteBlueprint } = useBlueprintsList()
@@ -118,16 +117,6 @@ export default function BlueprintHome() {
                     {bp.goal_statement && (
                       <p className="text-sm text-gray-500 mt-1 line-clamp-2">{bp.goal_statement}</p>
                     )}
-                    <div className="flex items-center gap-2 mt-3 text-xs">
-                      <span className="px-2 py-0.5 rounded-full bg-cream text-gray-600 border border-gray-200">
-                        {STAGE_LABELS[bp.stage]}
-                      </span>
-                      {bp.share_enabled && (
-                        <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 inline-flex items-center gap-1">
-                          <ExternalLink className="w-3 h-3" /> Sharing on
-                        </span>
-                      )}
-                    </div>
                   </div>
                   <button
                     onClick={() => {
