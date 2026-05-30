@@ -11,6 +11,10 @@ import PlannerHome from './features/okr/PlannerHome'
 import OkrPlanner from './features/okr/OkrPlanner'
 import HoursHome from './features/hours/HoursHome'
 import ClientHours from './features/hours/ClientHours'
+import BlueprintHome from './features/blueprint/BlueprintHome'
+import LibraryManager from './features/blueprint/LibraryManager'
+import BlueprintEditor from './features/blueprint/BlueprintEditor'
+import BlueprintClientView from './features/blueprint/BlueprintClientView'
 
 const pageTransition = {
   initial: { opacity: 0, y: 8 },
@@ -32,6 +36,15 @@ export default function App() {
   // Auth callback route must be accessible before auth resolves
   if (location.pathname === '/auth/callback') {
     return <AuthCallback />
+  }
+
+  // Public client view: read-only, no login, reached by share token only.
+  if (location.pathname.startsWith('/blueprint/share/')) {
+    return (
+      <Routes location={location}>
+        <Route path="/blueprint/share/:token" element={<BlueprintClientView />} />
+      </Routes>
+    )
   }
 
   // Show loading spinner while auth state resolves
@@ -86,6 +99,9 @@ export default function App() {
                   <Route path="/okr/:clientId" element={<OkrPlanner />} />
                   <Route path="/hours" element={<HoursHome />} />
                   <Route path="/hours/:clientId" element={<ClientHours />} />
+                  <Route path="/blueprint" element={<BlueprintHome />} />
+                  <Route path="/blueprint/library" element={<LibraryManager />} />
+                  <Route path="/blueprint/:clientId" element={<BlueprintEditor />} />
                 </Routes>
               </motion.div>
             </AnimatePresence>
