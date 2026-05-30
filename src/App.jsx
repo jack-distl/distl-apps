@@ -11,6 +11,9 @@ import PlannerHome from './features/okr/PlannerHome'
 import OkrPlanner from './features/okr/OkrPlanner'
 import HoursHome from './features/hours/HoursHome'
 import ClientHours from './features/hours/ClientHours'
+import BlueprintHome from './features/blueprint/BlueprintHome'
+import LibraryManager from './features/blueprint/LibraryManager'
+import BlueprintEditor from './features/blueprint/BlueprintEditor'
 
 const pageTransition = {
   initial: { opacity: 0, y: 8 },
@@ -86,6 +89,9 @@ export default function App() {
                   <Route path="/okr/:clientId" element={<OkrPlanner />} />
                   <Route path="/hours" element={<HoursHome />} />
                   <Route path="/hours/:clientId" element={<ClientHours />} />
+                  <Route path="/blueprint" element={<BlueprintHome />} />
+                  <Route path="/blueprint/library" element={<LibraryManager />} />
+                  <Route path="/blueprint/:clientId" element={<BlueprintEditor />} />
                 </Routes>
               </motion.div>
             </AnimatePresence>

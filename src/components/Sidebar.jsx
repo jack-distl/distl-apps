@@ -1,4 +1,4 @@
-import { LayoutDashboard, Target, Clock, Map, Settings } from 'lucide-react'
+import { LayoutDashboard, Target, Clock, Map, Settings, Compass } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -7,6 +7,7 @@ import { Separator } from './ui/separator'
 const navItems = [
   { label: 'Hub', href: '/', icon: LayoutDashboard },
   { label: 'OKR Planner', href: '/okr', icon: Target },
+  { label: 'Blueprint', href: '/blueprint', icon: Compass },
   { label: 'WFM Hours', href: '/hours', icon: Clock },
   { label: 'Sitemap Tool', href: '/sitemap', icon: Map, disabled: true },
   { label: 'Settings', href: '/settings', icon: Settings, disabled: true },
