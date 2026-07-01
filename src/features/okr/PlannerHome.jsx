@@ -11,7 +11,6 @@ import { useClients, fetchLatestPeriods, fetchAllClientRetainers } from '../../h
 import { supabase } from '../../lib/supabase'
 import { mockOkrData, mockClientRetainers } from '../../lib/mockData'
 import { HOURLY_RATE, getPeriodLabel } from '../../lib/constants'
-import TemplateEditor from './TemplateEditor'
 
 function generateAbbreviation(name) {
   return name
@@ -51,7 +50,6 @@ export default function PlannerHome() {
     })
   }, [])
 
-  const [editingTemplates, setEditingTemplates] = useState(false)
   const [showNewClient, setShowNewClient] = useState(false)
   const [newName, setNewName] = useState('')
   const [newAbbreviation, setNewAbbreviation] = useState('')
@@ -129,32 +127,26 @@ export default function PlannerHome() {
         </div>
         <div className="flex items-center gap-3">
           <Button
-            variant={editingTemplates ? 'default' : 'outline'}
-            onClick={() => setEditingTemplates(!editingTemplates)}
-            className={editingTemplates ? 'bg-charcoal hover:bg-charcoal/90' : ''}
+            variant="outline"
+            onClick={() => navigate('/okr/templates')}
           >
             <Settings className="w-4 h-4 mr-2" />
-            {editingTemplates ? 'Back to Clients' : 'Edit Templates'}
+            Edit Templates
           </Button>
-          {!editingTemplates && (
-            <Button onClick={() => setShowNewClient(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Client
-            </Button>
-          )}
+          <Button onClick={() => setShowNewClient(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Client
+          </Button>
         </div>
       </div>
 
-      {editingTemplates ? (
-        <TemplateEditor />
-      ) : (
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-        >
-          {activeClients.map(client => {
+      <motion.div
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        {activeClients.map(client => {
             const dbPeriod = periodsByClient?.[client.id]
             const mockPeriod = mockOkrData[client.id]?.periods?.at(-1)
             const latestPeriod = dbPeriod || mockPeriod || null
@@ -218,8 +210,7 @@ export default function PlannerHome() {
               </motion.div>
             )
           })}
-        </motion.div>
-      )}
+      </motion.div>
 
       {/* New Client Modal */}
       <Modal

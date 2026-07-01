@@ -1,4 +1,4 @@
-import { LayoutDashboard, Target, Clock, Map, Settings } from 'lucide-react'
+import { LayoutDashboard, Target, LayoutTemplate, Clock, Map, Settings } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -7,13 +7,24 @@ import { Separator } from './ui/separator'
 const navItems = [
   { label: 'Hub', href: '/', icon: LayoutDashboard },
   { label: 'OKR Planner', href: '/okr', icon: Target },
+  { label: 'Edit Templates', href: '/okr/templates', icon: LayoutTemplate },
   { label: 'WFM Hours', href: '/hours', icon: Clock },
   { label: 'Sitemap Tool', href: '/sitemap', icon: Map, disabled: true },
   { label: 'Settings', href: '/settings', icon: Settings, disabled: true },
 ]
 
+function isMatch(href, pathname) {
+  return pathname === href || (href !== '/' && pathname.startsWith(href + '/'))
+}
+
 export function Sidebar({ open = false, onClose }) {
   const { pathname } = useLocation()
+
+  // Highlight only the most specific matching nav item (e.g. /okr/templates
+  // lights "Edit Templates", not also "OKR Planner").
+  const activeHref = navItems
+    .filter(item => !item.disabled && isMatch(item.href, pathname))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -33,7 +44,7 @@ export function Sidebar({ open = false, onClose }) {
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 mt-2">
         {navItems.map((item) => {
-          const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+          const active = item.href === activeHref
           return (
             <Link
               key={item.href}
