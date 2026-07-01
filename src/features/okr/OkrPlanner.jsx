@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Plus, Copy, ChevronDown, ChevronUp,
   Trash2, Globe, FileText, Hash, CheckCircle, XCircle,
-  AlertTriangle, Search, X, ClipboardCheck, Loader2, Check, Circle, Pencil
+  AlertTriangle, Search, X, ClipboardCheck, Loader2, Check, Circle, Pencil,
+  BookmarkPlus
 } from 'lucide-react'
 import { UndoToast } from '../../components/UndoToast'
 import { ClientEditModal } from '../../components/ClientEditModal'
@@ -17,9 +18,11 @@ import ClientView from './ClientView'
 import { useClients } from '../../hooks'
 import { useClientRetainers } from '../../hooks/useClientRetainers'
 import { useOkrData } from '../../hooks/useOkrData'
-import { TASK_LIBRARY, SCOPE_OPTIONS, getAllTemplatesResolved } from '../../lib/taskLibrary'
+import { useTemplates } from '../../contexts/TemplateContext'
+import { SCOPE_OPTIONS } from '../../lib/taskLibrary'
 import {
-  HOURLY_RATE, AD_HOC_BUFFER, DEFAULT_OFFSITE_ALLOWANCE,
+  HOURLY_RATE, DEFAULT_OFFSITE_ALLOWANCE,
+  DEFAULT_ADHOC_PERCENT, DEFAULT_ACCOUNT_MANAGEMENT_PERCENT,
   AM_HOUR_TARGET, SEO_HOUR_TARGET,
   roundToHalf, formatHours, formatCurrency,
   calculatePeriodMonths, getPeriodLabel, generateId
@@ -50,6 +53,45 @@ const fadeUp = {
   show: { opacity: 1, y: 0 },
 }
 
+// Reporting is represented as objectives that consume the objective pool
+// (each with editable AM/SEO hours), auto-seeded into every new period.
+function createReportingObjectives() {
+  return [
+    {
+      id: generateId(),
+      title: 'Monthly Reporting',
+      scope: 'sitewide',
+      scopeDetail: '',
+      isActioned: true,
+      notActionedReason: '',
+      keyResults: [{
+        id: generateId(),
+        task: 'Monthly Reporting',
+        description: '',
+        internalNotes: '',
+        amHours: 1,
+        seoHours: 2,
+      }],
+    },
+    {
+      id: generateId(),
+      title: 'Quarterly Reporting (OKR)',
+      scope: 'sitewide',
+      scopeDetail: '',
+      isActioned: true,
+      notActionedReason: '',
+      keyResults: [{
+        id: generateId(),
+        task: 'OKR Reporting',
+        description: '',
+        internalNotes: '',
+        amHours: 1,
+        seoHours: 2,
+      }],
+    },
+  ]
+}
+
 function createBlankPeriod() {
   const now = new Date()
   const month = now.getMonth() + 1
@@ -65,13 +107,10 @@ function createBlankPeriod() {
     isPublished: false,
     goal: '',
     offsiteAllowancePercent: DEFAULT_OFFSITE_ALLOWANCE,
-    adminTasks: {
-      monthlyReportingAM: 1,
-      monthlyReportingSEO: 2,
-      okrReportingAM: 1,
-      okrReportingSEO: 2,
-    },
-    objectives: [],
+    adHocPercent: DEFAULT_ADHOC_PERCENT,
+    accountManagementName: 'Account Management',
+    accountManagementPercent: DEFAULT_ACCOUNT_MANAGEMENT_PERCENT,
+    objectives: createReportingObjectives(),
   }
 }
 
@@ -89,6 +128,7 @@ export default function OkrPlanner() {
   } = useOkrData(clientId)
 
   const { seoRetainer: clientSeoRetainer } = useClientRetainers(clientId)
+  const { addTask: addTaskToLibrary } = useTemplates()
   const abbreviation = client?.abbreviation || ''
 
   // ─── State ───────────────────────────────────────────────
@@ -97,6 +137,7 @@ export default function OkrPlanner() {
   const [collapsedObjectives, setCollapsedObjectives] = useState({})
   const [copiedToClipboard, setCopiedToClipboard] = useState(false)
   const [deletedObjective, setDeletedObjective] = useState(null)
+  const [savedToLibraryKrId, setSavedToLibraryKrId] = useState(null)
 
   // Modal states
   const [showNewPeriodModal, setShowNewPeriodModal] = useState(false)
@@ -234,17 +275,18 @@ export default function OkrPlanner() {
     const offsiteDeduction = gross * (currentPeriod.offsiteAllowancePercent / 100)
     const net = gross - offsiteDeduction
     const baseHours = roundToHalf(net / HOURLY_RATE)
-    const bufferHours = roundToHalf(baseHours * AD_HOC_BUFFER)
 
-    const admin = currentPeriod.adminTasks
-    const monthlyReportingTotal =
-      (admin.monthlyReportingAM + admin.monthlyReportingSEO) * months
-    const okrReportingTotal = admin.okrReportingAM + admin.okrReportingSEO
-    const totalAdminHours = monthlyReportingTotal + okrReportingTotal
+    const adHocPercent = currentPeriod.adHocPercent ?? DEFAULT_ADHOC_PERCENT
+    const bufferHours = roundToHalf(baseHours * (adHocPercent / 100))
 
-    const availableForObjectives = roundToHalf(baseHours - bufferHours - totalAdminHours)
+    // Account Management is a % of base hours (AM work) that consumes the pool
+    const accountManagementPercent =
+      currentPeriod.accountManagementPercent ?? DEFAULT_ACCOUNT_MANAGEMENT_PERCENT
+    const accountManagementHours = roundToHalf(baseHours * (accountManagementPercent / 100))
 
-    // Sum hours across all objectives
+    const availableForObjectives = roundToHalf(baseHours - bufferHours)
+
+    // Sum hours across all objectives (reporting objectives included)
     let totalSeoHours = 0
     let totalAmHours = 0
     for (const obj of currentPeriod.objectives) {
@@ -253,6 +295,8 @@ export default function OkrPlanner() {
         totalAmHours += kr.amHours
       }
     }
+    // Account Management rolls into the AM totals
+    totalAmHours += accountManagementHours
     totalSeoHours = roundToHalf(totalSeoHours)
     totalAmHours = roundToHalf(totalAmHours)
     const totalObjectiveHours = roundToHalf(totalSeoHours + totalAmHours)
@@ -263,7 +307,7 @@ export default function OkrPlanner() {
 
     return {
       retainerAmount, months, gross, offsiteDeduction, net, baseHours, bufferHours,
-      monthlyReportingTotal, okrReportingTotal, totalAdminHours,
+      adHocPercent, accountManagementPercent, accountManagementHours,
       availableForObjectives, totalSeoHours, totalAmHours,
       totalObjectiveHours, remainingHours, idealSeoHours, idealAmHours,
     }
@@ -274,18 +318,6 @@ export default function OkrPlanner() {
   const updatePeriod = useCallback((periodId, updates) => {
     setPeriods(prev => {
       const next = prev.map(p => p.id === periodId ? { ...p, ...updates } : p)
-      return next
-    })
-    triggerDebouncedSave(periodId)
-  }, [setPeriods, triggerDebouncedSave])
-
-  const updateAdminTask = useCallback((periodId, field, value) => {
-    setPeriods(prev => {
-      const next = prev.map(p =>
-        p.id === periodId
-          ? { ...p, adminTasks: { ...p.adminTasks, [field]: Math.round(Number(value) || 0) } }
-          : p
-      )
       return next
     })
     triggerDebouncedSave(periodId)
@@ -489,6 +521,53 @@ export default function OkrPlanner() {
     }))
     triggerDebouncedSave(periodId)
   }, [setPeriods, triggerDebouncedSave])
+
+  // Add a blank, objective-only task (not promoted to the master library)
+  const addBlankKeyResult = useCallback((periodId, objectiveId) => {
+    addKeyResult(periodId, objectiveId, {
+      id: generateId(),
+      task: '',
+      description: '',
+      internalNotes: '',
+      amHours: 0,
+      seoHours: 0,
+    })
+  }, [addKeyResult])
+
+  // Reorder a task within its objective; sort_order persists via savePeriod
+  const moveKeyResult = useCallback((periodId, objectiveId, krId, direction) => {
+    setPeriods(prev => prev.map(p => {
+      if (p.id !== periodId) return p
+      return {
+        ...p,
+        objectives: p.objectives.map(o => {
+          if (o.id !== objectiveId) return o
+          const idx = o.keyResults.findIndex(kr => kr.id === krId)
+          if (idx === -1) return o
+          const swapWith = direction === 'up' ? idx - 1 : idx + 1
+          if (swapWith < 0 || swapWith >= o.keyResults.length) return o
+          const next = [...o.keyResults]
+          ;[next[idx], next[swapWith]] = [next[swapWith], next[idx]]
+          return { ...o, keyResults: next }
+        }),
+      }
+    }))
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
+
+  // Promote a one-off task into the master template library
+  const saveKeyResultToLibrary = useCallback((kr) => {
+    const name = (kr.task || '').trim()
+    if (!name) return
+    Promise.resolve(
+      addTaskToLibrary({ name, defaultAmHours: kr.amHours, defaultSeoHours: kr.seoHours })
+    )
+      .then(() => {
+        setSavedToLibraryKrId(kr.id)
+        setTimeout(() => setSavedToLibraryKrId(null), 2000)
+      })
+      .catch(err => console.error('Save to library failed:', err))
+  }, [addTaskToLibrary])
 
   // ─── Clipboard Export ────────────────────────────────────
 
@@ -900,6 +979,17 @@ export default function OkrPlanner() {
                   className="w-16 px-2 py-1 text-sm border border-gray-200 rounded-lg"
                 />
               </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-500">Ad hoc %</label>
+                <input
+                  type="number"
+                  value={currentPeriod.adHocPercent ?? DEFAULT_ADHOC_PERCENT}
+                  onChange={e => updatePeriod(currentPeriod.id, { adHocPercent: Number(e.target.value) || 0 })}
+                  min={0}
+                  max={100}
+                  className="w-16 px-2 py-1 text-sm border border-gray-200 rounded-lg"
+                />
+              </div>
             </div>
             <div>
               <label className="text-sm text-gray-500 block mb-1">Goal</label>
@@ -916,7 +1006,7 @@ export default function OkrPlanner() {
           {/* Hour Allocation Breakdown */}
           {calc && (
             <motion.div
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
               variants={stagger}
               initial="hidden"
               animate="show"
@@ -949,81 +1039,12 @@ export default function OkrPlanner() {
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ad Hoc Buffer</h3>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">10% of {formatHours(calc.baseHours)}</span>
+                    <span className="text-gray-500">{calc.adHocPercent}% of {formatHours(calc.baseHours)}</span>
                     <span className="font-semibold text-charcoal">{formatHours(calc.bufferHours)}</span>
                   </div>
                   <p className="text-xs text-gray-400 mt-2">
                     Reserved for unplanned requests and ad hoc tasks.
                   </p>
-                </div>
-              </motion.div>
-
-              {/* Admin Tasks */}
-              <motion.div variants={fadeUp} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Admin Tasks</h3>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">Monthly Reporting (per month)</p>
-                    <div className="flex gap-2">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-400">AM</span>
-                        <input
-                          type="number"
-                          value={currentPeriod.adminTasks.monthlyReportingAM}
-                          onChange={e => updateAdminTask(currentPeriod.id, 'monthlyReportingAM', e.target.value)}
-                          min={0}
-                          step={1}
-                          className="w-14 px-1.5 py-0.5 text-sm border border-gray-200 rounded text-center"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-400">SEO</span>
-                        <input
-                          type="number"
-                          value={currentPeriod.adminTasks.monthlyReportingSEO}
-                          onChange={e => updateAdminTask(currentPeriod.id, 'monthlyReportingSEO', e.target.value)}
-                          min={0}
-                          step={1}
-                          className="w-14 px-1.5 py-0.5 text-sm border border-gray-200 rounded text-center"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      × {calc.months} months = {formatHours(calc.monthlyReportingTotal)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">OKR Reporting (per period)</p>
-                    <div className="flex gap-2">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-400">AM</span>
-                        <input
-                          type="number"
-                          value={currentPeriod.adminTasks.okrReportingAM}
-                          onChange={e => updateAdminTask(currentPeriod.id, 'okrReportingAM', e.target.value)}
-                          min={0}
-                          step={1}
-                          className="w-14 px-1.5 py-0.5 text-sm border border-gray-200 rounded text-center"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-400">SEO</span>
-                        <input
-                          type="number"
-                          value={currentPeriod.adminTasks.okrReportingSEO}
-                          onChange={e => updateAdminTask(currentPeriod.id, 'okrReportingSEO', e.target.value)}
-                          min={0}
-                          step={1}
-                          className="w-14 px-1.5 py-0.5 text-sm border border-gray-200 rounded text-center"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">= {formatHours(calc.okrReportingTotal)}</p>
-                  </div>
-                  <div className="border-t border-gray-100 pt-1.5 flex justify-between">
-                    <span className="text-gray-500">Total admin</span>
-                    <span className="font-medium">{formatHours(calc.totalAdminHours)}</span>
-                  </div>
                 </div>
               </motion.div>
 
@@ -1038,10 +1059,6 @@ export default function OkrPlanner() {
                   <div className="flex justify-between text-gray-400">
                     <span>Buffer</span>
                     <span>−{formatHours(calc.bufferHours)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-400">
-                    <span>Admin</span>
-                    <span>−{formatHours(calc.totalAdminHours)}</span>
                   </div>
                   <div className="flex justify-between border-t border-gray-100 pt-1.5">
                     <span className="font-medium text-charcoal">For objectives</span>
@@ -1086,6 +1103,37 @@ export default function OkrPlanner() {
                 </div>
               </div>
             </motion.div>
+          )}
+
+          {/* Account Management (sits above the objectives list) */}
+          {calc && (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Account Management</h3>
+              <div className="flex flex-wrap items-center gap-4">
+                <input
+                  type="text"
+                  value={currentPeriod.accountManagementName ?? 'Account Management'}
+                  onChange={e => updatePeriod(currentPeriod.id, { accountManagementName: e.target.value })}
+                  placeholder="Account Management"
+                  className="flex-1 min-w-[180px] px-3 py-1.5 text-sm font-medium text-charcoal border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30"
+                />
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-500">AM %</label>
+                  <input
+                    type="number"
+                    value={currentPeriod.accountManagementPercent ?? DEFAULT_ACCOUNT_MANAGEMENT_PERCENT}
+                    onChange={e => updatePeriod(currentPeriod.id, { accountManagementPercent: Number(e.target.value) || 0 })}
+                    min={0}
+                    max={100}
+                    className="w-16 px-2 py-1 text-sm border border-gray-200 rounded-lg text-center"
+                  />
+                </div>
+                <span className="text-sm text-gray-400">
+                  {calc.accountManagementPercent}% of {formatHours(calc.baseHours)} ={' '}
+                  <span className="font-medium text-charcoal">{formatHours(calc.accountManagementHours)} AM</span>
+                </span>
+              </div>
+            </div>
           )}
 
           {/* Objectives */}
@@ -1272,19 +1320,50 @@ export default function OkrPlanner() {
                                       />
                                     </div>
                                     <span className="text-xs text-gray-400">{formatHours(kr.amHours + kr.seoHours)}</span>
-                                    <button
-                                      onClick={() => duplicateKeyResult(currentPeriod.id, obj.id, kr.id)}
-                                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-coral transition-all ml-auto"
-                                      title="Duplicate key result"
-                                    >
-                                      <Copy size={12} />
-                                    </button>
-                                    <button
-                                      onClick={() => deleteKeyResult(currentPeriod.id, obj.id, kr.id)}
-                                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all"
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
+                                    <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                      <button
+                                        onClick={() => moveKeyResult(currentPeriod.id, obj.id, kr.id, 'up')}
+                                        disabled={krIndex === 0}
+                                        className="text-gray-300 hover:text-coral disabled:opacity-30 disabled:hover:text-gray-300 transition-colors"
+                                        title="Move up"
+                                      >
+                                        <ChevronUp size={13} />
+                                      </button>
+                                      <button
+                                        onClick={() => moveKeyResult(currentPeriod.id, obj.id, kr.id, 'down')}
+                                        disabled={krIndex === obj.keyResults.length - 1}
+                                        className="text-gray-300 hover:text-coral disabled:opacity-30 disabled:hover:text-gray-300 transition-colors"
+                                        title="Move down"
+                                      >
+                                        <ChevronDown size={13} />
+                                      </button>
+                                      <button
+                                        onClick={() => saveKeyResultToLibrary(kr)}
+                                        disabled={!kr.task.trim()}
+                                        className={`transition-colors disabled:opacity-30 ${
+                                          savedToLibraryKrId === kr.id
+                                            ? 'text-green-500'
+                                            : 'text-gray-300 hover:text-coral'
+                                        }`}
+                                        title="Save to Template Library"
+                                      >
+                                        {savedToLibraryKrId === kr.id ? <Check size={13} /> : <BookmarkPlus size={13} />}
+                                      </button>
+                                      <button
+                                        onClick={() => duplicateKeyResult(currentPeriod.id, obj.id, kr.id)}
+                                        className="text-gray-300 hover:text-coral transition-colors"
+                                        title="Duplicate key result"
+                                      >
+                                        <Copy size={12} />
+                                      </button>
+                                      <button
+                                        onClick={() => deleteKeyResult(currentPeriod.id, obj.id, kr.id)}
+                                        className="text-gray-300 hover:text-red-500 transition-colors"
+                                        title="Delete key result"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               </li>
@@ -1303,6 +1382,13 @@ export default function OkrPlanner() {
                           >
                             <Plus size={12} />
                             Add Task
+                          </button>
+                          <button
+                            onClick={() => addBlankKeyResult(currentPeriod.id, obj.id)}
+                            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-coral transition-colors"
+                          >
+                            <Plus size={12} />
+                            Add Blank Task
                           </button>
                           <button
                             onClick={() => duplicateObjective(currentPeriod.id, obj.id)}
@@ -1410,13 +1496,10 @@ function NewPeriodModal({ periods, onAdd, onDuplicate, onClose }) {
         goal,
         seoRetainer: null,
         offsiteAllowancePercent: DEFAULT_OFFSITE_ALLOWANCE,
-        adminTasks: {
-          monthlyReportingAM: 1,
-          monthlyReportingSEO: 2,
-          okrReportingAM: 1,
-          okrReportingSEO: 2,
-        },
-        objectives: [],
+        adHocPercent: DEFAULT_ADHOC_PERCENT,
+        accountManagementName: 'Account Management',
+        accountManagementPercent: DEFAULT_ACCOUNT_MANAGEMENT_PERCENT,
+        objectives: createReportingObjectives(),
       })
     }
   }
@@ -1502,7 +1585,7 @@ function AddObjectiveModal({ onAdd, onClose }) {
   const [isCustom, setIsCustom] = useState(false)
   const [customTitle, setCustomTitle] = useState('')
 
-  const templates = useMemo(() => getAllTemplatesResolved(), [])
+  const { allTemplatesResolved: templates } = useTemplates()
   const filtered = templates.filter(t =>
     t.title.toLowerCase().includes(search.toLowerCase())
   )
@@ -1623,6 +1706,7 @@ function AddObjectiveModal({ onAdd, onClose }) {
 // ─── Add Task Modal ────────────────────────────────────────────
 
 function AddTaskModal({ onAdd, onClose }) {
+  const { tasks } = useTemplates()
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [description, setDescription] = useState('')
   const [amHours, setAmHours] = useState(0)
@@ -1630,7 +1714,7 @@ function AddTaskModal({ onAdd, onClose }) {
 
   const handleTaskSelect = (taskId) => {
     setSelectedTaskId(taskId)
-    const task = TASK_LIBRARY.find(t => t.id === taskId)
+    const task = tasks.find(t => t.id === taskId)
     if (task) {
       setAmHours(task.defaultAmHours)
       setSeoHours(task.defaultSeoHours)
@@ -1639,7 +1723,7 @@ function AddTaskModal({ onAdd, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const task = TASK_LIBRARY.find(t => t.id === selectedTaskId)
+    const task = tasks.find(t => t.id === selectedTaskId)
     if (!task) return
     onAdd({
       id: generateId(),
@@ -1663,7 +1747,7 @@ function AddTaskModal({ onAdd, onClose }) {
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30"
           >
             <option value="">Select a task type...</option>
-            {TASK_LIBRARY.map(t => (
+            {tasks.map(t => (
               <option key={t.id} value={t.id}>
                 {t.name} ({formatHours(t.defaultAmHours + t.defaultSeoHours)})
               </option>

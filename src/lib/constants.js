@@ -1,5 +1,7 @@
 export const HOURLY_RATE = 180
-export const AD_HOC_BUFFER = 0.1 // 10%
+export const AD_HOC_BUFFER = 0.1 // 10% (legacy default, now per-period)
+export const DEFAULT_ADHOC_PERCENT = 10 // 10%
+export const DEFAULT_ACCOUNT_MANAGEMENT_PERCENT = 5 // 5%
 export const DEFAULT_OFFSITE_ALLOWANCE = 5 // 5%
 export const AM_HOUR_TARGET = 0.4 // 40%
 export const SEO_HOUR_TARGET = 0.6 // 60%
