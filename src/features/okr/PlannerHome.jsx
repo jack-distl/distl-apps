@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Settings, Pencil } from 'lucide-react'
+import { Plus, Settings, Pencil, Search, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Modal, LoadingSpinner, ClientEditModal } from '../../components'
 import { Badge } from '../../components/ui/badge'
@@ -37,6 +37,15 @@ export default function PlannerHome() {
   const { clients, loading, addClient, updateClient, deleteClient } = useClients()
   const activeClients = clients.filter(c => c.is_active)
   const [editingClient, setEditingClient] = useState(null)
+  const [search, setSearch] = useState('')
+
+  const q = search.trim().toLowerCase()
+  const filteredClients = q
+    ? activeClients.filter(c =>
+        c.name.toLowerCase().includes(q) ||
+        (c.abbreviation || '').toLowerCase().includes(q)
+      )
+    : activeClients
 
   const [periodsByClient, setPeriodsByClient] = useState(null)
   const [retainersByClient, setRetainersByClient] = useState(null)
@@ -140,13 +149,33 @@ export default function PlannerHome() {
         </div>
       </div>
 
+      {/* Client search */}
+      <div className="relative mb-6 max-w-sm">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+        <Input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search clients..."
+          className="pl-9 pr-9"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
       <motion.div
         variants={stagger}
         initial="hidden"
         animate="show"
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
       >
-        {activeClients.map(client => {
+        {filteredClients.map(client => {
             const dbPeriod = periodsByClient?.[client.id]
             const mockPeriod = mockOkrData[client.id]?.periods?.at(-1)
             const latestPeriod = dbPeriod || mockPeriod || null
@@ -211,6 +240,12 @@ export default function PlannerHome() {
             )
           })}
       </motion.div>
+
+      {filteredClients.length === 0 && (
+        <p className="text-sm text-gray-400 text-center py-10">
+          {search ? `No clients match "${search}"` : 'No clients yet'}
+        </p>
+      )}
 
       {/* New Client Modal */}
       <Modal
