@@ -276,17 +276,21 @@ export default function OkrPlanner() {
     const net = gross - offsiteDeduction
     const baseHours = roundToHalf(net / HOURLY_RATE)
 
+    // Offsite (baked into baseHours) and ad hoc reduce the whole pool equally
     const adHocPercent = currentPeriod.adHocPercent ?? DEFAULT_ADHOC_PERCENT
     const bufferHours = roundToHalf(baseHours * (adHocPercent / 100))
+    const netPool = roundToHalf(baseHours - bufferHours)
 
-    // Account Management is a % of base hours (AM work) that consumes the pool
+    // Account Management is a % of base hours reserved from AM capacity alone
     const accountManagementPercent =
       currentPeriod.accountManagementPercent ?? DEFAULT_ACCOUNT_MANAGEMENT_PERCENT
     const accountManagementHours = roundToHalf(baseHours * (accountManagementPercent / 100))
 
-    const availableForObjectives = roundToHalf(baseHours - bufferHours)
+    // Remaining for OKR tasks = pool minus the AM reservation
+    const availableForObjectives = roundToHalf(netPool - accountManagementHours)
 
-    // Sum hours across all objectives (reporting objectives included)
+    // Sum hours across all objectives (reporting objectives included).
+    // Account Management is a pre-deduction, so it is NOT counted here.
     let totalSeoHours = 0
     let totalAmHours = 0
     for (const obj of currentPeriod.objectives) {
@@ -295,15 +299,14 @@ export default function OkrPlanner() {
         totalAmHours += kr.amHours
       }
     }
-    // Account Management rolls into the AM totals
-    totalAmHours += accountManagementHours
     totalSeoHours = roundToHalf(totalSeoHours)
     totalAmHours = roundToHalf(totalAmHours)
     const totalObjectiveHours = roundToHalf(totalSeoHours + totalAmHours)
     const remainingHours = roundToHalf(availableForObjectives - totalObjectiveHours)
 
-    const idealSeoHours = roundToHalf(availableForObjectives * SEO_HOUR_TARGET)
-    const idealAmHours = roundToHalf(availableForObjectives * AM_HOUR_TARGET)
+    // Ideal split: SEO untouched by AM reservation; AM ideal reduced by it
+    const idealSeoHours = roundToHalf(netPool * SEO_HOUR_TARGET)
+    const idealAmHours = roundToHalf(netPool * AM_HOUR_TARGET - accountManagementHours)
 
     return {
       retainerAmount, months, gross, offsiteDeduction, net, baseHours, bufferHours,
@@ -968,28 +971,6 @@ export default function OkrPlanner() {
                   className="w-20 px-2 py-1 text-sm border border-gray-200 rounded-lg"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-500">Offsite %</label>
-                <input
-                  type="number"
-                  value={currentPeriod.offsiteAllowancePercent}
-                  onChange={e => updatePeriod(currentPeriod.id, { offsiteAllowancePercent: Number(e.target.value) || 0 })}
-                  min={0}
-                  max={100}
-                  className="w-16 px-2 py-1 text-sm border border-gray-200 rounded-lg"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-500">Ad hoc %</label>
-                <input
-                  type="number"
-                  value={currentPeriod.adHocPercent ?? DEFAULT_ADHOC_PERCENT}
-                  onChange={e => updatePeriod(currentPeriod.id, { adHocPercent: Number(e.target.value) || 0 })}
-                  min={0}
-                  max={100}
-                  className="w-16 px-2 py-1 text-sm border border-gray-200 rounded-lg"
-                />
-              </div>
             </div>
             <div>
               <label className="text-sm text-gray-500 block mb-1">Goal</label>
@@ -1034,17 +1015,55 @@ export default function OkrPlanner() {
                 </div>
               </motion.div>
 
-              {/* Ad Hoc Buffer */}
+              {/* Buffers & Allowances — the three editable % controls */}
               <motion.div variants={fadeUp} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ad Hoc Buffer</h3>
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{calc.adHocPercent}% of {formatHours(calc.baseHours)}</span>
-                    <span className="font-semibold text-charcoal">{formatHours(calc.bufferHours)}</span>
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Buffers &amp; Allowances</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-500">Offsite</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={currentPeriod.offsiteAllowancePercent ?? DEFAULT_OFFSITE_ALLOWANCE}
+                        onChange={e => updatePeriod(currentPeriod.id, { offsiteAllowancePercent: Number(e.target.value) || 0 })}
+                        min={0}
+                        max={100}
+                        className="w-14 px-1.5 py-0.5 text-sm border border-gray-200 rounded text-center"
+                      />
+                      <span className="text-xs text-gray-400">%</span>
+                      <span className="w-20 text-right text-gray-400">−{formatCurrency(calc.offsiteDeduction)}</span>
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-400 mt-2">
-                    Reserved for unplanned requests and ad hoc tasks.
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-500">Ad hoc</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={currentPeriod.adHocPercent ?? DEFAULT_ADHOC_PERCENT}
+                        onChange={e => updatePeriod(currentPeriod.id, { adHocPercent: Number(e.target.value) || 0 })}
+                        min={0}
+                        max={100}
+                        className="w-14 px-1.5 py-0.5 text-sm border border-gray-200 rounded text-center"
+                      />
+                      <span className="text-xs text-gray-400">%</span>
+                      <span className="w-20 text-right text-gray-400">−{formatHours(calc.bufferHours)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-500">Account Management</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={currentPeriod.accountManagementPercent ?? DEFAULT_ACCOUNT_MANAGEMENT_PERCENT}
+                        onChange={e => updatePeriod(currentPeriod.id, { accountManagementPercent: Number(e.target.value) || 0 })}
+                        min={0}
+                        max={100}
+                        className="w-14 px-1.5 py-0.5 text-sm border border-gray-200 rounded text-center"
+                      />
+                      <span className="text-xs text-gray-400">%</span>
+                      <span className="w-20 text-right text-gray-400">−{formatHours(calc.accountManagementHours)} AM</span>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
 
@@ -1057,11 +1076,15 @@ export default function OkrPlanner() {
                     <span>{formatHours(calc.baseHours)}</span>
                   </div>
                   <div className="flex justify-between text-gray-400">
-                    <span>Buffer</span>
+                    <span>Ad hoc buffer</span>
                     <span>−{formatHours(calc.bufferHours)}</span>
                   </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Account Management</span>
+                    <span>−{formatHours(calc.accountManagementHours)}</span>
+                  </div>
                   <div className="flex justify-between border-t border-gray-100 pt-1.5">
-                    <span className="font-medium text-charcoal">For objectives</span>
+                    <span className="font-medium text-charcoal">Remaining for OKR tasks</span>
                     <span className="font-semibold text-charcoal">{formatHours(calc.availableForObjectives)}</span>
                   </div>
                 </div>
@@ -1103,37 +1126,6 @@ export default function OkrPlanner() {
                 </div>
               </div>
             </motion.div>
-          )}
-
-          {/* Account Management (sits above the objectives list) */}
-          {calc && (
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Account Management</h3>
-              <div className="flex flex-wrap items-center gap-4">
-                <input
-                  type="text"
-                  value={currentPeriod.accountManagementName ?? 'Account Management'}
-                  onChange={e => updatePeriod(currentPeriod.id, { accountManagementName: e.target.value })}
-                  placeholder="Account Management"
-                  className="flex-1 min-w-[180px] px-3 py-1.5 text-sm font-medium text-charcoal border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30"
-                />
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-500">AM %</label>
-                  <input
-                    type="number"
-                    value={currentPeriod.accountManagementPercent ?? DEFAULT_ACCOUNT_MANAGEMENT_PERCENT}
-                    onChange={e => updatePeriod(currentPeriod.id, { accountManagementPercent: Number(e.target.value) || 0 })}
-                    min={0}
-                    max={100}
-                    className="w-16 px-2 py-1 text-sm border border-gray-200 rounded-lg text-center"
-                  />
-                </div>
-                <span className="text-sm text-gray-400">
-                  {calc.accountManagementPercent}% of {formatHours(calc.baseHours)} ={' '}
-                  <span className="font-medium text-charcoal">{formatHours(calc.accountManagementHours)} AM</span>
-                </span>
-              </div>
-            </div>
           )}
 
           {/* Objectives */}
