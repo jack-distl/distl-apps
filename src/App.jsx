@@ -9,6 +9,7 @@ import Dashboard from './features/hub/Dashboard'
 import Clients from './features/hub/Clients'
 import PlannerHome from './features/okr/PlannerHome'
 import OkrPlanner from './features/okr/OkrPlanner'
+import TemplateEditor from './features/okr/TemplateEditor'
 import HoursHome from './features/hours/HoursHome'
 import ClientHours from './features/hours/ClientHours'
 
@@ -83,6 +84,7 @@ export default function App() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/clients" element={<Clients />} />
                   <Route path="/okr" element={<PlannerHome />} />
+                  <Route path="/okr/templates" element={<TemplateEditor />} />
                   <Route path="/okr/:clientId" element={<OkrPlanner />} />
                   <Route path="/hours" element={<HoursHome />} />
                   <Route path="/hours/:clientId" element={<ClientHours />} />

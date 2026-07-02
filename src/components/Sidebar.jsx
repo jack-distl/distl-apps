@@ -1,4 +1,4 @@
-import { LayoutDashboard, Target, Clock, Map, Settings } from 'lucide-react'
+import { LayoutDashboard, Target, LayoutTemplate, Clock, Map, Settings } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -7,13 +7,30 @@ import { Separator } from './ui/separator'
 const navItems = [
   { label: 'Hub', href: '/', icon: LayoutDashboard },
   { label: 'OKR Planner', href: '/okr', icon: Target },
+  // Sub-item of OKR Planner: only shown while in the OKR area, indented
+  { label: 'Edit Templates', href: '/okr/templates', icon: LayoutTemplate, parent: '/okr', indent: true },
   { label: 'WFM Hours', href: '/hours', icon: Clock },
   { label: 'Sitemap Tool', href: '/sitemap', icon: Map, disabled: true },
   { label: 'Settings', href: '/settings', icon: Settings, disabled: true },
 ]
 
+function isMatch(href, pathname) {
+  return pathname === href || (href !== '/' && pathname.startsWith(href + '/'))
+}
+
 export function Sidebar({ open = false, onClose }) {
   const { pathname } = useLocation()
+
+  // Sub-items (with a `parent`) only appear while inside that section
+  const visibleItems = navItems.filter(
+    item => !item.parent || pathname.startsWith(item.parent)
+  )
+
+  // Highlight only the most specific matching nav item (e.g. /okr/templates
+  // lights "Edit Templates", not also "OKR Planner").
+  const activeHref = visibleItems
+    .filter(item => !item.disabled && isMatch(item.href, pathname))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -32,8 +49,8 @@ export function Sidebar({ open = false, onClose }) {
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 mt-2">
-        {navItems.map((item) => {
-          const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+        {visibleItems.map((item) => {
+          const active = item.href === activeHref
           return (
             <Link
               key={item.href}
@@ -43,15 +60,16 @@ export function Sidebar({ open = false, onClose }) {
                 else onClose?.()
               }}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                'flex items-center gap-3 py-2 rounded-lg transition-colors',
+                item.indent ? 'pl-9 pr-3 text-[13px]' : 'px-3 text-sm',
                 active
-                  ? 'bg-white/10 text-white font-medium border-l-2 border-coral ml-0 pl-[10px]'
+                  ? 'bg-white/10 text-white font-medium border-l-2 border-coral'
                   : item.disabled
                   ? 'text-white/20 cursor-not-allowed'
                   : 'text-white/60 hover:bg-white/5 hover:text-white'
               )}
             >
-              <item.icon className={cn('w-4 h-4', active && 'text-coral')} />
+              <item.icon className={cn(item.indent ? 'w-3.5 h-3.5' : 'w-4 h-4', active && 'text-coral')} />
               {item.label}
               {item.disabled && (
                 <span className="ml-auto text-[10px] text-white/20 font-medium">Soon</span>
