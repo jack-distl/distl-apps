@@ -53,45 +53,6 @@ const fadeUp = {
   show: { opacity: 1, y: 0 },
 }
 
-// Reporting is represented as objectives that consume the objective pool
-// (each with editable AM/SEO hours), auto-seeded into every new period.
-function createReportingObjectives() {
-  return [
-    {
-      id: generateId(),
-      title: 'Monthly Reporting',
-      scope: 'sitewide',
-      scopeDetail: '',
-      isActioned: true,
-      notActionedReason: '',
-      keyResults: [{
-        id: generateId(),
-        task: 'Monthly Reporting',
-        description: '',
-        internalNotes: '',
-        amHours: 1,
-        seoHours: 2,
-      }],
-    },
-    {
-      id: generateId(),
-      title: 'Quarterly Reporting (OKR)',
-      scope: 'sitewide',
-      scopeDetail: '',
-      isActioned: true,
-      notActionedReason: '',
-      keyResults: [{
-        id: generateId(),
-        task: 'OKR Reporting',
-        description: '',
-        internalNotes: '',
-        amHours: 1,
-        seoHours: 2,
-      }],
-    },
-  ]
-}
-
 function createBlankPeriod() {
   const now = new Date()
   const month = now.getMonth() + 1
@@ -110,7 +71,7 @@ function createBlankPeriod() {
     adHocPercent: DEFAULT_ADHOC_PERCENT,
     accountManagementName: 'Account Management',
     accountManagementPercent: DEFAULT_ACCOUNT_MANAGEMENT_PERCENT,
-    objectives: createReportingObjectives(),
+    objectives: [],
   }
 }
 
@@ -128,7 +89,12 @@ export default function OkrPlanner() {
   } = useOkrData(clientId)
 
   const { seoRetainer: clientSeoRetainer } = useClientRetainers(clientId)
-  const { addTask: addTaskToLibrary } = useTemplates()
+  const {
+    tasks: libraryTasks,
+    addTask: addTaskToLibrary,
+    addTemplate: addTemplateToLibrary,
+    addTaskToTemplate,
+  } = useTemplates()
   const abbreviation = client?.abbreviation || ''
 
   // ─── State ───────────────────────────────────────────────
@@ -137,7 +103,7 @@ export default function OkrPlanner() {
   const [collapsedObjectives, setCollapsedObjectives] = useState({})
   const [copiedToClipboard, setCopiedToClipboard] = useState(false)
   const [deletedObjective, setDeletedObjective] = useState(null)
-  const [savedToLibraryKrId, setSavedToLibraryKrId] = useState(null)
+  const [savedToLibraryObjId, setSavedToLibraryObjId] = useState(null)
 
   // Modal states
   const [showNewPeriodModal, setShowNewPeriodModal] = useState(false)
@@ -333,14 +299,18 @@ export default function OkrPlanner() {
     savePeriod(newPeriod).catch(err => console.error('Failed to save new period:', err))
   }, [setPeriods, savePeriod])
 
-  const duplicatePeriod = useCallback((sourcePeriodId) => {
+  const duplicatePeriod = useCallback((sourcePeriodId, objectiveIds) => {
     const source = periods.find(p => p.id === sourcePeriodId)
     if (!source) return
+    // Only carry over the chosen objectives (all of them when unspecified)
+    const keep = objectiveIds
+      ? source.objectives.filter(o => objectiveIds.includes(o.id))
+      : source.objectives
     const newPeriod = {
       ...source,
       id: generateId(),
       isPublished: false,
-      objectives: source.objectives.map(obj => ({
+      objectives: keep.map(obj => ({
         ...obj,
         id: generateId(),
         keyResults: obj.keyResults.map(kr => ({
@@ -558,19 +528,37 @@ export default function OkrPlanner() {
     triggerDebouncedSave(periodId)
   }, [setPeriods, triggerDebouncedSave])
 
-  // Promote a one-off task into the master template library
-  const saveKeyResultToLibrary = useCallback((kr) => {
-    const name = (kr.task || '').trim()
-    if (!name) return
-    Promise.resolve(
-      addTaskToLibrary({ name, defaultAmHours: kr.amHours, defaultSeoHours: kr.seoHours })
-    )
-      .then(() => {
-        setSavedToLibraryKrId(kr.id)
-        setTimeout(() => setSavedToLibraryKrId(null), 2000)
+  // Promote a whole objective (title + scope + its key results) into the
+  // master template library as a reusable objective template.
+  const saveObjectiveToLibrary = useCallback((obj) => {
+    (async () => {
+      const taskIds = []
+      for (const kr of obj.keyResults) {
+        const name = (kr.task || '').trim()
+        if (!name) continue
+        // Reuse an identical library task if one already exists, else create it
+        const existing = libraryTasks.find(t =>
+          t.name === name &&
+          t.defaultAmHours === kr.amHours &&
+          t.defaultSeoHours === kr.seoHours
+        )
+        const task = existing || await addTaskToLibrary({
+          name, defaultAmHours: kr.amHours, defaultSeoHours: kr.seoHours,
+        })
+        if (task) taskIds.push(task.id)
+      }
+      const tpl = await addTemplateToLibrary({
+        title: (obj.title || '').trim() || 'Untitled Objective',
+        defaultScope: obj.scope || 'sitewide',
+        tasks: [],
       })
-      .catch(err => console.error('Save to library failed:', err))
-  }, [addTaskToLibrary])
+      if (tpl) {
+        for (const id of taskIds) await addTaskToTemplate(tpl.id, id)
+      }
+      setSavedToLibraryObjId(obj.id)
+      setTimeout(() => setSavedToLibraryObjId(null), 2000)
+    })().catch(err => console.error('Save objective to library failed:', err))
+  }, [libraryTasks, addTaskToLibrary, addTemplateToLibrary, addTaskToTemplate])
 
   // ─── Clipboard Export ────────────────────────────────────
 
@@ -1330,18 +1318,6 @@ export default function OkrPlanner() {
                                         <ChevronDown size={13} />
                                       </button>
                                       <button
-                                        onClick={() => saveKeyResultToLibrary(kr)}
-                                        disabled={!kr.task.trim()}
-                                        className={`transition-colors disabled:opacity-30 ${
-                                          savedToLibraryKrId === kr.id
-                                            ? 'text-green-500'
-                                            : 'text-gray-300 hover:text-coral'
-                                        }`}
-                                        title="Save to Template Library"
-                                      >
-                                        {savedToLibraryKrId === kr.id ? <Check size={13} /> : <BookmarkPlus size={13} />}
-                                      </button>
-                                      <button
                                         onClick={() => duplicateKeyResult(currentPeriod.id, obj.id, kr.id)}
                                         className="text-gray-300 hover:text-coral transition-colors"
                                         title="Duplicate key result"
@@ -1388,6 +1364,20 @@ export default function OkrPlanner() {
                           >
                             <Copy size={12} />
                             Duplicate
+                          </button>
+                          <button
+                            onClick={() => saveObjectiveToLibrary(obj)}
+                            className={`inline-flex items-center gap-1 text-xs transition-colors ${
+                              savedToLibraryObjId === obj.id
+                                ? 'text-green-500'
+                                : 'text-gray-400 hover:text-coral'
+                            }`}
+                            title="Save this objective (and its tasks) to the template library"
+                          >
+                            {savedToLibraryObjId === obj.id
+                              ? <><Check size={12} /> Saved</>
+                              : <><BookmarkPlus size={12} /> Save to Library</>
+                            }
                           </button>
                           <button
                             onClick={() => deleteObjective(currentPeriod.id, obj.id)}
@@ -1472,11 +1462,25 @@ function NewPeriodModal({ periods, onAdd, onDuplicate, onClose }) {
   const [endYear, setEndYear] = useState(now.getFullYear())
   const [goal, setGoal] = useState('')
   const [duplicateFrom, setDuplicateFrom] = useState('')
+  const [selectedObjIds, setSelectedObjIds] = useState([])
+
+  const sourcePeriod = periods.find(p => p.id === duplicateFrom) || null
+
+  // When a source period is chosen, default to carrying over all its objectives
+  useEffect(() => {
+    setSelectedObjIds(sourcePeriod ? sourcePeriod.objectives.map(o => o.id) : [])
+  }, [duplicateFrom]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleObj = (id) => {
+    setSelectedObjIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (duplicateFrom) {
-      onDuplicate(duplicateFrom)
+      onDuplicate(duplicateFrom, selectedObjIds)
     } else {
       onAdd({
         id: generateId(),
@@ -1491,7 +1495,7 @@ function NewPeriodModal({ periods, onAdd, onDuplicate, onClose }) {
         adHocPercent: DEFAULT_ADHOC_PERCENT,
         accountManagementName: 'Account Management',
         accountManagementPercent: DEFAULT_ACCOUNT_MANAGEMENT_PERCENT,
-        objectives: createReportingObjectives(),
+        objectives: [],
       })
     }
   }
@@ -1516,6 +1520,52 @@ function NewPeriodModal({ periods, onAdd, onDuplicate, onClose }) {
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {duplicateFrom && (
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm text-gray-500">Objectives to copy</label>
+              {sourcePeriod && sourcePeriod.objectives.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedObjIds(
+                    selectedObjIds.length === sourcePeriod.objectives.length
+                      ? []
+                      : sourcePeriod.objectives.map(o => o.id)
+                  )}
+                  className="text-xs font-medium text-coral hover:text-coral-dark"
+                >
+                  {selectedObjIds.length === sourcePeriod.objectives.length ? 'Clear all' : 'Select all'}
+                </button>
+              )}
+            </div>
+            {sourcePeriod && sourcePeriod.objectives.length > 0 ? (
+              <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-50">
+                {sourcePeriod.objectives.map(obj => {
+                  const objHours = obj.keyResults.reduce((sum, kr) => sum + kr.amHours + kr.seoHours, 0)
+                  const checked = selectedObjIds.includes(obj.id)
+                  return (
+                    <label
+                      key={obj.id}
+                      className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleObj(obj.id)}
+                        className="accent-coral"
+                      />
+                      <span className="flex-1 min-w-0 truncate text-charcoal">{obj.title || 'Untitled objective'}</span>
+                      <span className="text-xs text-gray-400 shrink-0">{formatHours(objHours)}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 italic px-1 py-2">This period has no objectives.</p>
+            )}
           </div>
         )}
 
