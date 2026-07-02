@@ -75,6 +75,27 @@ function createBlankPeriod() {
   }
 }
 
+// Build a planner objective from a resolved template (shared by the Add
+// Objective modal and the "Add Reporting & Planning" shortcut).
+function buildObjectiveFromTemplate(template) {
+  return {
+    id: generateId(),
+    title: template.title,
+    scope: template.defaultScope,
+    scopeDetail: '',
+    isActioned: true,
+    notActionedReason: '',
+    keyResults: template.resolvedTasks.map(task => ({
+      id: generateId(),
+      task: task.name,
+      description: '',
+      internalNotes: '',
+      amHours: task.defaultAmHours,
+      seoHours: task.defaultSeoHours,
+    })),
+  }
+}
+
 // ─── Main Component ──────────────────────────────────────────────
 
 export default function OkrPlanner() {
@@ -91,10 +112,17 @@ export default function OkrPlanner() {
   const { seoRetainer: clientSeoRetainer } = useClientRetainers(clientId)
   const {
     tasks: libraryTasks,
+    allTemplatesResolved,
     addTask: addTaskToLibrary,
     addTemplate: addTemplateToLibrary,
     addTaskToTemplate,
   } = useTemplates()
+
+  // The "Reporting and Planning" template drives the one-click shortcut button
+  const reportingTemplate = allTemplatesResolved.find(t => {
+    const title = (t.title || '').toLowerCase()
+    return title.includes('reporting') && title.includes('planning')
+  }) || null
   const abbreviation = client?.abbreviation || ''
 
   // ─── State ───────────────────────────────────────────────
@@ -1119,13 +1147,25 @@ export default function OkrPlanner() {
           {/* Objectives */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-charcoal">Objectives</h2>
-            <button
-              onClick={() => setShowAddObjectiveModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark transition-colors"
-            >
-              <Plus size={16} />
-              Add Objective
-            </button>
+            <div className="flex items-center gap-2">
+              {reportingTemplate && (
+                <button
+                  onClick={() => addObjective(currentPeriod.id, buildObjectiveFromTemplate(reportingTemplate))}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-coral transition-colors"
+                  title="Add the Reporting and Planning objective"
+                >
+                  <Plus size={16} />
+                  Add Reporting &amp; Planning
+                </button>
+              )}
+              <button
+                onClick={() => setShowAddObjectiveModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark transition-colors"
+              >
+                <Plus size={16} />
+                Add Objective
+              </button>
+            </div>
           </div>
 
           {currentPeriod.objectives.length === 0 ? (
@@ -1633,22 +1673,7 @@ function AddObjectiveModal({ onAdd, onClose }) {
   )
 
   const handleSelectTemplate = (template) => {
-    const objective = {
-      id: generateId(),
-      title: template.title,
-      scope: template.defaultScope,
-      scopeDetail: '',
-      keyResults: template.resolvedTasks.map(task => ({
-        id: generateId(),
-        task: task.name,
-        description: '',
-        amHours: task.defaultAmHours,
-        seoHours: task.defaultSeoHours,
-      })),
-      isActioned: true,
-      notActionedReason: '',
-    }
-    onAdd(objective)
+    onAdd(buildObjectiveFromTemplate(template))
   }
 
   const handleAddCustom = (e) => {
