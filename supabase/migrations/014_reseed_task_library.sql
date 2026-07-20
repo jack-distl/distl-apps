@@ -82,7 +82,10 @@ insert into task_library (name, default_am_hours, default_seo_hours, sort_order)
   ('Sitemap Development', 0, 3, 62),
   ('Meta Data Review & Development', 0, 2, 63),
   ('Technical Audit', 0, 4, 64),
-  ('Baseline Metrics & Audit Findings Report', 0, 2, 65);
+  ('Baseline Metrics & Audit Findings Report', 0, 2, 65),
+  ('Quarterly OKR Report', 2.5, 5, 66),
+  ('Review Results and Plan Upcoming OKRs', 1, 5, 67),
+  ('Monthly Reporting', 2.5, 5, 68);
 
 -- 4. Objective templates
 insert into objective_templates (title, category, default_scope, sort_order) values
@@ -97,7 +100,8 @@ insert into objective_templates (title, category, default_scope, sort_order) val
   ('Digital PR / Brand Awareness', 'Off-site / Authority', 'sitewide', 8),
   ('Conversion Rate Optimisation', 'Conversion & Tracking', 'specific-pages', 9),
   ('GEO / AI Optimisation', 'Emerging / AI', 'sitewide', 10),
-  ('SEO Foundations - New Client Onboarding', 'Onboarding', 'sitewide', 11);
+  ('SEO Foundations - New Client Onboarding', 'Onboarding', 'sitewide', 11),
+  ('Reporting and Planning', 'Reporting & Planning', 'sitewide', 12);
 
 -- 5. Template -> task links
 insert into objective_template_tasks (template_id, task_id, sort_order)
@@ -169,7 +173,10 @@ from (values
   ('SEO Foundations - New Client Onboarding', 'Sitemap Development', 8),
   ('SEO Foundations - New Client Onboarding', 'Meta Data Review & Development', 9),
   ('SEO Foundations - New Client Onboarding', 'Technical Audit', 10),
-  ('SEO Foundations - New Client Onboarding', 'Baseline Metrics & Audit Findings Report', 11)
+  ('SEO Foundations - New Client Onboarding', 'Baseline Metrics & Audit Findings Report', 11),
+  ('Reporting and Planning', 'Quarterly OKR Report', 0),
+  ('Reporting and Planning', 'Review Results and Plan Upcoming OKRs', 1),
+  ('Reporting and Planning', 'Monthly Reporting', 2)
 ) as x(tpl_title, task_name, ord)
 join objective_templates t on t.title = x.tpl_title
 join task_library k on k.name = x.task_name;

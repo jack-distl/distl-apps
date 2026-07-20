@@ -69,6 +69,9 @@ export const TASK_LIBRARY = [
   { id: 'task-63-meta-data-review-development', name: 'Meta Data Review & Development', defaultAmHours: 0, defaultSeoHours: 2 },
   { id: 'task-64-technical-audit', name: 'Technical Audit', defaultAmHours: 0, defaultSeoHours: 4 },
   { id: 'task-65-baseline-metrics-audit-findings', name: 'Baseline Metrics & Audit Findings Report', defaultAmHours: 0, defaultSeoHours: 2 },
+  { id: 'task-66-quarterly-okr-report', name: 'Quarterly OKR Report', defaultAmHours: 2.5, defaultSeoHours: 5 },
+  { id: 'task-67-review-results-and-plan-upcoming', name: 'Review Results and Plan Upcoming OKRs', defaultAmHours: 1, defaultSeoHours: 5 },
+  { id: 'task-68-monthly-reporting', name: 'Monthly Reporting', defaultAmHours: 2.5, defaultSeoHours: 5 },
 ]
 
 // Template categories (display order)
@@ -80,6 +83,7 @@ export const TEMPLATE_CATEGORIES = [
   'Conversion & Tracking',
   'Emerging / AI',
   'Onboarding',
+  'Reporting & Planning',
 ]
 
 // Objective Templates — predefined objectives with pre-configured tasks
@@ -167,6 +171,13 @@ export const OBJECTIVE_TEMPLATES = [
     category: 'Onboarding',
     defaultScope: 'sitewide',
     tasks: ['task-54-starter-inception-meeting', 'task-55-business-information-for-citatio', 'task-56-google-analytics-setup', 'task-57-google-tag-manager-setup', 'task-58-google-search-console-setup', 'task-59-agency-analytics-setup', 'task-60-se-ranking-setup', 'task-61-keyword-research', 'task-62-sitemap-development', 'task-63-meta-data-review-development', 'task-64-technical-audit', 'task-65-baseline-metrics-audit-findings'],
+  },
+  {
+    id: 'tpl-reporting-and-planning',
+    title: 'Reporting and Planning',
+    category: 'Reporting & Planning',
+    defaultScope: 'sitewide',
+    tasks: ['task-66-quarterly-okr-report', 'task-67-review-results-and-plan-upcoming', 'task-68-monthly-reporting'],
   },
 ]
 
