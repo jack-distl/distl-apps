@@ -1667,10 +1667,25 @@ function AddObjectiveModal({ onAdd, onClose }) {
   const [isCustom, setIsCustom] = useState(false)
   const [customTitle, setCustomTitle] = useState('')
 
-  const { allTemplatesResolved: templates } = useTemplates()
+  const { allTemplatesResolved: templates, categories } = useTemplates()
+  const q = search.toLowerCase()
   const filtered = templates.filter(t =>
-    t.title.toLowerCase().includes(search.toLowerCase())
+    t.title.toLowerCase().includes(q) ||
+    (t.category || '').toLowerCase().includes(q)
   )
+
+  // Group the filtered templates by category, in canonical category order
+  // followed by any uncategorised templates.
+  const grouped = (() => {
+    const byCat = new Map()
+    for (const t of filtered) {
+      const key = t.category || 'Uncategorised'
+      if (!byCat.has(key)) byCat.set(key, [])
+      byCat.get(key).push(t)
+    }
+    const order = [...categories, 'Uncategorised']
+    return order.filter(c => byCat.has(c)).map(c => [c, byCat.get(c)])
+  })()
 
   const handleSelectTemplate = (template) => {
     onAdd(buildObjectiveFromTemplate(template))
@@ -1734,19 +1749,24 @@ function AddObjectiveModal({ onAdd, onClose }) {
             />
           </div>
 
-          {/* Template List */}
-          <div className="max-h-80 overflow-y-auto space-y-1 mb-3">
-            {filtered.map(t => (
-              <button
-                key={t.id}
-                onClick={() => handleSelectTemplate(t)}
-                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <p className="text-sm font-medium text-charcoal">{t.title}</p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {t.taskCount} tasks · {formatHours(t.totalHours)} total
-                </p>
-              </button>
+          {/* Template List, grouped by category */}
+          <div className="max-h-80 overflow-y-auto space-y-3 mb-3">
+            {grouped.map(([category, tpls]) => (
+              <div key={category} className="space-y-1">
+                <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{category}</p>
+                {tpls.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => handleSelectTemplate(t)}
+                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-charcoal">{t.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {t.taskCount} tasks · {formatHours(t.totalHours)} total
+                    </p>
+                  </button>
+                ))}
+              </div>
             ))}
             {filtered.length === 0 && (
               <p className="text-sm text-gray-400 text-center py-4">No templates match "{search}"</p>
