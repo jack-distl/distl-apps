@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import {
   TASK_LIBRARY as DEFAULT_TASKS,
   OBJECTIVE_TEMPLATES as DEFAULT_TEMPLATES,
+  TEMPLATE_CATEGORIES,
 } from '../lib/taskLibrary'
 import { generateId } from '../lib/constants'
 
@@ -22,6 +23,7 @@ function templatesFromDb(tplRows, junctionRows) {
   return tplRows.map(r => ({
     id: r.id,
     title: r.title,
+    category: r.category || null,
     defaultScope: r.default_scope,
     tasks: (junctionRows || [])
       .filter(j => j.template_id === r.id)
@@ -122,6 +124,7 @@ export function TemplateProvider({ children }) {
   const addTemplate = useCallback(async (template) => {
     const shaped = {
       title: template.title,
+      category: template.category || null,
       defaultScope: template.defaultScope || 'sitewide',
       tasks: template.tasks || [],
     }
@@ -134,13 +137,14 @@ export function TemplateProvider({ children }) {
       .from('objective_templates')
       .insert({
         title: shaped.title,
+        category: shaped.category,
         default_scope: shaped.defaultScope,
         sort_order: templates.length,
       })
       .select()
       .single()
     if (error) throw error
-    const newTemplate = { id: data.id, title: data.title, defaultScope: data.default_scope, tasks: [] }
+    const newTemplate = { id: data.id, title: data.title, category: data.category || null, defaultScope: data.default_scope, tasks: [] }
     setTemplates(prev => [...prev, newTemplate])
     return newTemplate
   }, [templates.length])
@@ -152,6 +156,7 @@ export function TemplateProvider({ children }) {
     if (!supabase) return
     const payload = {}
     if ('title' in updates) payload.title = updates.title
+    if ('category' in updates) payload.category = updates.category
     if ('defaultScope' in updates) payload.default_scope = updates.defaultScope
     if (Object.keys(payload).length === 0) return
     const { error } = await supabase.from('objective_templates').update(payload).eq('id', templateId)
@@ -212,10 +217,21 @@ export function TemplateProvider({ children }) {
     return templates.map(t => resolveTemplate(t.id)).filter(Boolean)
   }, [templates, resolveTemplate])
 
+  // Ordered category list: known categories first (in canonical order),
+  // then any extra categories present on templates, then an 'Uncategorised'
+  // bucket if any template has no category.
+  const categories = useMemo(() => {
+    const present = new Set(templates.map(t => t.category).filter(Boolean))
+    const ordered = TEMPLATE_CATEGORIES.filter(c => present.has(c))
+    const extras = [...present].filter(c => !TEMPLATE_CATEGORIES.includes(c))
+    return [...ordered, ...extras]
+  }, [templates])
+
   const value = {
     tasks,
     templates,
     allTemplatesResolved,
+    categories,
     loading,
     addTask,
     updateTask,

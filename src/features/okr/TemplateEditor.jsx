@@ -6,8 +6,10 @@ import {
 import { useTemplates } from '../../contexts/TemplateContext'
 import { ConfirmDialog } from '../../components'
 import { Input } from '../../components/ui/input'
-import { SCOPE_OPTIONS } from '../../lib/taskLibrary'
+import { SCOPE_OPTIONS, TEMPLATE_CATEGORIES } from '../../lib/taskLibrary'
 import { formatHours, roundToHalf } from '../../lib/constants'
+
+const UNCATEGORISED = 'Uncategorised'
 
 const SCOPE_ICONS = {
   'sitewide': Globe,
@@ -19,7 +21,7 @@ const BLANK_NEW_TASK = { name: '', am: 0.5, seo: 2 }
 
 export default function TemplateEditor() {
   const {
-    tasks, templates, allTemplatesResolved,
+    tasks, templates, allTemplatesResolved, categories,
     addTask, updateTask,
     addTemplate, updateTemplate, deleteTemplate,
     addTaskToTemplate, removeTaskFromTemplate,
@@ -28,9 +30,17 @@ export default function TemplateEditor() {
   const [expandedTemplateId, setExpandedTemplateId] = useState(null)
   const [search, setSearch] = useState('')
 
+  // Category options for the selects: canonical list merged with any already
+  // present in the DB, so custom categories still appear.
+  const categoryOptions = useMemo(() => {
+    const merged = [...TEMPLATE_CATEGORIES, ...categories]
+    return [...new Set(merged)]
+  }, [categories])
+
   // New template form
   const [showNewTemplate, setShowNewTemplate] = useState(false)
   const [newTplTitle, setNewTplTitle] = useState('')
+  const [newTplCategory, setNewTplCategory] = useState(TEMPLATE_CATEGORIES[0] || '')
   const [newTplScope, setNewTplScope] = useState('sitewide')
 
   // Inline "create new task" form, scoped to the template it belongs to
@@ -46,9 +56,24 @@ export default function TemplateEditor() {
     const q = search.toLowerCase()
     return allTemplatesResolved.filter(t =>
       t.title.toLowerCase().includes(q) ||
+      (t.category || '').toLowerCase().includes(q) ||
       t.resolvedTasks.some(task => task.name.toLowerCase().includes(q))
     )
   }, [allTemplatesResolved, search])
+
+  // Group filtered templates by category (canonical order, extras, then uncategorised)
+  const groupedTemplates = useMemo(() => {
+    const byCat = new Map()
+    for (const tpl of filteredTemplates) {
+      const key = tpl.category || UNCATEGORISED
+      if (!byCat.has(key)) byCat.set(key, [])
+      byCat.get(key).push(tpl)
+    }
+    const order = [...categoryOptions, UNCATEGORISED]
+    return order
+      .filter(cat => byCat.has(cat))
+      .map(cat => [cat, byCat.get(cat)])
+  }, [filteredTemplates, categoryOptions])
 
   // ─── Handlers ──────────────────────────────────────────────
 
@@ -57,10 +82,12 @@ export default function TemplateEditor() {
     if (!newTplTitle.trim()) return
     const tpl = await addTemplate({
       title: newTplTitle.trim(),
+      category: newTplCategory || null,
       defaultScope: newTplScope,
       tasks: [],
     })
     setNewTplTitle('')
+    setNewTplCategory(TEMPLATE_CATEGORIES[0] || '')
     setNewTplScope('sitewide')
     setShowNewTemplate(false)
     if (tpl) setExpandedTemplateId(tpl.id)
@@ -137,6 +164,18 @@ export default function TemplateEditor() {
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
                 />
               </div>
+              <div className="w-44">
+                <label className="block text-sm text-gray-500 mb-1">Category</label>
+                <select
+                  value={newTplCategory}
+                  onChange={e => setNewTplCategory(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg"
+                >
+                  {categoryOptions.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
               <div className="w-40">
                 <label className="block text-sm text-gray-500 mb-1">Default Scope</label>
                 <select
@@ -175,8 +214,14 @@ export default function TemplateEditor() {
           </button>
         )}
 
-        {/* Template list */}
-        {filteredTemplates.map(tpl => {
+        {/* Template list, grouped by category */}
+        {groupedTemplates.map(([category, tpls]) => (
+          <div key={category} className="space-y-3">
+            <div className="flex items-center gap-2 pt-3 pb-0.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{category}</h3>
+              <span className="text-xs text-gray-300">· {tpls.length}</span>
+            </div>
+            {tpls.map(tpl => {
           const isExpanded = expandedTemplateId === tpl.id
           const ScopeIcon = SCOPE_ICONS[tpl.defaultScope] || Globe
           const scopeOption = SCOPE_OPTIONS.find(s => s.id === tpl.defaultScope)
@@ -228,6 +273,19 @@ export default function TemplateEditor() {
                         onChange={e => updateTemplate(tpl.id, { title: e.target.value })}
                         className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
                       />
+                    </div>
+                    <div className="w-44">
+                      <label className="block text-xs text-gray-400 mb-1">Category</label>
+                      <select
+                        value={tpl.category || ''}
+                        onChange={e => updateTemplate(tpl.id, { category: e.target.value || null })}
+                        className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg"
+                      >
+                        <option value="">Uncategorised</option>
+                        {categoryOptions.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="w-40">
                       <label className="block text-xs text-gray-400 mb-1">Default Scope</label>
@@ -383,7 +441,9 @@ export default function TemplateEditor() {
               )}
             </div>
           )
-        })}
+            })}
+          </div>
+        ))}
 
         {filteredTemplates.length === 0 && (
           <p className="text-sm text-gray-400 text-center py-8">
