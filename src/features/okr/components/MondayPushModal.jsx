@@ -11,6 +11,7 @@ import {
 } from '../../../components/ui/dialog'
 import {
   useMondayClientItems,
+  useMondayStaff,
   pushPeriodToMonday,
   buildMondayTasks,
   matchClientItem,
@@ -20,7 +21,10 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed }) {
   const { items, loading, error, fetchItems } = useMondayClientItems()
+  const { users: staff, loading: staffLoading, fetchUsers } = useMondayStaff()
   const [selectedItemId, setSelectedItemId] = useState('')
+  const [amPersonId, setAmPersonId] = useState('')
+  const [seoPersonId, setSeoPersonId] = useState('')
   const [pushing, setPushing] = useState(false)
   const [result, setResult] = useState(null)
   const [pushError, setPushError] = useState(null)
@@ -38,14 +42,17 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
     ? `${MONTHS[period.startMonth - 1]} ${period.startYear} – ${MONTHS[period.endMonth - 1]} ${period.endYear}`
     : ''
 
-  // Load Monday items when the modal opens; reset state.
+  // Load Monday items + staff when the modal opens; reset state.
   useEffect(() => {
     if (!open) return
     setResult(null)
     setPushError(null)
     setSelectedItemId('')
+    setAmPersonId('')
+    setSeoPersonId('')
     fetchItems()
-  }, [open, fetchItems])
+    fetchUsers()
+  }, [open, fetchItems, fetchUsers])
 
   // Default-select the best fuzzy match once items arrive.
   useEffect(() => {
@@ -60,7 +67,13 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
     setPushError(null)
     setResult(null)
     try {
-      const res = await pushPeriodToMonday({ parentItemId: selectedItemId, period, tasks })
+      const res = await pushPeriodToMonday({
+        parentItemId: selectedItemId,
+        period,
+        tasks,
+        amPersonId: amPersonId || undefined,
+        seoPersonId: seoPersonId || undefined,
+      })
       setResult(res)
       if (res.created > 0 && onPushed && currentPeriod) onPushed(currentPeriod.id)
     } catch (err) {
@@ -115,6 +128,45 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
                 ))}
               </select>
             )}
+          </div>
+
+          {/* AM / SEO specialist pickers (optional) — assigned on the subitems */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-1.5">
+                AM <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <select
+                value={amPersonId}
+                onChange={e => setAmPersonId(e.target.value)}
+                disabled={staffLoading}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral disabled:bg-gray-50"
+              >
+                <option value="">{staffLoading ? 'Loading staff…' : '— None —'}</option>
+                {staff.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-1.5">
+                SEO specialist <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <select
+                value={seoPersonId}
+                onChange={e => setSeoPersonId(e.target.value)}
+                disabled={staffLoading}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral disabled:bg-gray-50"
+              >
+                <option value="">{staffLoading ? 'Loading staff…' : '— None —'}</option>
+                {staff.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+            <p className="col-span-2 text-xs text-gray-500 -mt-1">
+              Assigned per subitem by the task's time: AM on AM-hour tasks, SEO on SEO-hour tasks, both when a task has both.
+            </p>
           </div>
 
           {/* Push error */}
