@@ -21,7 +21,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed }) {
   const { items, loading, error, fetchItems } = useMondayClientItems()
-  const { users: staff, loading: staffLoading, fetchUsers } = useMondayStaff()
+  const { users: staff, loading: staffLoading, error: staffError, fetchUsers } = useMondayStaff()
   const [selectedItemId, setSelectedItemId] = useState('')
   const [amPersonId, setAmPersonId] = useState('')
   const [seoPersonId, setSeoPersonId] = useState('')
@@ -167,6 +167,12 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
             <p className="col-span-2 text-xs text-gray-500 -mt-1">
               Assigned per subitem by the task's time: AM on AM-hour tasks, SEO on SEO-hour tasks, both when a task has both.
             </p>
+            {staffError && (
+              <div className="col-span-2 p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex items-center justify-between gap-2">
+                <span>Couldn't load staff: {staffError}</span>
+                <button onClick={fetchUsers} className="font-medium underline shrink-0">Retry</button>
+              </div>
+            )}
           </div>
 
           {/* Push error */}
