@@ -72,12 +72,24 @@ export class MondayClient {
   // List active staff (non-guest, ACTIVE, not deleted, not view-only service accounts).
   // Returns [{ id, name }] sorted by name.
   async listActiveStaff() {
-    const data = await this.query(
-      `query { users(kind: non_guests, limit: 300) { id name status kind is_deleted } }`
-    )
-    const users = data?.users || []
+    let users
+    try {
+      // Preferred: filter out deactivated + view-only/service accounts using detail fields.
+      const data = await this.query(
+        `query { users(kind: non_guests, limit: 200) { id name status kind is_deleted } }`
+      )
+      users = (data?.users || [])
+        .filter(u => u.status === 'ACTIVE' && !u.is_deleted && u.kind !== 'view_only')
+    } catch (err) {
+      // Fallback: some API versions gate the detail fields — fetch just id/name so the
+      // pickers still populate (kind: non_guests already excludes guests server-side).
+      console.warn('listActiveStaff detail query failed, falling back to id/name:', err.message)
+      const data = await this.query(
+        `query { users(kind: non_guests, limit: 200) { id name } }`
+      )
+      users = data?.users || []
+    }
     return users
-      .filter(u => u.status === 'ACTIVE' && !u.is_deleted && u.kind !== 'view_only')
       .map(u => ({ id: String(u.id), name: u.name }))
       .sort((a, b) => a.name.localeCompare(b.name))
   }
