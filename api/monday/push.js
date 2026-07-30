@@ -23,6 +23,7 @@ const COL_OBJECTIVE = 'text'
 const COL_EST_HOURS = 'numbers2'
 const COL_TIMELINE = 'timeline'
 const COL_STATUS = 'status_1'
+const COL_ASSIGNEE = 'person'
 const DEFAULT_STATUS_LABEL = 'Scheduled'
 
 export default async function handler(req, res) {
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { parentItemId, period, tasks } = req.body || {}
+    const { parentItemId, period, tasks, amPersonId, seoPersonId } = req.body || {}
 
     if (!parentItemId) {
       return res.status(400).json({ error: 'parentItemId is required' })
@@ -58,6 +59,18 @@ export default async function handler(req, res) {
         [COL_EST_HOURS]: String(Number(task.hours) || 0),
         [COL_TIMELINE]: { from, to },
         [COL_STATUS]: { label: DEFAULT_STATUS_LABEL },
+      }
+
+      // Assign people on the subitem's "Assigned To" column based on the task's time mix:
+      // AM person if it has AM hours, SEO person if it has SEO hours, both if both.
+      const assignees = []
+      if (amPersonId && Number(task.amHours) > 0) assignees.push(amPersonId)
+      if (seoPersonId && Number(task.seoHours) > 0) assignees.push(seoPersonId)
+      const uniqueAssignees = [...new Set(assignees)]
+      if (uniqueAssignees.length > 0) {
+        columnValues[COL_ASSIGNEE] = {
+          personsAndTeams: uniqueAssignees.map(id => ({ id: Number(id), kind: 'person' })),
+        }
       }
 
       try {

@@ -69,6 +69,19 @@ export class MondayClient {
     return items.map(i => ({ id: String(i.id), name: i.name }))
   }
 
+  // List active staff (non-guest, ACTIVE, not deleted, not view-only service accounts).
+  // Returns [{ id, name }] sorted by name.
+  async listActiveStaff() {
+    const data = await this.query(
+      `query { users(kind: non_guests, limit: 300) { id name status kind is_deleted } }`
+    )
+    const users = data?.users || []
+    return users
+      .filter(u => u.status === 'ACTIVE' && !u.is_deleted && u.kind !== 'view_only')
+      .map(u => ({ id: String(u.id), name: u.name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
+
   // Create a single subitem under a parent item, setting all columns in one call.
   // columnValues is a plain object keyed by subitem column id; it is JSON-stringified here.
   // Returns the new subitem id.

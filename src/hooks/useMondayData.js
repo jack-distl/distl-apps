@@ -29,13 +29,40 @@ export function useMondayClientItems() {
   return { items, loading, error, fetchItems }
 }
 
+// ─── Hook: list active Monday staff for the AM / SEO pickers ────
+
+export function useMondayStaff() {
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await window.fetch('/api/monday/users')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to load Monday staff')
+      setUsers(data.users || [])
+    } catch (err) {
+      console.error('useMondayStaff error:', err)
+      setError(err.message || 'Failed to load Monday staff')
+      setUsers([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  return { users, loading, error, fetchUsers }
+}
+
 // ─── Push a period's tasks to Monday as subitems ───────────────
 
-export async function pushPeriodToMonday({ parentItemId, period, tasks }) {
+export async function pushPeriodToMonday({ parentItemId, period, tasks, amPersonId, seoPersonId }) {
   const res = await window.fetch('/api/monday/push', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ parentItemId, period, tasks }),
+    body: JSON.stringify({ parentItemId, period, tasks, amPersonId, seoPersonId }),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Push to Monday failed')
@@ -72,6 +99,8 @@ export function buildMondayTasks(period, abbreviation = '') {
         name: `${prefix}${krName} - ${i + 1} of ${total}`,
         objectiveTitle: label,
         hours: estHoursFor(kr),
+        amHours: Number(kr.amHours) || 0,
+        seoHours: Number(kr.seoHours) || 0,
         sortIndex: tasks.length,
       })
     })
