@@ -104,20 +104,19 @@ export function buildSchedule(period, n) {
     if (dow >= 1 && dow <= 5) workingDays.push(toIso(d))
   }
 
-  // Guard: no working days (shouldn't happen for a real month) — span the calendar range.
+  // Guard: no working days (shouldn't happen for a real month) — use the period start.
   if (workingDays.length === 0) {
-    const from = toIso(periodStart)
-    const to = toIso(periodEnd)
-    return Array.from({ length: n }, () => ({ from, to }))
+    const day = toIso(periodStart)
+    return Array.from({ length: n }, () => ({ from: day, to: day }))
   }
 
   const W = workingDays.length
-  const blockLen = Math.max(1, Math.floor(W / n))
 
+  // Single-day events: each task lands on one working day, spaced evenly across the period.
   return Array.from({ length: n }, (_, i) => {
-    const startIdx = n === 1 ? 0 : Math.round((i * (W - 1)) / (n - 1))
-    const endIdx = Math.min(startIdx + blockLen - 1, W - 1)
-    return { from: workingDays[startIdx], to: workingDays[endIdx] }
+    const idx = n === 1 ? 0 : Math.round((i * (W - 1)) / (n - 1))
+    const day = workingDays[idx]
+    return { from: day, to: day }
   })
 }
 
