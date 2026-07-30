@@ -41,9 +41,9 @@ export function useMondayStaff() {
     setError(null)
     try {
       const res = await window.fetch('/api/monday/users')
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to load Monday staff')
-      setUsers(data.users || [])
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || `Failed to load Monday staff (HTTP ${res.status})`)
+      setUsers(data?.users || [])
     } catch (err) {
       console.error('useMondayStaff error:', err)
       setError(err.message || 'Failed to load Monday staff')

@@ -6,7 +6,7 @@
 // Note: Monday returns HTTP 200 even for GraphQL errors — always check json.errors.
 
 const MONDAY_API_URL = 'https://api.monday.com/v2'
-const API_VERSION = '2024-10'
+const API_VERSION = '2025-07'
 
 // SEO Project Management board + the "Active Clients Accounts" group.
 // Trial-hardcoded; promote to config if this ever targets other boards.
