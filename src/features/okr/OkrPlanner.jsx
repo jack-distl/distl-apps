@@ -5,10 +5,11 @@ import {
   ArrowLeft, Plus, Copy, ChevronDown, ChevronUp,
   Trash2, Globe, FileText, Hash, CheckCircle, XCircle,
   AlertTriangle, Search, X, ClipboardCheck, Loader2, Check, Circle, Pencil,
-  BookmarkPlus
+  BookmarkPlus, Upload
 } from 'lucide-react'
 import { UndoToast } from '../../components/UndoToast'
 import { ClientEditModal } from '../../components/ClientEditModal'
+import { MondayPushModal } from './components/MondayPushModal'
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Badge } from '../../components/ui/badge'
 import {
@@ -139,6 +140,8 @@ export default function OkrPlanner() {
   const [showAddTaskModal, setShowAddTaskModal] = useState(false)
   const [addTaskObjectiveId, setAddTaskObjectiveId] = useState(null)
   const [showEditClient, setShowEditClient] = useState(false)
+  const [showMondayPush, setShowMondayPush] = useState(false)
+  const [pushedPeriodIds, setPushedPeriodIds] = useState(() => new Set())
 
   const isClientView = viewMode === 'client'
 
@@ -610,6 +613,19 @@ export default function OkrPlanner() {
     })
   }, [currentPeriod, abbreviation])
 
+  const openMondayPush = useCallback(() => {
+    if (!currentPeriod) return
+    // Duplicate-push guard: Monday subitems aren't idempotent, so warn if this
+    // period was already pushed in the current session.
+    if (pushedPeriodIds.has(currentPeriod.id)) {
+      const again = window.confirm(
+        'This period was already pushed to Monday in this session. Pushing again will create duplicate subitems. Continue?'
+      )
+      if (!again) return
+    }
+    setShowMondayPush(true)
+  }, [currentPeriod, pushedPeriodIds])
+
   // ─── Guard: client not found ─────────────────────────────
 
   if (!client) {
@@ -763,7 +779,15 @@ export default function OkrPlanner() {
           {!isClientView && currentPeriod && (
             <>
               <button
+                onClick={openMondayPush}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-charcoal text-white hover:bg-charcoal/90 transition-colors"
+              >
+                <Upload size={16} />
+                Push to Monday
+              </button>
+              <button
                 onClick={copyToClipboard}
+                title="Copy tasks to clipboard (fallback)"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 {copiedToClipboard ? (
@@ -774,7 +798,7 @@ export default function OkrPlanner() {
                 ) : (
                   <>
                     <Copy size={16} />
-                    Copy to Monday
+                    Copy
                   </>
                 )}
               </button>
@@ -1486,6 +1510,15 @@ export default function OkrPlanner() {
         updateClient={updateClient}
         deleteClient={deleteClient}
       />
+
+      <MondayPushModal
+        open={showMondayPush}
+        onClose={() => setShowMondayPush(false)}
+        client={client}
+        currentPeriod={currentPeriod}
+        onPushed={periodId => setPushedPeriodIds(prev => new Set(prev).add(periodId))}
+      />
+
 
     </div>
   )
