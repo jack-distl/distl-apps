@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react'
-import { SCOPE_OPTIONS } from '../lib/taskLibrary'
 
 // ─── Hook: list active client items from the Monday SEO board ───
 // Fetched lazily (on demand) since it hits the live Monday API.
@@ -49,29 +48,24 @@ export function estHoursFor(kr) {
   return (Number(kr.amHours) || 0) + (Number(kr.seoHours) || 0)
 }
 
-// Objective label matching the clipboard export's objSegment (title + scope detail).
-export function objectiveLabel(obj) {
-  const scopeLabel = SCOPE_OPTIONS.find(s => s.id === obj.scope)?.label
-  const detail = (obj.scopeDetail || '').trim()
-  return detail && scopeLabel ? `${obj.title} — ${scopeLabel}: ${detail}` : obj.title
-}
-
 // Flatten a period's objectives → key results into an ordered task list for the push endpoint.
-export function buildMondayTasks(period) {
+// Subitem name keeps the original convention: "Abbreviation - Key Result - X of X".
+// The objective is pushed separately into the "Objective" column.
+export function buildMondayTasks(period, abbreviation = '') {
   if (!period) return []
   const tasks = []
-  let sortIndex = 0
   for (const obj of period.objectives) {
-    const label = objectiveLabel(obj)
-    for (const kr of obj.keyResults) {
-      const name = kr.description ? `${kr.task} — ${kr.description}` : kr.task
+    const total = obj.keyResults.length
+    obj.keyResults.forEach((kr, i) => {
+      const krName = kr.description ? `${kr.task} — ${kr.description}` : kr.task
+      const prefix = abbreviation ? `${abbreviation} - ` : ''
       tasks.push({
-        name,
-        objectiveTitle: label,
+        name: `${prefix}${krName} - ${i + 1} of ${total}`,
+        objectiveTitle: obj.title,
         hours: estHoursFor(kr),
-        sortIndex: sortIndex++,
+        sortIndex: tasks.length,
       })
-    }
+    })
   }
   return tasks
 }

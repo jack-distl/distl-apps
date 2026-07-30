@@ -25,7 +25,7 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
   const [result, setResult] = useState(null)
   const [pushError, setPushError] = useState(null)
 
-  const tasks = useMemo(() => buildMondayTasks(currentPeriod), [currentPeriod])
+  const tasks = useMemo(() => buildMondayTasks(currentPeriod, client?.abbreviation), [currentPeriod, client])
   const objectiveCount = currentPeriod?.objectives?.length || 0
 
   const period = currentPeriod && {
