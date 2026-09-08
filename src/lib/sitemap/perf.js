@@ -18,8 +18,21 @@ export const POSITION_BANDS = [
   { key: 'deep', label: 'Position 21+' },
 ]
 
+/**
+ * Versions in display order: planning versions first, then reviews by the
+ * period they cover (so a review added later for an earlier period still
+ * sits before the newer one). Versions without a period fall back to the
+ * order they were created in.
+ */
 export function sortedVersions(sitemap) {
-  return [...(sitemap.versions || [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  return [...(sitemap.versions || [])].sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'plan' ? -1 : 1
+    const pa = a.period_start || null
+    const pb = b.period_start || null
+    if (pa && pb && pa !== pb) return pa < pb ? -1 : 1
+    if (pa && pb && (a.period_end || '') !== (b.period_end || '')) return (a.period_end || '') < (b.period_end || '') ? -1 : 1
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+  })
 }
 
 /** The review version immediately before `version` (by sort order), or null. */

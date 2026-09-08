@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { ArrowLeft, Loader2, Sparkles } from 'lucide-react'
+import { ArrowLeft, Sparkles } from 'lucide-react'
 import { Modal } from '@/components'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,7 +61,6 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
   const [showAllPages, setShowAllPages] = useState(false)
   const [showAllKeywords, setShowAllKeywords] = useState(false)
   const [applyVolumes, setApplyVolumes] = useState(true)
-  const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -98,7 +97,8 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
     volumes: files.volumes?.rows || [],
   }), [files])
 
-  const ready = name.trim() && Object.values(files).some(f => f?.rows)
+  const hasFiles = Object.values(files).some(f => f?.rows)
+  const ready = name.trim() && (hasFiles || !!existingVersion)
 
   // Preview: additions the files reveal, then the snapshot against the (optionally grown) tree
   const additions = useMemo(() => (step === 'preview' ? planAdditionsFromUploads(sitemap, rows) : null), [step, sitemap, rows])
@@ -161,26 +161,22 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
     })
   }, [snapshot, files, userName])
 
-  async function confirm() {
-    setBusy(true)
+  // Hand the work to the parent and close straight away: the sitemap updates
+  // locally at once and the row writes finish behind the save indicator.
+  function confirm() {
     setError(null)
-    try {
-      await onConfirm({
-        name: name.trim(),
-        period_start: period.period_start,
-        period_end: period.period_end,
-        rows,
-        additions: chosenAdditions,
-        applyVolumes,
-        uploadsMeta,
-        existingVersionId: existingVersion?.id || null,
-      })
-      onClose()
-    } catch (err) {
-      setError(err.message || 'Could not create the version')
-    } finally {
-      setBusy(false)
-    }
+    onConfirm({
+      name: name.trim(),
+      period_start: period.period_start,
+      period_end: period.period_end,
+      rows,
+      additions: chosenAdditions,
+      applyVolumes,
+      uploadsMeta,
+      existingVersionId: existingVersion?.id || null,
+      hasFiles,
+    })
+    onClose()
   }
 
   const hasAdditions = additions && (additions.counts.pages > 0 || additions.counts.keywords > 0)
@@ -235,7 +231,11 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={() => { setError(null); setStep('preview') }} disabled={!ready}>Match files</Button>
+            {existingVersion && !hasFiles ? (
+              <Button onClick={confirm} disabled={!ready}>Save name and period</Button>
+            ) : (
+              <Button onClick={() => { setError(null); setStep('preview') }} disabled={!ready}>Match files</Button>
+            )}
           </div>
         </div>
       ) : (
@@ -357,8 +357,7 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
             <button type="button" onClick={() => setStep('files')} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-charcoal"><ArrowLeft size={14} /> Back</button>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={onClose}>Cancel</Button>
-              <Button onClick={confirm} disabled={busy}>
-                {busy && <Loader2 size={14} className="animate-spin mr-1.5" />}
+              <Button onClick={confirm}>
                 {existingVersion ? 'Replace data' : 'Create version'}
               </Button>
             </div>

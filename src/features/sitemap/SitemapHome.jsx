@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Map as MapIcon, ArrowRight } from 'lucide-react'
+import { Search, Map as MapIcon, ArrowRight, Plus, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { LoadingSpinner } from '@/components'
+import { LoadingSpinner, NewClientModal } from '@/components'
+import { Button } from '@/components/ui/button'
+import { StartFoundationsModal } from './components/StartFoundationsModal'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -15,9 +17,11 @@ const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }
 
 export default function SitemapHome() {
   const navigate = useNavigate()
-  const { clients, loading } = useClients()
+  const { clients, loading, addClient } = useClients()
   const [summaries, setSummaries] = useState(null)
   const [search, setSearch] = useState('')
+  const [showNewClient, setShowNewClient] = useState(false)
+  const [showStart, setShowStart] = useState(false)
 
   useEffect(() => { fetchSitemapSummaries().then(d => setSummaries(d)) }, [])
 
@@ -28,19 +32,23 @@ export default function SitemapHome() {
   const filtered = q ? active.filter(c => c.name.toLowerCase().includes(q) || (c.abbreviation || '').toLowerCase().includes(q)) : active
 
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-semibold text-charcoal">Sitemap Tool</h1>
           <p className="text-gray-500 mt-1">SEO Foundations sitemaps, keyword clusters and performance reviews per client.</p>
         </div>
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients..." className="pl-9" />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients..." className="pl-9" />
+          </div>
+          <Button variant="secondary" onClick={() => setShowNewClient(true)}><Plus className="w-4 h-4 mr-2" /> New Client</Button>
+          <Button onClick={() => setShowStart(true)}><Sparkles className="w-4 h-4 mr-2" /> Start SEO Foundations</Button>
         </div>
       </div>
 
-      <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
         {filtered.map(client => {
           const s = summaries?.[client.id]
           const cadence = s ? REVIEW_CADENCES.find(c => c.value === s.reviewCadence)?.label : null
@@ -64,7 +72,13 @@ export default function SitemapHome() {
                       </div>
                     </div>
                   ) : summaries ? (
-                    <p className="text-sm text-gray-400 inline-flex items-center gap-1">No sitemap yet <ArrowRight size={12} /> start one</p>
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); navigate(`/sitemap/${client.id}?start=foundations`) }}
+                      className="text-sm text-coral hover:text-coral-dark inline-flex items-center gap-1"
+                    >
+                      Start SEO Foundations <ArrowRight size={12} />
+                    </button>
                   ) : (
                     <p className="text-sm text-gray-400">Open</p>
                   )}
@@ -74,6 +88,9 @@ export default function SitemapHome() {
           )
         })}
       </motion.div>
+
+      <NewClientModal open={showNewClient} onClose={() => setShowNewClient(false)} addClient={addClient} />
+      <StartFoundationsModal open={showStart} onClose={() => setShowStart(false)} clients={active} summaries={summaries} addClient={addClient} />
     </div>
   )
 }

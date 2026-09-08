@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, Map as MapIcon, FileSpreadsheet, ListTree, Plus, Globe, Flag,
@@ -15,6 +15,7 @@ import { useSitemapData } from '@/hooks/useSitemapData'
 import { REVIEW_CADENCES } from '@/lib/sitemap/defaults'
 import { sortedVersions } from '@/lib/sitemap/perf'
 import { moveAmong } from '@/lib/sitemap/tree'
+import { generateId } from '@/lib/constants'
 import { buildReviewSnapshot } from '@/lib/sitemap/matching'
 import { downloadText } from '@/lib/sitemap/csv'
 import { buildWordPressCsv, wordPressFilename } from '@/lib/sitemap/wordpressExport'
@@ -70,6 +71,18 @@ export default function SitemapTool() {
   const [collapsed, setCollapsed] = useState(new Set())    // hub ids rolled up individually
   const [undo, setUndo] = useState(null)
   const [creating, setCreating] = useState(false)
+
+  // /sitemap/:id?start=foundations (or =site) creates the sitemap and opens the matching import once
+  const [searchParams, setSearchParams] = useSearchParams()
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (loading || sitemap || autoStarted.current) return
+    const start = searchParams.get('start')
+    if (start !== 'foundations' && start !== 'site') return
+    autoStarted.current = true
+    setSearchParams({}, { replace: true })
+    startSitemap(start === 'foundations' ? 'files' : 'site')
+  }, [loading, sitemap, searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const versions = useMemo(() => (sitemap ? sortedVersions(sitemap) : []), [sitemap])
   const version = versions.find(v => v.id === versionId) || versions[versions.length - 1] || null
@@ -132,27 +145,38 @@ export default function SitemapTool() {
     data.reorderPages(next, base)
   }
 
-  async function handleReviewConfirm({ name, period_start, period_end, rows, additions, applyVolumes, uploadsMeta, existingVersionId }) {
-    let matchSitemap = sitemap
-    if (additions && (additions.pageInserts.length || additions.keywordInserts.length)) {
-      const result = await data.applyOperations({ pageInserts: additions.pageInserts, keywordInserts: additions.keywordInserts })
-      if (result?.pages) matchSitemap = { ...sitemap, pages: result.pages }
-    }
-    const snapshot = buildReviewSnapshot({ sitemap: matchSitemap, ...rows })
-    // Refresh upload stats against the final tree
-    const uploads = uploadsMeta.map(u => {
-      const unmatchedKey = { gsc_pages: 'pages', gsc_queries: 'queries', rankings: 'keywords', volumes: 'volumes' }[u.kind]
-      return { ...u, row_count: snapshot.stats[u.kind].rows, matched_count: snapshot.stats[u.kind].matched, unmatched: (snapshot.unmatched[unmatchedKey] || []).slice(0, 500) }
-    })
-    if (existingVersionId) {
-      await data.replaceVersionData(existingVersionId, { snapshot, uploads })
+  async function handleReviewConfirm({ name, period_start, period_end, rows, additions, applyVolumes, uploadsMeta, existingVersionId, hasFiles }) {
+    // Name or period change only
+    if (existingVersionId && !hasFiles) {
       data.updateVersion(existingVersionId, { name, period_start, period_end })
-    } else {
-      const v = await data.addVersion({ name, type: 'review', snapshot, uploads, period_start, period_end })
-      setVersionId(v.id)
+      return
     }
-    if (applyVolumes && snapshot.volumeUpdates.length) {
-      await data.applyOperations({ keywordUpdates: snapshot.volumeUpdates.map(u => ({ keywordId: u.keyword_id, fields: { volume: u.to } })) })
+    // Pick the new version straight away; the modal has already closed and
+    // the writes below run behind the save indicator.
+    const newId = existingVersionId || generateId()
+    if (!existingVersionId) setVersionId(newId)
+    try {
+      let matchSitemap = sitemap
+      if (additions && (additions.pageInserts.length || additions.keywordInserts.length)) {
+        const result = await data.applyOperations({ pageInserts: additions.pageInserts, keywordInserts: additions.keywordInserts })
+        if (result?.pages) matchSitemap = { ...sitemap, pages: result.pages }
+      }
+      const snapshot = buildReviewSnapshot({ sitemap: matchSitemap, ...rows })
+      const uploads = uploadsMeta.map(u => {
+        const unmatchedKey = { gsc_pages: 'pages', gsc_queries: 'queries', rankings: 'keywords', volumes: 'volumes' }[u.kind]
+        return { ...u, row_count: snapshot.stats[u.kind].rows, matched_count: snapshot.stats[u.kind].matched, unmatched: (snapshot.unmatched[unmatchedKey] || []).slice(0, 500) }
+      })
+      if (existingVersionId) {
+        data.updateVersion(existingVersionId, { name, period_start, period_end })
+        await data.replaceVersionData(existingVersionId, { snapshot, uploads })
+      } else {
+        await data.addVersion({ id: newId, name, type: 'review', snapshot, uploads, period_start, period_end })
+      }
+      if (applyVolumes && snapshot.volumeUpdates.length) {
+        await data.applyOperations({ keywordUpdates: snapshot.volumeUpdates.map(u => ({ keywordId: u.keyword_id, fields: { volume: u.to } })) })
+      }
+    } catch (err) {
+      console.error('Review version error:', err)
     }
   }
 
@@ -194,7 +218,7 @@ export default function SitemapTool() {
   ) : null
 
   return (
-    <div className="max-w-[1600px]">
+    <div className="w-full">
       {saveError && (
         <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2">
           <AlertTriangle size={16} className="text-red-500 shrink-0" />
