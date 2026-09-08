@@ -138,7 +138,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
               const hidden = children.length - shownChildren.length
               const agg = rolled && children.length ? aggregatePages(sitemap, version, [root, ...children]) : null
               return (
-                <motion.div key={root.id} variants={fadeUp} className={cn('w-56 shrink-0 relative rounded-xl', root.is_priority && 'bg-coral-50/40 ring-1 ring-coral/20 p-2 -m-2 pt-2')}>
+                <motion.div key={root.id} variants={fadeUp} className={cn('shrink-0 relative rounded-xl', root.is_priority ? 'w-60 bg-coral-50/40 ring-1 ring-coral/20 p-2' : 'w-56')}>
                   <div className="absolute -top-4 left-1/2 w-px h-4 bg-gray-300" />
                   {root.is_priority && <div className="text-[10px] font-semibold uppercase tracking-wider text-coral mb-1.5 pl-1">Priority hub</div>}
                   <MovableCard
