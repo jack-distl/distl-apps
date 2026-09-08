@@ -143,8 +143,16 @@ export function TableView({ sitemap, version, selectedPageId, onSelectPage, filt
                   <>
                     <TableCell className="text-right">{aggregate ? (aggregate.avgPosition != null ? <span className="text-xs text-gray-500">avg #{aggregate.avgPosition}</span> : <span className="text-gray-300">—</span>) : perf && primary ? <PositionChip position={perf.position} /> : <span className="text-gray-300">—</span>}</TableCell>
                     <TableCell className="text-right">{aggregate ? <ChangeIndicator change={aggregate.clicksChange} /> : perf && primary && <ChangeIndicator change={perf.positionChange} />}</TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">{aggregate ? formatNumber(aggregate.clicks) : perf ? formatNumber(perf.clicks) : <span className="text-gray-300">—</span>}</TableCell>
-                    <TableCell className="text-right tabular-nums text-gray-500">{aggregate ? formatNumber(aggregate.impressions) : m ? formatNumber(m.impressions) : <span className="text-gray-300">—</span>}</TableCell>
+                    <TableCell className="text-right tabular-nums font-medium whitespace-nowrap">
+                      {aggregate ? <>{formatNumber(aggregate.clicks)} <ChangeIndicator change={aggregate.clicksChange} className="ml-1" /></>
+                        : perf ? <>{formatNumber(perf.clicks)} <ChangeIndicator change={perf.clicksChange} className="ml-1" /></>
+                        : <span className="text-gray-300">—</span>}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-gray-500 whitespace-nowrap">
+                      {aggregate ? <>{formatNumber(aggregate.impressions)} <ChangeIndicator change={aggregate.impressionsChange} className="ml-1" /></>
+                        : m ? <>{formatNumber(m.impressions)} <ChangeIndicator change={perf ? perf.impressionsChange : null} className="ml-1" /></>
+                        : <span className="text-gray-300">—</span>}
+                    </TableCell>
                   </>
                 ) : (
                   <>

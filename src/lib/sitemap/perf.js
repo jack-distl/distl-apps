@@ -102,12 +102,16 @@ export function pagePerfSummary(sitemap, version, page) {
   const clicks = pageClickBreakdown(version, page.id)
   const prevClicks = prev ? pageClickBreakdown(prev, page.id) : null
   const prevHad = prev ? hasPerf(prev, page) : false
+  const metric = pageMetric(version, page.id)
+  const prevMetric = prev ? pageMetric(prev, page.id) : null
   return {
     primary,
     position: pos,
     positionChange: change(pos, prevHad ? prevPos : null, { betterWhenLower: true }),
     clicks: clicks.total,
     clicksChange: change(clicks.total, prevHad ? prevClicks.total : null),
+    impressions: metric ? Number(metric.impressions) || 0 : null,
+    impressionsChange: metric ? change(Number(metric.impressions) || 0, prevHad && prevMetric ? Number(prevMetric.impressions) || 0 : null) : { kind: 'none', delta: 0 },
     breakdown: clicks,
     prev,
   }
@@ -162,6 +166,7 @@ export function aggregatePages(sitemap, version, pages) {
   let clicks = 0
   let impressions = 0
   let prevClicks = 0
+  let prevImpressions = 0
   let prevHad = false
   const positions = []
   for (const p of pages) {
@@ -172,7 +177,7 @@ export function aggregatePages(sitemap, version, pages) {
       const primary = (p.keywords || []).find(k => k.is_primary)
       const pos = primary ? keywordPosition(version, primary.id) : null
       if (pos != null) positions.push(pos)
-      if (prev && hasPerf(prev, p)) { prevHad = true; const pm = pageMetric(prev, p.id); if (pm) prevClicks += Number(pm.clicks) || 0 }
+      if (prev && hasPerf(prev, p)) { prevHad = true; const pm = pageMetric(prev, p.id); if (pm) { prevClicks += Number(pm.clicks) || 0; prevImpressions += Number(pm.impressions) || 0 } }
     }
   }
   return {
@@ -183,6 +188,7 @@ export function aggregatePages(sitemap, version, pages) {
     impressions,
     avgPosition: positions.length ? Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10 : null,
     clicksChange: isReview ? change(clicks, prevHad ? prevClicks : null) : { kind: 'none', delta: 0 },
+    impressionsChange: isReview ? change(impressions, prevHad ? prevImpressions : null) : { kind: 'none', delta: 0 },
     hasPerf: isReview && pages.some(p => hasPerf(version, p)),
   }
 }

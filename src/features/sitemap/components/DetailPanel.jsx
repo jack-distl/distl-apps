@@ -146,7 +146,7 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
                   </tr>
                 )}
                 <tr className="border-t border-gray-100 text-gray-500 italic">
-                  <td className="py-1.5">Additional clicks from anonymous queries</td>
+                  <td className="py-1.5">Additional clicks from other queries</td>
                   <td className="py-1.5 text-right tabular-nums">{formatNumber(breakdown.anonymous)}</td>
                   <td className="py-1.5 text-right tabular-nums text-gray-400">{metric ? formatNumber(Math.max(0, (metric.impressions || 0) - breakdown.queries.reduce((s, q) => s + (Number(q.impressions) || 0), 0))) : ''}</td>
                   <td className="py-1.5 text-right"><ChangeIndicator change={change(breakdown.anonymous, prevHad ? prevBreakdown.anonymous : null)} /></td>
