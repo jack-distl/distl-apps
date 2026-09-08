@@ -56,7 +56,10 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
   const [period, setPeriod] = useState(defaultReviewPeriod())
   const [files, setFiles] = useState({})
   const [step, setStep] = useState('files')
-  const [addPages, setAddPages] = useState(true)
+  const [pickedPages, setPickedPages] = useState(new Set())      // page urls to add
+  const [pickedKeywords, setPickedKeywords] = useState(new Set()) // `${pageUrl}|${keyword}` to add
+  const [showAllPages, setShowAllPages] = useState(false)
+  const [showAllKeywords, setShowAllKeywords] = useState(false)
   const [applyVolumes, setApplyVolumes] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -67,7 +70,7 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
     setPeriod(p)
     setName(existingVersion ? existingVersion.name : periodLabel(p.period_start, p.period_end))
     setNameEdited(!!existingVersion)
-    setFiles({}); setStep('files'); setAddPages(true); setApplyVolumes(true); setError(null)
+    setFiles({}); setStep('files'); setApplyVolumes(true); setError(null); setShowAllPages(false); setShowAllKeywords(false)
   }, [open, existingVersion, sitemap])
 
   // The version is named after its period until the name is edited by hand
@@ -99,10 +102,48 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
 
   // Preview: additions the files reveal, then the snapshot against the (optionally grown) tree
   const additions = useMemo(() => (step === 'preview' ? planAdditionsFromUploads(sitemap, rows) : null), [step, sitemap, rows])
+
+  // Every keyword the files could add, flattened: new pages' clusters plus keywords for existing pages
+  const keywordCandidates = useMemo(() => {
+    if (!additions) return []
+    const byId = new Map((sitemap.pages || []).map(p => [p.id, p]))
+    const list = []
+    for (const p of additions.pageInserts) for (const k of p.keywords) list.push({ key: `${p.url}|${k.keyword}`, keyword: k.keyword, volume: k.volume, pageUrl: p.url, pageName: p.name, newPage: true })
+    for (const k of additions.keywordInserts) { const pg = byId.get(k.pageId); list.push({ key: `${pg?.url}|${k.keyword}`, keyword: k.keyword, volume: k.volume, pageUrl: pg?.url, pageName: pg?.name, newPage: false, pageId: k.pageId }) }
+    return list.sort((a, b) => (b.volume || 0) - (a.volume || 0))
+  }, [additions, sitemap.pages])
+
+  const sitemapHasKeywords = (sitemap.pages || []).some(p => p.keywords?.length)
+  useEffect(() => {
+    if (!additions) return
+    // Pages default to ticked. Keywords default to ticked only when nothing is tracked yet,
+    // so a re-upload never grows the tracked list unless you choose it.
+    setPickedPages(new Set(additions.pageInserts.map(p => p.url)))
+    setPickedKeywords(new Set(sitemapHasKeywords ? [] : keywordCandidates.map(k => k.key)))
+  }, [additions]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Additions narrowed to what is ticked. Keywords on an unticked new page cannot be added.
+  const chosenAdditions = useMemo(() => {
+    if (!additions) return null
+    const pageInserts = additions.pageInserts
+      .filter(p => pickedPages.has(p.url))
+      .map(p => ({ ...p, keywords: p.keywords.filter(k => pickedKeywords.has(`${p.url}|${k.keyword}`)).map((k, i, arr) => ({ ...k, is_primary: k.is_primary && arr.some(x => x.is_primary) ? k.is_primary : false })) }))
+    // Re-pick a primary for new pages whose primary was unticked
+    for (const p of pageInserts) {
+      if (p.keywords.length && !p.keywords.some(k => k.is_primary)) {
+        const top = p.keywords.reduce((b, k) => (b == null || k.volume > b.volume ? k : b), null)
+        top.is_primary = true
+      }
+    }
+    const byId = new Map((sitemap.pages || []).map(pg => [pg.id, pg]))
+    const keywordInserts = additions.keywordInserts.filter(k => pickedKeywords.has(`${byId.get(k.pageId)?.url}|${k.keyword}`))
+    return { pageInserts, keywordInserts, counts: { pages: pageInserts.length, keywords: keywordInserts.length + pageInserts.reduce((s, p) => s + p.keywords.length, 0) } }
+  }, [additions, pickedPages, pickedKeywords, sitemap.pages])
+
   const previewSitemap = useMemo(() => {
-    if (!additions) return sitemap
-    return addPages ? augmentSitemapForPreview(sitemap, additions) : sitemap
-  }, [sitemap, additions, addPages])
+    if (!chosenAdditions) return sitemap
+    return augmentSitemapForPreview(sitemap, chosenAdditions)
+  }, [sitemap, chosenAdditions])
   const snapshot = useMemo(() => (step === 'preview' ? buildReviewSnapshot({ sitemap: previewSitemap, ...rows }) : null), [step, previewSitemap, rows])
 
   const uploadsMeta = useMemo(() => {
@@ -129,7 +170,7 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
         period_start: period.period_start,
         period_end: period.period_end,
         rows,
-        additions: addPages ? additions : null,
+        additions: chosenAdditions,
         applyVolumes,
         uploadsMeta,
         existingVersionId: existingVersion?.id || null,
@@ -143,6 +184,11 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
   }
 
   const hasAdditions = additions && (additions.counts.pages > 0 || additions.counts.keywords > 0)
+  const toggleIn = (setter) => (key) => setter(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
+  const togglePage = toggleIn(setPickedPages)
+  const toggleKeyword = toggleIn(setPickedKeywords)
+  const PAGE_LIMIT = 8
+  const KW_LIMIT = 10
 
   return (
     <Modal
@@ -195,26 +241,80 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
       ) : (
         <div className="space-y-4">
           {hasAdditions && (
-            <label className={`flex items-start gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer ${addPages ? 'border-coral bg-coral-50/40' : 'border-gray-200'}`}>
-              <input type="checkbox" checked={addPages} onChange={e => setAddPages(e.target.checked)} className="mt-0.5 accent-[#E8806A]" />
-              <span>
-                <span className="text-sm text-charcoal inline-flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-coral" />
-                  Add {[
-                    additions.counts.pages ? `${additions.counts.pages} page${additions.counts.pages === 1 ? '' : 's'}` : null,
-                    additions.counts.keywords ? `${additions.counts.keywords} keyword${additions.counts.keywords === 1 ? '' : 's'}` : null,
-                  ].filter(Boolean).join(' and ')} found in these files to the sitemap
-                </span>
-                <span className="block text-xs text-gray-500 mt-0.5">
-                  Pages come from Search Console URLs and ranking URLs; keywords attach to the page they rank for. Everything is editable afterwards, and nothing already in the sitemap is changed.
-                </span>
-                {addPages && additions.pageInserts.length > 0 && (
-                  <span className="block text-[11px] text-gray-400 font-mono mt-1 truncate">
-                    {additions.pageInserts.slice(0, 6).map(p => p.url).join('  ')}{additions.pageInserts.length > 6 ? `  … +${additions.pageInserts.length - 6}` : ''}
-                  </span>
-                )}
-              </span>
-            </label>
+            <div className="rounded-lg border border-coral/40 bg-coral-50/30 p-3 space-y-3">
+              <div className="flex items-center gap-1.5 text-sm text-charcoal">
+                <Sparkles size={14} className="text-coral" />
+                <span className="font-medium">These files mention things the sitemap does not have yet.</span>
+              </div>
+              <p className="text-xs text-gray-500 -mt-2">Tick what to add. Nothing already in the sitemap changes. Everything added is editable afterwards.</p>
+
+              {additions.pageInserts.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" className="accent-[#E8806A]" checked={pickedPages.size === additions.pageInserts.length} ref={el => { if (el) el.indeterminate = pickedPages.size > 0 && pickedPages.size < additions.pageInserts.length }} onChange={e => setPickedPages(new Set(e.target.checked ? additions.pageInserts.map(p => p.url) : []))} />
+                      <span className="font-medium text-charcoal">Newly discovered pages</span>
+                      <span className="text-gray-400">{pickedPages.size} of {additions.pageInserts.length} selected</span>
+                    </label>
+                    <span className="text-gray-400">from Search Console URLs and ranking URLs</span>
+                  </div>
+                  <ul className="rounded-md border border-gray-200 bg-white divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                    {(showAllPages ? additions.pageInserts : additions.pageInserts.slice(0, PAGE_LIMIT)).map(p => (
+                      <li key={p.url}>
+                        <label className="flex items-center gap-2 px-2.5 py-1 text-xs cursor-pointer hover:bg-gray-50">
+                          <input type="checkbox" className="accent-[#E8806A]" checked={pickedPages.has(p.url)} onChange={() => togglePage(p.url)} />
+                          <span className={pickedPages.has(p.url) ? 'text-charcoal' : 'text-gray-400'}>{p.name}</span>
+                          <span className="font-mono text-[11px] text-gray-400 truncate">{p.url}</span>
+                          {p.keywords.length > 0 && <span className="ml-auto text-[11px] text-gray-400 shrink-0">{p.keywords.length} kw</span>}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                  {additions.pageInserts.length > PAGE_LIMIT && (
+                    <button type="button" onClick={() => setShowAllPages(v => !v)} className="mt-1 text-xs text-coral hover:text-coral-dark">
+                      {showAllPages ? 'Show fewer' : `See all ${additions.pageInserts.length} pages`}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {keywordCandidates.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" className="accent-[#E8806A]" checked={pickedKeywords.size === keywordCandidates.length} ref={el => { if (el) el.indeterminate = pickedKeywords.size > 0 && pickedKeywords.size < keywordCandidates.length }} onChange={e => setPickedKeywords(new Set(e.target.checked ? keywordCandidates.map(k => k.key) : []))} />
+                      <span className="font-medium text-charcoal">Newly discovered ranking keywords</span>
+                      <span className="text-gray-400">{pickedKeywords.size} of {keywordCandidates.length} selected</span>
+                    </label>
+                    <span className="text-gray-400">{sitemapHasKeywords ? 'Unticked by default so tracking only grows when you say so' : 'Ticked because nothing is tracked yet'}</span>
+                  </div>
+                  <ul className="rounded-md border border-gray-200 bg-white divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                    {(showAllKeywords ? keywordCandidates : keywordCandidates.slice(0, KW_LIMIT)).map(k => {
+                      const pageOff = k.newPage && !pickedPages.has(k.pageUrl)
+                      return (
+                        <li key={k.key}>
+                          <label className={`flex items-center gap-2 px-2.5 py-1 text-xs ${pageOff ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`} title={pageOff ? 'Tick its page above first' : ''}>
+                            <input type="checkbox" className="accent-[#E8806A]" disabled={pageOff} checked={pickedKeywords.has(k.key) && !pageOff} onChange={() => toggleKeyword(k.key)} />
+                            <span className={pickedKeywords.has(k.key) && !pageOff ? 'text-charcoal' : 'text-gray-400'}>{k.keyword}</span>
+                            <span className="text-[11px] text-gray-400 tabular-nums">{formatNumber(k.volume)}</span>
+                            <span className="ml-auto text-[11px] text-gray-400 truncate">→ {k.pageName}{k.newPage ? ' (new)' : ''}</span>
+                          </label>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  {keywordCandidates.length > KW_LIMIT && (
+                    <button type="button" onClick={() => setShowAllKeywords(v => !v)} className="mt-1 text-xs text-coral hover:text-coral-dark">
+                      {showAllKeywords ? 'Show fewer' : `See all ${keywordCandidates.length} keywords`}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="text-xs text-gray-500">
+                Adding <b className="text-charcoal">{chosenAdditions.counts.pages}</b> page{chosenAdditions.counts.pages === 1 ? '' : 's'} and <b className="text-charcoal">{chosenAdditions.counts.keywords}</b> keyword{chosenAdditions.counts.keywords === 1 ? '' : 's'}. Anything left unticked stays listed under unmatched below and is kept with the version.
+              </div>
+            </div>
           )}
 
           <table className="w-full text-sm">
