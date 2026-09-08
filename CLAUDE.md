@@ -193,7 +193,7 @@ Each client card shows:
 - Four tabs from the same tree: Sitemap (tree or table), Keyword Research, URL Architecture, Templates
 - Detail side panel with every field editable in place; edits autosave through Supabase like the OKR planner
 - **Template in, then fully editable:** the SEO Foundations CSVs (proposed sitemap, keyword clusters, optional metadata sheet) land the whole tree. Re-importing shows a diff and never overwrites edits unless chosen
-- **Versions:** the planning version plus any number of review versions, each named after the period it covers (e.g. Jul – Sep 2026). A review takes Search Console Pages and Queries CSVs, an Ahrefs or SEMrush rank tracking export and optionally refreshed volumes. Pages and keywords the files reveal are offered as additions, so the tree can start from nothing. Nothing unmatched is dropped; it is kept with the version for review
+- **Versions:** the planning version plus any number of review versions, each named after the period it covers (e.g. Jul – Sep 2026) and ordered by that period. Search Console queries attach to pages by page URL when the export has one, else by exact keyword, else by containing a tracked keyword (marked inferred). A review takes Search Console Pages and Queries CSVs, an Ahrefs or SEMrush rank tracking export and optionally refreshed volumes. Pages and keywords the files reveal are offered as additions, so the tree can start from nothing. Nothing unmatched is dropped; it is kept with the version for review
 - **Board layout:** pages move left/right (columns) and up/down with hover arrows; "Show under" groups a page into another column visually without changing its URL. The table view reads the board left to right
 - **Starting points:** the live site's sitemap.xml (fetched through `api/sitemap/fetch.js`), an uploaded sitemap.xml, the SEO Foundations CSVs, a WordPress import CSV, or review uploads
 - **Bulk edit tracked keywords:** tick to remove across a page or the whole sitemap
@@ -203,7 +203,7 @@ Each client card shows:
 
 **Logic lives in `src/lib/sitemap/`** (CSV parsing, tree derivation, importers, matching, exports). Run `pnpm test:sitemap` after touching it; the parity test proves the WordPress export is byte-identical to the reference file.
 
-**Status:** Built, connected to Supabase (migrations 015 to 017). Needs real-client testing.
+**Status:** Built, connected to Supabase (migrations 015 to 018). Needs real-client testing.
 
 ### Future App Ideas
 

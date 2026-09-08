@@ -185,5 +185,43 @@ check(snap.stats.gsc_pages.matched === 3 && snap.stats.rankings.matched === 3, '
   check(adds2.pageInserts.length === 0 && adds2.keywordInserts.length === 1 && adds2.keywordInserts[0].is_primary, 'keyword added to existing page becomes primary when it had none')
 }
 
+
+// ─── 5. Query attribution: page column, exact, inferred ──
+{
+  console.log('Query attribution')
+  const sample = buildSampleSitemap('attr')
+  const home = sample.pages.find(p => p.url === '/')
+  const crim = sample.pages.find(p => p.url === '/criminal-law/')
+  const probate = sample.pages.find(p => p.url === '/wills-estates/probate/')
+  // site-wide file: exact + inferred
+  const q1 = parseGscQueries(rowsToCsv([
+    ['Top queries', 'Clicks', 'Impressions', 'CTR', 'Position'],
+    ['criminal lawyer perth', 30, 600, '5%', 7],          // exact → criminal law
+    ['best criminal lawyer perth cbd', 4, 90, '4%', 9],   // inferred → criminal law (contains "best criminal lawyer perth")
+    ['probate lawyers perth cost', 3, 80, '3%', 8],       // inferred → probate
+    ['hammond legal', 95, 210, '45%', 1],                 // unattributed
+    ['perth', 2, 500, '0.4%', 40],                        // too short to infer
+  ]))
+  check(detectKind(rowsToCsv([['Top queries', 'Clicks', 'Impressions'], ['x', 1, 2]])) === 'gsc_queries', 'site-wide queries file detected')
+  const snap1 = buildReviewSnapshot({ sitemap: sample, gscQueries: q1 })
+  const byPage = id => snap1.queries.filter(q => q.page_id === id)
+  check(byPage(crim.id).length === 2 && byPage(crim.id).find(q => q.query.startsWith('best')).attribution === 'inferred', 'query containing a tracked keyword is inferred onto that page')
+  check(byPage(probate.id).length === 1 && byPage(probate.id)[0].attribution === 'inferred', 'longest keyword match picks the specific page')
+  check(snap1.unmatched.queries.length === 2, 'brand and too-short queries stay unattributed')
+  // page+query file: full list per page, page totals derived when no Pages export
+  const combined = rowsToCsv([
+    ['Page', 'Query', 'Clicks', 'Impressions', 'Position'],
+    ['https://hammondlegal.com.au/', 'hammond legal', 95, 210, 1],
+    ['https://hammondlegal.com.au/', 'lawyers near me', 12, 900, 14],
+    ['https://hammondlegal.com.au/criminal-law/', 'criminal lawyer', 8, 300, 9],
+  ])
+  check(detectKind(combined) === 'gsc_queries', 'page+query file detected as queries, not pages')
+  const q2 = parseGscQueries(combined)
+  check(q2.every(r => r.url), 'page URLs parsed from the page column')
+  const snap2 = buildReviewSnapshot({ sitemap: sample, gscQueries: q2 })
+  check(snap2.queries.filter(q => q.page_id === home.id).length === 2 && snap2.queries.every(q => q.attribution === 'page'), 'every query attributed by page URL')
+  check(snap2.pageMetrics[home.id]?.clicks === 107 && snap2.pageMetrics[crim.id]?.clicks === 8, 'page totals derived from the query file when no Pages export')
+}
+
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed')
 process.exit(failures ? 1 : 0)
