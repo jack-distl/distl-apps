@@ -14,6 +14,7 @@ import { useClients, useAuth } from '@/hooks'
 import { useSitemapData } from '@/hooks/useSitemapData'
 import { REVIEW_CADENCES } from '@/lib/sitemap/defaults'
 import { sortedVersions } from '@/lib/sitemap/perf'
+import { moveAmong } from '@/lib/sitemap/tree'
 import { buildReviewSnapshot } from '@/lib/sitemap/matching'
 import { downloadText } from '@/lib/sitemap/csv'
 import { buildWordPressCsv, wordPressFilename } from '@/lib/sitemap/wordpressExport'
@@ -31,6 +32,7 @@ import { ImportModal } from './components/ImportModal'
 import { NewVersionModal } from './components/NewVersionModal'
 import { AddPageModal } from './components/AddPageModal'
 import { MenusModal } from './components/MenusModal'
+import { BulkKeywordsModal } from './components/BulkKeywordsModal'
 
 const TABS = [
   { value: 'sitemap', label: 'Sitemap' },
@@ -56,6 +58,7 @@ export default function SitemapTool() {
   const [versionModal, setVersionModal] = useState(null) // null | { existing: version|null }
   const [addPage, setAddPage] = useState(null)           // null | defaults
   const [showMenus, setShowMenus] = useState(false)
+  const [bulkEdit, setBulkEdit] = useState(null)          // null | { pageId: string|null }
   const [undo, setUndo] = useState(null)
   const [creating, setCreating] = useState(false)
 
@@ -99,7 +102,18 @@ export default function SitemapTool() {
    * first, then the rows are matched against the grown tree so the new pages
    * carry their performance data straight away.
    */
-  async function handleReviewConfirm({ name, rows, additions, applyVolumes, uploadsMeta, existingVersionId }) {
+  /** Reorder a page among the siblings shown on the board (left/right for silos, up/down within a column). */
+  function handleMove(pageId, direction, { siblings }) {
+    const next = moveAmong(siblings, pageId, direction)
+    if (!next) return
+    // Re-number just these siblings, keeping their existing sort slots so the rest of the tree is untouched
+    const slots = siblings.map(p => p.sort_order ?? 0).sort((a, b) => a - b)
+    const distinct = new Set(slots).size === slots.length
+    const base = distinct ? slots : next.map((_, i) => i + Math.min(...slots))
+    data.reorderPages(next, base)
+  }
+
+  async function handleReviewConfirm({ name, period_start, period_end, rows, additions, applyVolumes, uploadsMeta, existingVersionId }) {
     let matchSitemap = sitemap
     if (additions && (additions.pageInserts.length || additions.keywordInserts.length)) {
       const result = await data.applyOperations({ pageInserts: additions.pageInserts, keywordInserts: additions.keywordInserts })
@@ -113,9 +127,9 @@ export default function SitemapTool() {
     })
     if (existingVersionId) {
       await data.replaceVersionData(existingVersionId, { snapshot, uploads })
-      if (name && name !== version?.name) data.updateVersion(existingVersionId, { name })
+      data.updateVersion(existingVersionId, { name, period_start, period_end })
     } else {
-      const v = await data.addVersion({ name, type: 'review', snapshot, uploads })
+      const v = await data.addVersion({ name, type: 'review', snapshot, uploads, period_start, period_end })
       setVersionId(v.id)
     }
     if (applyVolumes && snapshot.volumeUpdates.length) {
@@ -286,11 +300,11 @@ export default function SitemapTool() {
                     </div>
                   </div>
                   {view === 'tree'
-                    ? <TreeView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} onAddPage={handleAddPage} />
+                    ? <TreeView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} onAddPage={handleAddPage} onMove={handleMove} />
                     : <TableView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} />}
                 </>
               )}
-              {tab === 'keywords' && <KeywordsTab sitemap={sitemap} onSelectPage={selectPage} />}
+              {tab === 'keywords' && <KeywordsTab sitemap={sitemap} onSelectPage={selectPage} onBulkEdit={(pageId) => setBulkEdit({ pageId })} />}
               {tab === 'urls' && <UrlsTab sitemap={sitemap} selectedPageId={selectedPageId} onSelectPage={selectPage} />}
               {tab === 'templates' && (
                 <TemplatesTab
@@ -312,6 +326,7 @@ export default function SitemapTool() {
                   onClose={() => setSelectedPageId(null)}
                   onJumpTemplate={jumpToTemplate}
                   onDeletePage={handleDeletePage}
+                  onBulkEdit={(pageId) => setBulkEdit({ pageId })}
                   actions={{
                     updatePage: data.updatePage,
                     updatePageUrl: data.updatePageUrl,
@@ -342,6 +357,7 @@ export default function SitemapTool() {
             onAdd={fields => { const p = data.addPage(fields); setSelectedPageId(p.id); setTab('sitemap') }}
           />
           <MenusModal open={showMenus} onClose={() => setShowMenus(false)} menus={sitemap.menus || []} onChange={data.setMenus} />
+          <BulkKeywordsModal open={!!bulkEdit} onClose={() => setBulkEdit(null)} sitemap={sitemap} pageId={bulkEdit?.pageId || null} onRemove={data.deleteKeywords} />
         </>
       )}
 

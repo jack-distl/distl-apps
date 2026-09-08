@@ -2,25 +2,14 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Settings, Pencil, Search, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { Modal, LoadingSpinner, ClientEditModal } from '../../components'
+import { LoadingSpinner, ClientEditModal, NewClientModal } from '../../components'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Card, CardContent } from '../../components/ui/card'
 import { useClients, fetchLatestPeriods, fetchAllClientRetainers } from '../../hooks'
-import { supabase } from '../../lib/supabase'
 import { mockOkrData, mockClientRetainers } from '../../lib/mockData'
 import { HOURLY_RATE, getPeriodLabel } from '../../lib/constants'
-
-function generateAbbreviation(name) {
-  return name
-    .split(/\s+/)
-    .filter(w => w.length > 0)
-    .map(w => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 5)
-}
 
 const stagger = {
   hidden: {},
@@ -60,62 +49,6 @@ export default function PlannerHome() {
   }, [])
 
   const [showNewClient, setShowNewClient] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newAbbreviation, setNewAbbreviation] = useState('')
-  const [newSeoRetainer, setNewSeoRetainer] = useState(3600)
-  const [abbrevEdited, setAbbrevEdited] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [submitError, setSubmitError] = useState(null)
-
-  function handleNameChange(value) {
-    setNewName(value)
-    if (!abbrevEdited) {
-      setNewAbbreviation(generateAbbreviation(value))
-    }
-  }
-
-  function resetForm() {
-    setNewName('')
-    setNewAbbreviation('')
-    setNewSeoRetainer(3600)
-    setAbbrevEdited(false)
-    setSaving(false)
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!newName.trim() || !newAbbreviation.trim()) return
-
-    setSaving(true)
-    setSubmitError(null)
-    try {
-      const newClient = await addClient({
-        name: newName.trim(),
-        abbreviation: newAbbreviation.trim().toUpperCase(),
-        monthly_retainer: 0,
-      })
-      // Create SEO retainer for the new client
-      const seoAmount = Number(newSeoRetainer) || 0
-      if (newClient && seoAmount > 0) {
-        if (supabase) {
-          await supabase.from('client_retainers').upsert({
-            client_id: newClient.id,
-            service_type: 'seo',
-            monthly_amount: seoAmount,
-          }, { onConflict: 'client_id,service_type' })
-        }
-        setRetainersByClient(prev => ({
-          ...prev,
-          [newClient.id]: { seo: seoAmount },
-        }))
-      }
-      setShowNewClient(false)
-      resetForm()
-    } catch {
-      setSubmitError('Something went wrong adding the client. Please try again.')
-      setSaving(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -247,90 +180,16 @@ export default function PlannerHome() {
         </p>
       )}
 
-      {/* New Client Modal */}
-      <Modal
+      <NewClientModal
         open={showNewClient}
-        onClose={() => { setShowNewClient(false); resetForm() }}
-        title="New Client"
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {submitError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
-              {submitError}
-            </div>
-          )}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Client Name
-            </label>
-            <Input
-              type="text"
-              value={newName}
-              onChange={e => handleNameChange(e.target.value)}
-              placeholder="e.g. Swan River Brewing"
-              required
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Abbreviation
-            </label>
-            <Input
-              type="text"
-              value={newAbbreviation}
-              onChange={e => {
-                setNewAbbreviation(e.target.value.toUpperCase().slice(0, 5))
-                setAbbrevEdited(true)
-              }}
-              placeholder="e.g. SRB"
-              maxLength={5}
-              className="uppercase"
-              required
-            />
-            <p className="text-xs text-gray-400 mt-1">2-5 characters, auto-generated from name</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              SEO Retainer
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-              <Input
-                type="number"
-                value={newSeoRetainer}
-                onChange={e => setNewSeoRetainer(e.target.value)}
-                min={0}
-                className="pl-7"
-                required
-              />
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              ~{Math.round(Number(newSeoRetainer) / HOURLY_RATE)} hours at ${HOURLY_RATE}/hr
-            </p>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={() => { setShowNewClient(false); resetForm() }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1"
-              disabled={saving || !newName.trim() || !newAbbreviation.trim()}
-            >
-              {saving ? 'Adding...' : 'Add Client'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onClose={() => setShowNewClient(false)}
+        addClient={addClient}
+        onAdded={(client, seoAmount) => {
+          if (client && seoAmount > 0) {
+            setRetainersByClient(prev => ({ ...prev, [client.id]: { seo: seoAmount } }))
+          }
+        }}
+      />
 
       <ClientEditModal
         client={editingClient}

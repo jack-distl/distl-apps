@@ -99,3 +99,36 @@ export function pagePerfSummary(sitemap, version, page) {
     prev,
   }
 }
+
+// ─── Periods ─────────────────────────────────────────────────
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function parseDate(d) {
+  if (!d) return null
+  const m = String(d).match(/^(\d{4})-(\d{2})/)
+  return m ? { y: Number(m[1]), m: Number(m[2]) } : null
+}
+
+/** "Jul – Sep 2026" or "Nov 2025 – Jan 2026". Empty string when no period. */
+export function periodLabel(start, end) {
+  const a = parseDate(start)
+  const b = parseDate(end) || a
+  if (!a) return ''
+  if (a.y === b.y && a.m === b.m) return `${MONTHS[a.m - 1]} ${a.y}`
+  if (a.y === b.y) return `${MONTHS[a.m - 1]} – ${MONTHS[b.m - 1]} ${a.y}`
+  return `${MONTHS[a.m - 1]} ${a.y} – ${MONTHS[b.m - 1]} ${b.y}`
+}
+
+/** Label for a version's period, falling back to nothing. */
+export function versionPeriodLabel(version) {
+  return version ? periodLabel(version.period_start, version.period_end) : ''
+}
+
+/** Default review period: the three full months ending last month. Returns ISO first-of-month dates. */
+export function defaultReviewPeriod(now = new Date()) {
+  const end = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const start = new Date(end.getFullYear(), end.getMonth() - 2, 1)
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+  return { period_start: iso(start), period_end: iso(end) }
+}

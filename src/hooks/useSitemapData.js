@@ -237,8 +237,9 @@ export function useSitemapData(clientId) {
     })
   }, [patch, runWrite])
 
-  const reorderPages = useCallback((orderedIds) => {
-    const order = new Map(orderedIds.map((id, i) => [id, i]))
+  /** Assign sort_order to ids in order. `slots` (optional) supplies the sort values to use, e.g. the siblings' existing slots. */
+  const reorderPages = useCallback((orderedIds, slots = null) => {
+    const order = new Map(orderedIds.map((id, i) => [id, slots ? slots[i] : i]))
     patch(sm => ({ ...sm, pages: sm.pages.map(p => (order.has(p.id) ? { ...p, sort_order: order.get(p.id) } : p)) }))
     for (const [id, i] of order) queueUpdate('sitemap_pages', id, { sort_order: i })
   }, [patch, queueUpdate])
@@ -288,6 +289,30 @@ export function useSitemapData(clientId) {
     runWrite(() => supabase.from('sitemap_keywords').delete().eq('id', keywordId))
   }, [patch, runWrite])
 
+  /** Remove many keywords at once (bulk edit). Keeps one primary per affected page. */
+  const deleteKeywords = useCallback((keywordIds) => {
+    const ids = new Set(keywordIds)
+    if (!ids.size) return
+    const promote = []
+    patch(sm => ({
+      ...sm,
+      pages: sm.pages.map(p => {
+        if (!p.keywords.some(k => ids.has(k.id))) return p
+        const remaining = p.keywords.filter(k => !ids.has(k.id))
+        if (remaining.length && !remaining.some(k => k.is_primary)) {
+          const top = remaining.reduce((b, k) => (b == null || k.volume > b.volume ? k : b), null)
+          promote.push(top.id)
+          return { ...p, keywords: remaining.map(k => ({ ...k, is_primary: k.id === top.id })) }
+        }
+        return { ...p, keywords: remaining }
+      }),
+    }))
+    if (!supabase) return
+    runWrite(() => supabase.from('sitemap_keywords').delete().in('id', [...ids])).then(() => {
+      for (const id of promote) runWrite(() => supabase.from('sitemap_keywords').update({ is_primary: true }).eq('id', id))
+    })
+  }, [patch, runWrite])
+
   // ─── Templates ────────────────────────────────────────────
   const addTemplate = useCallback((fields = {}) => {
     const n = sitemap.templates.length
@@ -320,7 +345,7 @@ export function useSitemapData(clientId) {
    * Create a version. For reviews pass `snapshot` from buildReviewSnapshot
    * and `uploads` metadata; rows are bulk-inserted.
    */
-  const addVersion = useCallback(async ({ name, type = 'review', snapshot = null, uploads = [] }) => {
+  const addVersion = useCallback(async ({ name, type = 'review', snapshot = null, uploads = [], period_start = null, period_end = null }) => {
     const id = generateId()
     const now = new Date().toISOString()
     const sortOrder = sitemap.versions.length ? Math.max(...sitemap.versions.map(v => v.sort_order)) + 1 : 0
@@ -328,10 +353,10 @@ export function useSitemapData(clientId) {
     const keywordPositions = Object.fromEntries(Object.values(snapshot?.keywordPositions || {}).map(k => [k.keyword_id, { id: generateId(), version_id: id, ...k }]))
     const queries = (snapshot?.queries || []).map(q => ({ id: generateId(), version_id: id, ...q }))
     const uploadRows = uploads.map(u => ({ id: generateId(), version_id: id, uploaded_at: now, ...u }))
-    const version = { id, sitemap_id: sitemap.id, name, type, sort_order: sortOrder, created_at: now, uploads: uploadRows, pageMetrics, keywordPositions, queries }
+    const version = { id, sitemap_id: sitemap.id, name, type, sort_order: sortOrder, created_at: now, period_start, period_end, uploads: uploadRows, pageMetrics, keywordPositions, queries }
     patch(sm => ({ ...sm, versions: [...sm.versions, version] }))
     if (!supabase) return version
-    await runWrite(() => supabase.from('sitemap_versions').insert({ id, sitemap_id: sitemap.id, name, type, sort_order: sortOrder }))
+    await runWrite(() => supabase.from('sitemap_versions').insert({ id, sitemap_id: sitemap.id, name, type, sort_order: sortOrder, period_start, period_end }))
     const pm = Object.values(pageMetrics)
     const kp = Object.values(keywordPositions)
     if (uploadRows.length) await runWrite(() => supabase.from('sitemap_version_uploads').insert(uploadRows))
@@ -430,7 +455,7 @@ export function useSitemapData(clientId) {
     sitemap, loading, error, saveStatus, saveError, retrySave, refetch: fetchData,
     createSitemap, updateSitemap, setMenus,
     addPage, updatePage, updatePageUrl, deletePage, restorePage, reorderPages,
-    addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword,
+    addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword, deleteKeywords,
     addTemplate, updateTemplate, deleteTemplate,
     addVersion, updateVersion, deleteVersion, deleteUpload, replaceVersionData,
     applyOperations,

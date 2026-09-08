@@ -1,12 +1,15 @@
-import { X, ExternalLink, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { X, ExternalLink, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { EditableText, FieldEditor } from './Editable'
 import { StatusChip, ChangeIndicator } from './Chips'
 import { KeywordTable } from './KeywordTable'
-import { STATUS_META, STATUSES, normaliseUrl, cascadeUrlChange, templateLabel, formatNumber } from '@/lib/sitemap/tree'
-import { hasPerf, pagePerfSummary, averagePosition, previousReview, pageClickBreakdown, change } from '@/lib/sitemap/perf'
+import { STATUS_META, STATUSES, normaliseUrl, cascadeUrlChange, templateLabel, formatNumber, buildHierarchy, isHome } from '@/lib/sitemap/tree'
+import { hasPerf, pagePerfSummary, averagePosition, previousReview, pageClickBreakdown, pageMetric, change, versionPeriodLabel } from '@/lib/sitemap/perf'
 import { cn } from '@/lib/utils'
+
+const TOP_QUERIES = 3
 
 function Section({ label, hint, children, className }) {
   return (
@@ -20,16 +23,33 @@ function Section({ label, hint, children, className }) {
   )
 }
 
+function StatBox({ value, change: chg, label, sub }) {
+  return (
+    <div className="rounded-lg bg-gray-50 p-3 min-w-0">
+      <div className="text-xl font-semibold text-charcoal tabular-nums leading-none">{value}</div>
+      <div className="h-4 mt-1 mb-0.5 leading-4"><ChangeIndicator change={chg} /></div>
+      <div className="text-[11px] text-gray-500 leading-tight">{label}{sub ? <><br /><span className="text-gray-400">{sub}</span></> : null}</div>
+    </div>
+  )
+}
+
 function fmtDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, onDeletePage, actions }) {
+export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, onDeletePage, onBulkEdit, actions }) {
   const { updatePage, updatePageUrl, addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword } = actions
   const isReview = version?.type === 'review'
   const showPerf = isReview && hasPerf(version, page)
   const template = sitemap.templates.find(t => t.id === page.template_id) || null
+  const [showAllQueries, setShowAllQueries] = useState(false)
+  const period = versionPeriodLabel(version)
+
+  // "Show under": any top-level page (or home) other than this one
+  const h = buildHierarchy(sitemap.pages)
+  const naturalParent = h.parentOf(page)
+  const groupTargets = h.pages.filter(p => p.id !== page.id && !isHome(p) && (h.parentOf(p) === h.home || !h.parentOf(p)) && !p.group_parent_id)
 
   function commitUrl(raw) {
     const next = normaliseUrl(raw)
@@ -54,31 +74,29 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
     const summary = pagePerfSummary(sitemap, version, page)
     const avg = averagePosition(version, page)
     const prev = previousReview(sitemap, version)
+    const metric = pageMetric(version, page.id)
+    const prevMetric = prev ? pageMetric(prev, page.id) : null
     const breakdown = pageClickBreakdown(version, page.id)
     const prevBreakdown = prev ? pageClickBreakdown(prev, page.id) : null
     const prevHad = prev ? hasPerf(prev, page) : false
-    const prevQueryClicks = q => {
-      if (!prevHad) return null
-      const hit = prevBreakdown.queries.find(x => x.query === q.query)
-      return hit ? hit.clicks : null
-    }
+    const prevQuery = q => (prevHad ? prevBreakdown.queries.find(x => x.query === q.query) || null : null)
     const uploads = version.uploads || []
     const rankUpload = uploads.find(u => u.kind === 'rankings')
     const gscUpload = uploads.find(u => u.kind === 'gsc_queries') || uploads.find(u => u.kind === 'gsc_pages')
+    const queries = showAllQueries ? breakdown.queries : breakdown.queries.slice(0, TOP_QUERIES)
+    const hidden = breakdown.queries.length - queries.length
 
     perfBlock = (
       <>
-        <div className="grid grid-cols-2 gap-2 mt-4">
-          <div className="rounded-lg bg-gray-50 p-3">
-            <div className="text-2xl font-semibold text-charcoal tabular-nums">{avg ?? '—'}</div>
-            <div className="text-[11px] text-gray-500">Avg position{rankUpload ? ` · ${fmtDate(rankUpload.uploaded_at)}` : ''}</div>
-          </div>
-          <div className="rounded-lg bg-gray-50 p-3">
-            <div className="text-2xl font-semibold text-charcoal tabular-nums flex items-baseline gap-2">
-              {formatNumber(summary.clicks)} <ChangeIndicator change={summary.clicksChange} />
-            </div>
-            <div className="text-[11px] text-gray-500">Clicks (period)</div>
-          </div>
+        <div className="grid grid-cols-3 gap-2 mt-4">
+          <StatBox value={avg ?? '—'} label="Avg position" sub={rankUpload ? fmtDate(rankUpload.uploaded_at) : null} />
+          <StatBox value={formatNumber(summary.clicks)} change={summary.clicksChange} label="Clicks" sub={period || null} />
+          <StatBox
+            value={metric ? formatNumber(metric.impressions) : '—'}
+            change={metric ? change(metric.impressions, prevHad && prevMetric ? prevMetric.impressions : null) : null}
+            label="Impressions"
+            sub={period || null}
+          />
         </div>
 
         <Section label="Search Console queries" hint={gscUpload ? `GSC · ${fmtDate(gscUpload.uploaded_at)}` : 'GSC'}>
@@ -90,25 +108,50 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
                 <tr className="text-[10px] uppercase tracking-wider text-gray-400">
                   <th className="text-left font-semibold pb-1.5">Query</th>
                   <th className="text-right font-semibold pb-1.5">Clicks</th>
+                  <th className="text-right font-semibold pb-1.5">Imp.</th>
                   <th className="text-right font-semibold pb-1.5">Change</th>
                 </tr>
               </thead>
               <tbody>
-                {breakdown.queries.map(q => (
-                  <tr key={q.id || q.query} className="border-t border-gray-100">
-                    <td className="py-1.5 text-gray-700">{q.query}</td>
-                    <td className="py-1.5 text-right tabular-nums">{formatNumber(q.clicks)}</td>
-                    <td className="py-1.5 text-right"><ChangeIndicator change={change(q.clicks, prevQueryClicks(q))} /></td>
+                {queries.map(q => {
+                  const pq = prevQuery(q)
+                  return (
+                    <tr key={q.id || q.query} className="border-t border-gray-100">
+                      <td className="py-1.5 text-gray-700 break-words">{q.query}</td>
+                      <td className="py-1.5 text-right tabular-nums">{formatNumber(q.clicks)}</td>
+                      <td className="py-1.5 text-right tabular-nums text-gray-500">{formatNumber(q.impressions)}</td>
+                      <td className="py-1.5 text-right"><ChangeIndicator change={change(q.clicks, prevHad ? (pq ? pq.clicks : null) : null)} /></td>
+                    </tr>
+                  )
+                })}
+                {hidden > 0 && (
+                  <tr className="border-t border-gray-100">
+                    <td colSpan={4} className="py-1.5">
+                      <button type="button" onClick={() => setShowAllQueries(true)} className="inline-flex items-center gap-1 text-xs text-coral hover:text-coral-dark">
+                        <ChevronDown size={12} /> See {hidden} more quer{hidden === 1 ? 'y' : 'ies'}
+                      </button>
+                    </td>
                   </tr>
-                ))}
+                )}
+                {showAllQueries && breakdown.queries.length > TOP_QUERIES && (
+                  <tr className="border-t border-gray-100">
+                    <td colSpan={4} className="py-1.5">
+                      <button type="button" onClick={() => setShowAllQueries(false)} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-charcoal">
+                        <ChevronUp size={12} /> Show top {TOP_QUERIES} only
+                      </button>
+                    </td>
+                  </tr>
+                )}
                 <tr className="border-t border-gray-100 text-gray-500 italic">
                   <td className="py-1.5">Additional clicks from anonymous queries</td>
                   <td className="py-1.5 text-right tabular-nums">{formatNumber(breakdown.anonymous)}</td>
+                  <td className="py-1.5 text-right tabular-nums text-gray-400">{metric ? formatNumber(Math.max(0, (metric.impressions || 0) - breakdown.queries.reduce((s, q) => s + (Number(q.impressions) || 0), 0))) : ''}</td>
                   <td className="py-1.5 text-right"><ChangeIndicator change={change(breakdown.anonymous, prevHad ? prevBreakdown.anonymous : null)} /></td>
                 </tr>
                 <tr className="border-t border-gray-200 font-semibold text-charcoal">
-                  <td className="py-1.5">Total page clicks</td>
+                  <td className="py-1.5">Total page</td>
                   <td className="py-1.5 text-right tabular-nums">{formatNumber(breakdown.total)}</td>
+                  <td className="py-1.5 text-right tabular-nums">{metric ? formatNumber(metric.impressions) : ''}</td>
                   <td className="py-1.5 text-right"><ChangeIndicator change={summary.clicksChange} /></td>
                 </tr>
               </tbody>
@@ -162,7 +205,7 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
       </div>
 
       <div className="flex items-center gap-2 mt-3 text-xs">
-        <span className="text-gray-400">Template</span>
+        <span className="text-gray-400 w-20 shrink-0">Template</span>
         <Select value={page.template_id || '__none__'} onValueChange={v => updatePage(page.id, { template_id: v === '__none__' ? null : v }, { immediate: true })}>
           <SelectTrigger className="h-7 w-auto min-w-[10rem] text-xs">
             <SelectValue placeholder="Choose template" />
@@ -179,9 +222,27 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
         )}
       </div>
 
+      {!isHome(page) && (
+        <div className="flex items-center gap-2 mt-2 text-xs">
+          <span className="text-gray-400 w-20 shrink-0 whitespace-nowrap" title="Visual only: where this page sits on the board. URL and export are unaffected.">Show under</span>
+          <Select value={page.group_parent_id || '__auto__'} onValueChange={v => updatePage(page.id, { group_parent_id: v === '__auto__' ? null : v }, { immediate: true })}>
+            <SelectTrigger className="h-7 w-auto min-w-[10rem] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__auto__">
+                <span className="text-gray-500">{naturalParent && !isHome(naturalParent) ? `Its URL parent (${naturalParent.name})` : 'Its own column'}</span>
+              </SelectItem>
+              {groupTargets.map(t => <SelectItem key={t.id} value={t.id}>{t.name} <span className="text-gray-400 font-mono">{t.url}</span></SelectItem>)}
+            </SelectContent>
+          </Select>
+          {page.group_parent_id && <span className="text-[10px] uppercase tracking-wider text-gray-400">grouped</span>}
+        </div>
+      )}
+
       {perfBlock}
 
-      <Section label={showPerf ? 'Keyword cluster and rankings' : 'Keyword cluster'} hint={showPerf ? 'Rank tracker' : 'Volumes /mo'}>
+      <Section label={showPerf ? 'Keyword cluster and rankings' : 'Keyword cluster'} hint={showPerf ? 'Click a heading to sort' : 'Volumes /mo · click a heading to sort'}>
         <KeywordTable
           sitemap={sitemap}
           version={version}
@@ -190,6 +251,7 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
           onUpdate={updateKeyword}
           onSetPrimary={setPrimaryKeyword}
           onDelete={deleteKeyword}
+          onBulkEdit={() => onBulkEdit(page.id)}
         />
       </Section>
 

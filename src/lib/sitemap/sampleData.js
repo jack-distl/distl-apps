@@ -187,7 +187,7 @@ export function buildSampleSitemap(clientId = 'sample') {
   const kwByText = {}
   for (const p of pages) for (const k of p.keywords) (kwByText[k.keyword] ||= []).push(k)
 
-  function reviewVersion(id, name, sortOrder, pick, uploadedAt) {
+  function reviewVersion(id, name, sortOrder, pick, uploadedAt, period) {
     const pageMetrics = {}
     const keywordPositions = {}
     const queries = []
@@ -217,6 +217,7 @@ export function buildSampleSitemap(clientId = 'sample') {
     }
     return {
       id, sitemap_id: sitemapId, name, type: 'review', sort_order: sortOrder, created_at: uploadedAt,
+      period_start: period[0], period_end: period[1],
       uploads: [
         { id: `up-${id}-1`, version_id: id, kind: 'gsc_pages', filename: `hammond-gsc-pages-${sortOrder}.csv`, uploaded_at: uploadedAt, row_count: 20, matched_count: 20, unmatched: [] },
         { id: `up-${id}-2`, version_id: id, kind: 'gsc_queries', filename: `hammond-gsc-queries-${sortOrder}.csv`, uploaded_at: uploadedAt, row_count: 48, matched_count: 40, unmatched: [] },
@@ -228,11 +229,11 @@ export function buildSampleSitemap(clientId = 'sample') {
 
   // Baseline: reverse the recorded change. Positions: previous = current + change
   // (positive change = moved up). Clicks: previous = current - change. 'new' = absent.
-  const baseline = reviewVersion('ver-' + clientId + '-2', 'Baseline Review', 1,
+  const baseline = reviewVersion('ver-' + clientId + '-2', 'Oct – Dec 2025', 1,
     (cur, chg, isPos) => chg === 'new' ? null : (isPos ? cur + chg : Math.max(0, cur - chg)),
-    '2026-01-14T00:00:00Z')
-  const sixMonth = reviewVersion('ver-' + clientId + '-3', '6 Month Review', 2,
-    (cur) => cur, '2026-07-14T00:00:00Z')
+    '2026-01-14T00:00:00Z', ['2025-10-01', '2025-12-01'])
+  const sixMonth = reviewVersion('ver-' + clientId + '-3', 'Apr – Jun 2026', 2,
+    (cur) => cur, '2026-07-14T00:00:00Z', ['2026-04-01', '2026-06-01'])
 
   const plan = {
     id: `ver-${clientId}-1`, sitemap_id: sitemapId, name: DEFAULT_PLAN_VERSION_NAME, type: 'plan', sort_order: 0,

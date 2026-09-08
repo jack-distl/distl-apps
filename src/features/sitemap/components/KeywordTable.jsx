@@ -1,22 +1,55 @@
-import { useState } from 'react'
-import { Star, X, Plus } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Star, X, Plus, ArrowUp, ArrowDown, ListChecks } from 'lucide-react'
 import { EditableText } from './Editable'
 import { PositionChip, ChangeIndicator } from './Chips'
 import { combinedVolume, formatNumber } from '@/lib/sitemap/tree'
 import { keywordPosition, previousReview, change } from '@/lib/sitemap/perf'
 import { cn } from '@/lib/utils'
 
+function SortHead({ label, col, sort, onSort, align = 'right' }) {
+  const active = sort.col === col
+  return (
+    <th className={cn('font-semibold pb-1.5 select-none', align === 'right' ? 'text-right' : 'text-left')}>
+      <button type="button" onClick={() => onSort(col)} className={cn('inline-flex items-center gap-0.5 uppercase tracking-wider hover:text-charcoal', active && 'text-charcoal')} title={`Sort by ${label.toLowerCase()}`}>
+        {label}
+        {active ? (sort.dir === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />) : null}
+      </button>
+    </th>
+  )
+}
+
 /**
  * The keyword cluster for one page. Fully editable: rename, change volume,
- * star a new primary, remove, add. On review versions it also shows position
- * and change per keyword.
+ * star a new primary, remove, add. Sortable by keyword, volume or position
+ * (click the heading). On review versions it also shows position and change.
  */
-export function KeywordTable({ sitemap, version, page, onAdd, onUpdate, onSetPrimary, onDelete }) {
+export function KeywordTable({ sitemap, version, page, onAdd, onUpdate, onSetPrimary, onDelete, onBulkEdit }) {
   const isReview = version?.type === 'review'
   const prev = isReview ? previousReview(sitemap, version) : null
   const [newKw, setNewKw] = useState('')
   const [newVol, setNewVol] = useState('')
-  const keywords = [...(page.keywords || [])].sort((a, b) => (b.is_primary - a.is_primary) || (a.sort_order - b.sort_order))
+  const [sort, setSort] = useState({ col: null, dir: 'desc' })
+
+  function toggleSort(col) {
+    setSort(s => (s.col === col ? (s.dir === 'desc' ? { col, dir: 'asc' } : { col: null, dir: 'desc' }) : { col, dir: col === 'keyword' ? 'asc' : col === 'position' ? 'asc' : 'desc' }))
+  }
+
+  const keywords = useMemo(() => {
+    const list = [...(page.keywords || [])]
+    if (!sort.col) return list.sort((a, b) => (b.is_primary - a.is_primary) || (a.sort_order - b.sort_order))
+    const dir = sort.dir === 'asc' ? 1 : -1
+    return list.sort((a, b) => {
+      if (sort.col === 'keyword') return dir * a.keyword.localeCompare(b.keyword)
+      if (sort.col === 'volume') return dir * ((Number(a.volume) || 0) - (Number(b.volume) || 0))
+      // position: unranked always last
+      const pa = keywordPosition(version, a.id)
+      const pb = keywordPosition(version, b.id)
+      if (pa == null && pb == null) return 0
+      if (pa == null) return 1
+      if (pb == null) return -1
+      return dir * (pa - pb)
+    })
+  }, [page.keywords, sort, version])
 
   function submitNew(e) {
     e.preventDefault()
@@ -31,9 +64,13 @@ export function KeywordTable({ sitemap, version, page, onAdd, onUpdate, onSetPri
       <table className="w-full text-sm">
         <thead>
           <tr className="text-[10px] uppercase tracking-wider text-gray-400">
-            <th className="text-left font-semibold pb-1.5 pl-6">Keyword</th>
-            <th className="text-right font-semibold pb-1.5">Volume</th>
-            {isReview && <th className="text-right font-semibold pb-1.5">Position</th>}
+            <th className="pl-6 text-left font-semibold pb-1.5">
+              <button type="button" onClick={() => toggleSort('keyword')} className={cn('inline-flex items-center gap-0.5 uppercase tracking-wider hover:text-charcoal', sort.col === 'keyword' && 'text-charcoal')} title="Sort by keyword">
+                Keyword {sort.col === 'keyword' ? (sort.dir === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />) : null}
+              </button>
+            </th>
+            <SortHead label="Volume" col="volume" sort={sort} onSort={toggleSort} />
+            {isReview && <SortHead label="Position" col="position" sort={sort} onSort={toggleSort} />}
             {isReview && <th className="text-right font-semibold pb-1.5">Change</th>}
             <th className="w-6" />
           </tr>
@@ -80,23 +117,30 @@ export function KeywordTable({ sitemap, version, page, onAdd, onUpdate, onSetPri
           )}
         </tbody>
       </table>
-      <form onSubmit={submitNew} className="flex items-center gap-2 mt-2 pl-6">
-        <input
-          value={newKw}
-          onChange={e => setNewKw(e.target.value)}
-          placeholder="Add keyword"
-          className="flex-1 min-w-0 rounded-md border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-coral/30"
-        />
-        <input
-          type="number"
-          min="0"
-          value={newVol}
-          onChange={e => setNewVol(e.target.value)}
-          placeholder="Vol"
-          className="w-16 rounded-md border border-gray-200 px-2 py-1 text-xs text-right focus:outline-none focus:ring-2 focus:ring-coral/30"
-        />
-        <button type="submit" disabled={!newKw.trim()} className="text-coral disabled:text-gray-300" title="Add keyword"><Plus size={16} /></button>
-      </form>
+      <div className="flex items-center gap-2 mt-2 pl-6">
+        <form onSubmit={submitNew} className="flex items-center gap-2 flex-1 min-w-0">
+          <input
+            value={newKw}
+            onChange={e => setNewKw(e.target.value)}
+            placeholder="Add keyword"
+            className="flex-1 min-w-0 rounded-md border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-coral/30"
+          />
+          <input
+            type="number"
+            min="0"
+            value={newVol}
+            onChange={e => setNewVol(e.target.value)}
+            placeholder="Vol"
+            className="w-16 rounded-md border border-gray-200 px-2 py-1 text-xs text-right focus:outline-none focus:ring-2 focus:ring-coral/30"
+          />
+          <button type="submit" disabled={!newKw.trim()} className="text-coral disabled:text-gray-300" title="Add keyword"><Plus size={16} /></button>
+        </form>
+        {onBulkEdit && keywords.length > 1 && (
+          <button type="button" onClick={onBulkEdit} className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-coral shrink-0" title="Bulk edit tracked keywords">
+            <ListChecks size={12} /> Bulk edit
+          </button>
+        )}
+      </div>
     </div>
   )
 }

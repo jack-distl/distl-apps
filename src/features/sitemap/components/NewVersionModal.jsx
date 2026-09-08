@@ -9,6 +9,8 @@ import { detectKind, parseGscPages, parseGscQueries, parseRankings, parseVolumes
 import { buildReviewSnapshot } from '@/lib/sitemap/matching'
 import { planAdditionsFromUploads, augmentSitemapForPreview } from '@/lib/sitemap/discovery'
 import { formatNumber } from '@/lib/sitemap/tree'
+import { periodLabel, defaultReviewPeriod } from '@/lib/sitemap/perf'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 
 const SLOTS = [
   { key: 'gsc_pages', label: 'Search Console — Pages', description: 'GSC → Performance → Export → Pages.csv. Clicks and impressions per URL for the review period.', parse: parseGscPages, summary: r => `${r.length} pages` },
@@ -17,9 +19,26 @@ const SLOTS = [
   { key: 'volumes', label: 'Refreshed volumes', description: 'Keyword | Volume. If skipped, volumes from the rank tracker (when present) or the original research carry forward.', parse: parseVolumes, summary: r => `${r.length} keywords`, optional: true },
 ]
 
-function suggestName(sitemap) {
-  const reviews = (sitemap.versions || []).filter(v => v.type === 'review').length
-  return ['6 Month Review', '1 Year Review', '18 Month Review', '2 Year Review'][reviews] || `Review ${reviews + 1}`
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function MonthPicker({ value, onChange }) {
+  const [y, m] = (value || '').split('-').map(Number)
+  const years = []
+  const thisYear = new Date().getFullYear()
+  for (let yy = thisYear + 1; yy >= thisYear - 6; yy--) years.push(yy)
+  const set = (yy, mm) => onChange(`${yy}-${String(mm).padStart(2, '0')}-01`)
+  return (
+    <div className="flex gap-1.5">
+      <Select value={String(m || '')} onValueChange={v => set(y || thisYear, Number(v))}>
+        <SelectTrigger className="h-8 w-[5.5rem] text-xs"><SelectValue placeholder="Month" /></SelectTrigger>
+        <SelectContent>{MONTHS.map((name, i) => <SelectItem key={name} value={String(i + 1)}>{name}</SelectItem>)}</SelectContent>
+      </Select>
+      <Select value={String(y || '')} onValueChange={v => set(Number(v), m || 1)}>
+        <SelectTrigger className="h-8 w-[5.5rem] text-xs"><SelectValue placeholder="Year" /></SelectTrigger>
+        <SelectContent>{years.map(yy => <SelectItem key={yy} value={String(yy)}>{yy}</SelectItem>)}</SelectContent>
+      </Select>
+    </div>
+  )
 }
 
 /**
@@ -33,6 +52,8 @@ function suggestName(sitemap) {
  */
 export function NewVersionModal({ open, onClose, sitemap, existingVersion, userName, onConfirm }) {
   const [name, setName] = useState('')
+  const [nameEdited, setNameEdited] = useState(false)
+  const [period, setPeriod] = useState(defaultReviewPeriod())
   const [files, setFiles] = useState({})
   const [step, setStep] = useState('files')
   const [addPages, setAddPages] = useState(true)
@@ -42,9 +63,15 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
 
   useEffect(() => {
     if (!open) return
-    setName(existingVersion ? existingVersion.name : suggestName(sitemap))
+    const p = existingVersion?.period_start ? { period_start: existingVersion.period_start, period_end: existingVersion.period_end || existingVersion.period_start } : defaultReviewPeriod()
+    setPeriod(p)
+    setName(existingVersion ? existingVersion.name : periodLabel(p.period_start, p.period_end))
+    setNameEdited(!!existingVersion)
     setFiles({}); setStep('files'); setAddPages(true); setApplyVolumes(true); setError(null)
   }, [open, existingVersion, sitemap])
+
+  // The version is named after its period until the name is edited by hand
+  useEffect(() => { if (!nameEdited) setName(periodLabel(period.period_start, period.period_end)) }, [period, nameEdited])
 
   async function handleFile(slot, file) {
     const def = SLOTS.find(s => s.key === slot)
@@ -99,6 +126,8 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
     try {
       await onConfirm({
         name: name.trim(),
+        period_start: period.period_start,
+        period_end: period.period_end,
         rows,
         additions: addPages ? additions : null,
         applyVolumes,
@@ -126,9 +155,20 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
     >
       {step === 'files' ? (
         <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Period covered · from</label>
+              <MonthPicker value={period.period_start} onChange={v => setPeriod(p => ({ ...p, period_start: v, period_end: p.period_end < v ? v : p.period_end }))} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">to</label>
+              <MonthPicker value={period.period_end} onChange={v => setPeriod(p => ({ ...p, period_end: v, period_start: p.period_start > v ? v : p.period_start }))} />
+            </div>
+          </div>
           <div>
             <label className="text-xs font-medium text-gray-500 block mb-1">Version name</label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. 6 Month Review" />
+            <Input value={name} onChange={e => { setName(e.target.value); setNameEdited(true) }} placeholder="e.g. Jul – Sep 2026" />
+            <p className="text-[11px] text-gray-400 mt-1">Named after the period it covers. Change it if you like; the period stays on the version either way.</p>
           </div>
           {SLOTS.map(s => (
             <FileDrop

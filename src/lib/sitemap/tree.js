@@ -209,3 +209,86 @@ export function templateLabel(template) {
 export function formatNumber(n) {
   return Number(n || 0).toLocaleString('en-AU')
 }
+
+// ─── Visual layout (board) ───────────────────────────────────
+//
+// The board can show a page inside another top-level page's column
+// ("group_parent_id") without touching its URL. These helpers give the
+// visual arrangement; exports and URL-derived hierarchy ignore it.
+
+/** The top-level page (silo root) a page is shown under, or null for its own silo / home. */
+export function visualParentOf(h, page) {
+  if (!page) return null
+  if (page.group_parent_id) {
+    const gp = h.pages.find(p => p.id === page.group_parent_id)
+    if (gp && gp !== page) return gp
+  }
+  return h.parentOf(page)
+}
+
+/** Silos honouring visual grouping. Grouped pages (and their URL descendants) appear in the host column. */
+export function buildVisualSilos(pages) {
+  const h = buildHierarchy(pages)
+  const isFunc = p => p.status === 'functional'
+  const grouped = new Set()
+
+  // Descendants via visual parent
+  const childrenOf = (page) => h.pages.filter(p => p !== page && visualParentOf(h, p) === page)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+
+  function collect(root) {
+    const out = []
+    ;(function walk(p) {
+      for (const c of childrenOf(p)) { if (isFunc(c) && !c.group_parent_id) continue; out.push(c); grouped.add(c.id); walk(c) }
+    })(root)
+    return out
+  }
+
+  // Roots: top-level pages not visually moved elsewhere
+  const roots = h.roots.filter(r => !isFunc(r) && !r.group_parent_id)
+  // Pages moved to home-level columns (group_parent_id = home) become their own silo
+  const silos = roots.map(root => ({ root, children: collect(root) }))
+  const functional = h.pages.filter(p => isFunc(p) && !isHome(p) && !p.group_parent_id && !grouped.has(p.id))
+  // Anything non-functional not yet placed (deep orphans) gets its own silo
+  for (const p of h.pages) {
+    if (isHome(p) || isFunc(p) || grouped.has(p.id) || roots.includes(p)) continue
+    if (visualParentOf(h, p) === h.home || !visualParentOf(h, p)) silos.push({ root: p, children: collect(p) })
+  }
+  silos.sort((a, b) => (a.root.sort_order ?? 0) - (b.root.sort_order ?? 0))
+  return { home: h.home, silos, functional, hierarchy: h }
+}
+
+/** Pages in board reading order: home, then each silo left to right top to bottom, then functional. */
+export function visualOrderedPages(pages) {
+  const { home, silos, functional, hierarchy } = buildVisualSilos(pages)
+  const out = []
+  if (home) out.push(home)
+  for (const s of silos) { out.push(s.root); out.push(...s.children) }
+  out.push(...functional)
+  const seen = new Set(out.map(p => p.id))
+  for (const p of hierarchy.pages) if (!seen.has(p.id)) out.push(p)
+  return { ordered: out, hierarchy }
+}
+
+/** Visual depth for table indentation (uses visual parents). */
+export function visualDepthOf(h, page) {
+  let d = 0
+  let q = page
+  const seen = new Set()
+  while ((q = visualParentOf(h, q)) && !seen.has(q.id)) { seen.add(q.id); d++ }
+  return d
+}
+
+/**
+ * Move `page` one step among the given ordered siblings. Returns the new
+ * ordered id list for those siblings, or null if it cannot move.
+ */
+export function moveAmong(siblings, pageId, direction) {
+  const ids = siblings.map(p => p.id)
+  const i = ids.indexOf(pageId)
+  const j = i + direction
+  if (i < 0 || j < 0 || j >= ids.length) return null
+  const next = [...ids]
+  ;[next[i], next[j]] = [next[j], next[i]]
+  return next
+}

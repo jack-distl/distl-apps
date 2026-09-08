@@ -112,7 +112,6 @@ distl-apps/
 │   ├── components/               # Reusable UI pieces (buttons, modals, etc.)
 │   ├── features/                 # Feature-specific pages
 │   │   ├── hub/                  # Dashboard & client list
-│   │   ├── hours/                # WFM Hours
 │   │   ├── okr/                  # OKR Planner
 │   │   └── sitemap/              # Sitemap Tool (SEO Foundations)
 │   ├── hooks/                    # Data fetching (auth, clients, Supabase)
@@ -144,7 +143,9 @@ pnpm preview     # Preview the production build locally
 
 ## The Hub (Central Dashboard)
 
-The hub is where users land after login. It shows:
+The hub is where users land after login. The sidebar lists every active client at the bottom; expanding one links straight to its OKR Planner and Sitemap Tool. New clients are added from the Clients list or the OKR Planner home (shared `NewClientModal`).
+
+It shows:
 
 1. **Overview stats** — Total clients, active projects, upcoming deadlines
 2. **Client list** — All clients with quick access to their data across apps
@@ -192,13 +193,16 @@ Each client card shows:
 - Four tabs from the same tree: Sitemap (tree or table), Keyword Research, URL Architecture, Templates
 - Detail side panel with every field editable in place; edits autosave through Supabase like the OKR planner
 - **Template in, then fully editable:** the SEO Foundations CSVs (proposed sitemap, keyword clusters, optional metadata sheet) land the whole tree. Re-importing shows a diff and never overwrites edits unless chosen
-- **Versions:** the planning version plus any number of review versions. A review takes Search Console Pages and Queries CSVs, an Ahrefs or SEMrush rank tracking export and optionally refreshed volumes. Nothing unmatched is dropped; it is kept with the version for review
+- **Versions:** the planning version plus any number of review versions, each named after the period it covers (e.g. Jul – Sep 2026). A review takes Search Console Pages and Queries CSVs, an Ahrefs or SEMrush rank tracking export and optionally refreshed volumes. Pages and keywords the files reveal are offered as additions, so the tree can start from nothing. Nothing unmatched is dropped; it is kept with the version for review
+- **Board layout:** pages move left/right (columns) and up/down with hover arrows; "Show under" groups a page into another column visually without changing its URL. The table view reads the board left to right
+- **Starting points:** the live site's sitemap.xml (fetched through `api/sitemap/fetch.js`), an uploaded sitemap.xml, the SEO Foundations CSVs, a WordPress import CSV, or review uploads
+- **Bulk edit tracked keywords:** tick to remove across a page or the whole sitemap
 - **Exports:** WordPress import CSV (fixed format, see `reference/seo-foundations/`), plus the tool's own sitemap and keyword cluster CSVs which re-import cleanly
 - Review cadence per client: Quarterly / Biannual / Annual
 
 **Logic lives in `src/lib/sitemap/`** (CSV parsing, tree derivation, importers, matching, exports). Run `pnpm test:sitemap` after touching it; the parity test proves the WordPress export is byte-identical to the reference file.
 
-**Status:** Built, connected to Supabase (migration 015). Needs real-client testing.
+**Status:** Built, connected to Supabase (migrations 015 and 016). Needs real-client testing.
 
 ### Future App Ideas
 
@@ -244,9 +248,9 @@ okr_tasks (objective_id, description, am_hours, seo_hours, status, ...)
 -- Sitemap Tool
 sitemaps (client_id, review_cadence, menus, ...)
 sitemap_page_templates (sitemap_id, code, name, description, blocks, ...)
-sitemap_pages (sitemap_id, name, url, status, template_id, title_tag, meta_description, h1, post_type, ...)
+sitemap_pages (sitemap_id, name, url, status, template_id, title_tag, meta_description, h1, post_type, group_parent_id, ...)
 sitemap_keywords (page_id, keyword, volume, is_primary, ...)
-sitemap_versions (sitemap_id, name, type, ...)
+sitemap_versions (sitemap_id, name, type, period_start, period_end, ...)
 sitemap_version_uploads / _page_metrics / _keyword_positions / _queries (per version performance rows)
 ```
 
@@ -281,8 +285,6 @@ sitemap_version_uploads / _page_metrics / _keyword_positions / _queries (per ver
 /clients              # All clients list
 /okr                  # OKR Planner home
 /okr/:clientId        # OKR for specific client
-/hours                # WFM Hours home
-/hours/:clientId      # WFM Hours for specific client
 /sitemap              # Sitemap Tool home
 /sitemap/:clientId    # Sitemap Tool for specific client
 ```

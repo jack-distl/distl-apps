@@ -1,4 +1,4 @@
-import { Star, ArrowRight, Hash } from 'lucide-react'
+import { Star, ArrowRight, Hash, ListChecks } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components'
@@ -7,7 +7,7 @@ import { orderedPages, combinedVolume, formatNumber } from '@/lib/sitemap/tree'
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } }
 const fadeUp = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }
 
-export function KeywordsTab({ sitemap, onSelectPage }) {
+export function KeywordsTab({ sitemap, onSelectPage, onBulkEdit }) {
   const { ordered } = orderedPages(sitemap.pages)
   const pages = ordered.filter(p => p.keywords?.length)
 
@@ -15,7 +15,15 @@ export function KeywordsTab({ sitemap, onSelectPage }) {
     return <EmptyState icon={Hash} title="No keyword clusters yet" description="Import the keyword clusters file, or add keywords to a page from its detail panel." />
   }
 
+  const total = pages.reduce((s, p) => s + p.keywords.length, 0)
   return (
+    <div>
+      <div className="flex items-center justify-between mb-3 text-xs text-gray-500">
+        <span>{total} tracked keyword{total === 1 ? '' : 's'} across {pages.length} page{pages.length === 1 ? '' : 's'}</span>
+        <button type="button" onClick={() => onBulkEdit(null)} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-600 hover:border-coral hover:text-coral transition-colors">
+          <ListChecks size={13} /> Bulk edit tracked keywords
+        </button>
+      </div>
     <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {pages.map(p => {
         const kws = [...p.keywords].sort((a, b) => (b.is_primary - a.is_primary) || (a.sort_order - b.sort_order))
@@ -53,5 +61,6 @@ export function KeywordsTab({ sitemap, onSelectPage }) {
         )
       })}
     </motion.div>
+    </div>
   )
 }

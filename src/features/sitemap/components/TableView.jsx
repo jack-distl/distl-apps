@@ -1,14 +1,15 @@
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { StatusChip, PositionChip, ChangeIndicator } from './Chips'
-import { orderedPages, primaryKeyword, supportingKeywords, combinedVolume, templateLabel, formatNumber } from '@/lib/sitemap/tree'
-import { pagePerfSummary, hasPerf } from '@/lib/sitemap/perf'
+import { visualOrderedPages, visualDepthOf, primaryKeyword, supportingKeywords, combinedVolume, templateLabel, formatNumber } from '@/lib/sitemap/tree'
+import { pagePerfSummary, hasPerf, pageMetric } from '@/lib/sitemap/perf'
 import { cn } from '@/lib/utils'
 
 const INDENT = ['', 'pl-7', 'pl-12', 'pl-16']
 
 export function TableView({ sitemap, version, selectedPageId, onSelectPage }) {
   const isReview = version?.type === 'review'
-  const { ordered, hierarchy } = orderedPages(sitemap.pages)
+  // Reading order follows the board: home, then each column left to right, functional last
+  const { ordered, hierarchy } = visualOrderedPages(sitemap.pages)
   const tplById = new Map(sitemap.templates.map(t => [t.id, t]))
 
   return (
@@ -25,6 +26,7 @@ export function TableView({ sitemap, version, selectedPageId, onSelectPage }) {
                 <TableHead className="text-right">Position</TableHead>
                 <TableHead className="text-right">Change</TableHead>
                 <TableHead className="text-right">Clicks</TableHead>
+                <TableHead className="text-right">Imp.</TableHead>
               </>
             ) : (
               <>
@@ -37,7 +39,7 @@ export function TableView({ sitemap, version, selectedPageId, onSelectPage }) {
         </TableHeader>
         <TableBody>
           {ordered.map(p => {
-            const depth = Math.min(hierarchy.depthOf(p), 3)
+            const depth = Math.min(visualDepthOf(hierarchy, p), 3)
             const primary = primaryKeyword(p)
             const supp = supportingKeywords(p)
             const perf = isReview && hasPerf(version, p) ? pagePerfSummary(sitemap, version, p) : null
@@ -58,6 +60,7 @@ export function TableView({ sitemap, version, selectedPageId, onSelectPage }) {
                     <TableCell className="text-right">{perf && primary ? <PositionChip position={perf.position} /> : <span className="text-gray-300">—</span>}</TableCell>
                     <TableCell className="text-right">{perf && primary && <ChangeIndicator change={perf.positionChange} />}</TableCell>
                     <TableCell className="text-right tabular-nums">{perf ? formatNumber(perf.clicks) : <span className="text-gray-300">—</span>}</TableCell>
+                    <TableCell className="text-right tabular-nums text-gray-500">{perf && pageMetric(version, p.id) ? formatNumber(pageMetric(version, p.id).impressions) : <span className="text-gray-300">—</span>}</TableCell>
                   </>
                 ) : (
                   <>
