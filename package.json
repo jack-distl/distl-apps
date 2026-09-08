@@ -3,11 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Internal tools platform for Distl — Brand Purity. Digital Potency.",
+  "description": "Internal tools platform for Distl \u2014 Brand Purity. Digital Potency.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:sitemap": "node scripts/sitemap-export-parity.mjs && node scripts/sitemap-import-smoke.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
