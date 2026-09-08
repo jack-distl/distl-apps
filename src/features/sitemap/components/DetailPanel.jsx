@@ -99,7 +99,7 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
           />
         </div>
 
-        <Section label="Search Console queries" hint={gscUpload ? `GSC · ${fmtDate(gscUpload.uploaded_at)}` : 'GSC'}>
+        <Section label="Search Console queries" hint={gscUpload ? `GSC · ${fmtDate(gscUpload.uploaded_at)}${breakdown.queries.some(q => q.attribution === 'page') ? '' : ' · ≈ inferred from keywords'}` : 'GSC'}>
           {breakdown.queries.length === 0 && breakdown.total === 0 ? (
             <p className="text-xs text-gray-400 italic">No Search Console data matched this page.</p>
           ) : (
@@ -117,7 +117,10 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
                   const pq = prevQuery(q)
                   return (
                     <tr key={q.id || q.query} className="border-t border-gray-100">
-                      <td className="py-1.5 text-gray-700 break-words">{q.query}</td>
+                      <td className="py-1.5 text-gray-700 break-words">
+                        {q.query}
+                        {q.attribution === 'inferred' && <span className="ml-1 text-[10px] text-gray-400" title="Attributed to this page because it contains one of its tracked keywords">≈</span>}
+                      </td>
                       <td className="py-1.5 text-right tabular-nums">{formatNumber(q.clicks)}</td>
                       <td className="py-1.5 text-right tabular-nums text-gray-500">{formatNumber(q.impressions)}</td>
                       <td className="py-1.5 text-right"><ChangeIndicator change={change(q.clicks, prevHad ? (pq ? pq.clicks : null) : null)} /></td>

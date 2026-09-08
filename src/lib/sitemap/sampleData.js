@@ -200,7 +200,7 @@ export function buildSampleSitemap(clientId = 'sample') {
         const v = pick(c, chg)
         if (v == null) continue
         clicks += v
-        queries.push({ id: `q-${id}-${page.id}-${qi}`, version_id: id, page_id: page.id, query: q, clicks: v, impressions: v * 18, position: null, sort_order: qi++ })
+        queries.push({ id: `q-${id}-${page.id}-${qi}`, version_id: id, page_id: page.id, query: q, clicks: v, impressions: v * 18, position: null, sort_order: qi++, attribution: 'exact' })
       }
       const anon = pick(pf.anon[0], pf.anon[1])
       if (anon != null) clicks += anon

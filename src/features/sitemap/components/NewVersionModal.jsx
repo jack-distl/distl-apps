@@ -14,7 +14,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 
 const SLOTS = [
   { key: 'gsc_pages', label: 'Search Console — Pages', description: 'GSC → Performance → Export → Pages.csv. Clicks and impressions per URL for the review period.', parse: parseGscPages, summary: r => `${r.length} pages` },
-  { key: 'gsc_queries', label: 'Search Console — Queries', description: 'Queries.csv from the same export. Matched to pages through the keyword clusters; the rest rolls into an anonymous row per page.', parse: parseGscQueries, summary: r => `${r.length} queries` },
+  { key: 'gsc_queries', label: 'Search Console — Queries', description: 'Queries.csv from the same export, or better, a query-by-page export (Page | Query | Clicks | Impressions from Search Analytics for Sheets, Looker Studio or the API) which gives every page its full query list. Without a page column, queries are attributed through the tracked keywords and the rest rolls into an anonymous row per page.', parse: parseGscQueries, summary: r => `${r.length} queries${r.some(x => x.url) ? ' with page URLs' : ''}` },
   { key: 'rankings', label: 'Rank tracking export', description: 'Ahrefs Rank Tracker or SEMrush Position Tracking. Keyword, position, ranking URL. Ahrefs UTF-16 exports are fine.', parse: parseRankings, summary: r => `${r.length} keywords` },
   { key: 'volumes', label: 'Refreshed volumes', description: 'Keyword | Volume. If skipped, volumes from the rank tracker (when present) or the original research carry forward.', parse: parseVolumes, summary: r => `${r.length} keywords`, optional: true },
 ]

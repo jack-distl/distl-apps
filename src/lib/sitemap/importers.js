@@ -57,8 +57,9 @@ export function detectKind(text) {
   const has = list => !!pickColumn(keys, list)
   const exact = name => keys.includes(name)
 
-  if (exact('top pages') || (exact('page') && has(COLS.clicks) && has(COLS.impressions) && !has(COLS.keyword))) return 'gsc_pages'
-  if (exact('top queries') || (exact('query') && has(COLS.clicks) && has(COLS.impressions))) return 'gsc_queries'
+  // A file with a query column and clicks is a queries export, with or without a page column
+  if (exact('top queries') || ((exact('query') || exact('queries') || exact('search query')) && has(COLS.clicks))) return 'gsc_queries'
+  if (exact('top pages') || ((exact('page') || exact('pages') || exact('landing page')) && has(COLS.clicks) && has(COLS.impressions) && !has(COLS.keyword))) return 'gsc_pages'
   if (has(COLS.keyword) && has(COLS.position)) return 'rankings'
   if (has(COLS.keyword) && has(COLS.volume) && (exact('category') || exact('cluster') || exact('page group'))) return 'keywords'
   if (has(COLS.page) && (has(COLS.parent) || has(COLS.meta) || has(COLS.title))) {
@@ -206,7 +207,7 @@ export function parseGscQueries(text) {
   const cClicks = pickColumn(keys, COLS.clicks)
   const cImp = pickColumn(keys, COLS.impressions)
   const cPos = pickColumn(keys, COLS.position)
-  const cUrl = keys.find(k => ['page', 'url', 'landing page', 'top pages'].includes(k) && k !== cQ) || null
+  const cUrl = keys.find(k => ['page', 'pages', 'url', 'page url', 'landing page', 'top pages', 'address'].includes(k) && k !== cQ) || null
   if (!cQ || !cClicks) throw new Error('Search Console queries file needs Query and Clicks columns')
   return rows.filter(r => r[cQ]).map(r => ({
     query: r[cQ].trim().toLowerCase(),
