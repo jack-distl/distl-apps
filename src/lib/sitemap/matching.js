@@ -64,25 +64,66 @@ export function buildReviewSnapshot({ sitemap, gscPages = [], gscQueries = [], r
   }
 
   // ─── Queries ────────────────────────────────────────────
+  // Attribution, in order of confidence:
+  //   page     the export carried the page URL (GSC with the page dimension,
+  //            Search Analytics for Sheets, Looker Studio, the API)
+  //   exact    the query equals a tracked keyword on a page
+  //   inferred the query contains a tracked keyword (two or more words);
+  //            the longest matching keyword wins, primary breaks ties
+  const inferable = []
+  for (const [text, hits] of keywordsByText) {
+    if (text.split(/\s+/).length < 2) continue
+    inferable.push({ text, re: new RegExp('(^|\\s)' + text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\s|$)'), hits })
+  }
+  inferable.sort((a, b) => b.text.length - a.text.length)
+
   const queries = []
   let queriesMatched = 0
   const perPageOrder = new Map()
+  const queryTotalsByPage = new Map() // page id → { clicks, impressions } for page+query files
   for (const row of gscQueries) {
     let page = null
-    if (row.url) page = pageByPath.get(row.url) || null
+    let attribution = null
+    if (row.url) {
+      page = pageByPath.get(row.url) || null
+      if (page) attribution = 'page'
+    }
     if (!page) {
       const hits = keywordsByText.get(row.query) || []
       if (hits.length) {
-        // Prefer the page where this query is the primary keyword
         const primaryHit = hits.find(h => h.keyword.is_primary)
         page = (primaryHit || hits[0]).page
+        attribution = 'exact'
+      }
+    }
+    if (!page) {
+      const hit = inferable.find(c => c.re.test(row.query))
+      if (hit) {
+        const primaryHit = hit.hits.find(h => h.keyword.is_primary)
+        page = (primaryHit || hit.hits[0]).page
+        attribution = 'inferred'
       }
     }
     if (!page) { unmatched.queries.push(row); continue }
     queriesMatched++
     const n = perPageOrder.get(page.id) || 0
     perPageOrder.set(page.id, n + 1)
-    queries.push({ page_id: page.id, query: row.query, clicks: row.clicks, impressions: row.impressions, position: row.position, sort_order: n })
+    queries.push({ page_id: page.id, query: row.query, clicks: row.clicks, impressions: row.impressions, position: row.position, sort_order: n, attribution })
+    if (attribution === 'page') {
+      const t = queryTotalsByPage.get(page.id) || { clicks: 0, impressions: 0 }
+      t.clicks += row.clicks
+      t.impressions += row.impressions
+      queryTotalsByPage.set(page.id, t)
+    }
+  }
+
+  // No Pages export but the queries carried page URLs: page totals come from
+  // the queries themselves (anonymised queries are missing, so totals can
+  // understate; a Pages export is still the better source).
+  if (!gscPages.length && queryTotalsByPage.size) {
+    for (const [pageId, t] of queryTotalsByPage) {
+      pageMetrics[pageId] = { page_id: pageId, clicks: t.clicks, impressions: t.impressions, position: null }
+    }
   }
 
   // ─── Volumes (refresh proposals; applied only on confirm) ──
