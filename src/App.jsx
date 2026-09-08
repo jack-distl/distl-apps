@@ -12,6 +12,8 @@ import OkrPlanner from './features/okr/OkrPlanner'
 import TemplateEditor from './features/okr/TemplateEditor'
 import HoursHome from './features/hours/HoursHome'
 import ClientHours from './features/hours/ClientHours'
+import SitemapHome from './features/sitemap/SitemapHome'
+import SitemapTool from './features/sitemap/SitemapTool'
 
 const pageTransition = {
   initial: { opacity: 0, y: 8 },
@@ -88,6 +90,8 @@ export default function App() {
                   <Route path="/okr/:clientId" element={<OkrPlanner />} />
                   <Route path="/hours" element={<HoursHome />} />
                   <Route path="/hours/:clientId" element={<ClientHours />} />
+                  <Route path="/sitemap" element={<SitemapHome />} />
+                  <Route path="/sitemap/:clientId" element={<SitemapTool />} />
                 </Routes>
               </motion.div>
             </AnimatePresence>

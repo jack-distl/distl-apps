@@ -10,6 +10,7 @@ const badgeVariants = cva(
         coral: 'border-transparent bg-coral/10 text-coral-dark',
         success: 'border-transparent bg-green-50 text-green-700',
         warning: 'border-transparent bg-amber-50 text-amber-700',
+        info: 'border-transparent bg-blue-50 text-blue-700',
         destructive: 'border-transparent bg-destructive text-destructive-foreground',
         outline: 'text-foreground',
       },

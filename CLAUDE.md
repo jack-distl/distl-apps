@@ -112,9 +112,12 @@ distl-apps/
 │   ├── components/               # Reusable UI pieces (buttons, modals, etc.)
 │   ├── features/                 # Feature-specific pages
 │   │   ├── hub/                  # Dashboard & client list
-│   │   └── okr/                  # OKR Planner
+│   │   ├── hours/                # WFM Hours
+│   │   ├── okr/                  # OKR Planner
+│   │   └── sitemap/              # Sitemap Tool (SEO Foundations)
 │   ├── hooks/                    # Data fetching (auth, clients, Supabase)
 │   ├── lib/                      # Utilities, constants, mock data
+│   │   └── sitemap/              # Sitemap Tool logic (CSV, tree, importers, exports)
 │   └── styles/                   # Global CSS (Tailwind)
 ├── supabase/                     # Database migrations (SQL files)
 │   └── migrations/               # Run these in order to set up the DB
@@ -178,19 +181,24 @@ Each client card shows:
 
 **Status:** Prototype complete, connected to Supabase
 
-### Sitemap Tool (not yet integrated)
+### Sitemap Tool (`src/features/sitemap/`)
 
-**Purpose:** Visualise website structure with real Search Console data
+**Purpose:** The SEO Foundations sitemap for a client, kept as one editable page tree, then reviewed against real performance data over time. Everything the client sees comes from this one tree.
 
 **Key features:**
 
-- Interactive tree view of site hierarchy
-- Traffic and ranking data per page (from GSC)
-- Keyword data overlay
-- Expand/collapse sections
-- Compare periods (this quarter vs last)
+- One sitemap per client. Pages carry name, URL, status (keep / add / opportunity / functional), page template, a keyword cluster with exactly one primary keyword, title tag, meta description and H1
+- Hierarchy is derived from the URL path (`/about/our-people/` nests under `/about/`), so editing a URL moves the page; children can follow with a confirm
+- Four tabs from the same tree: Sitemap (tree or table), Keyword Research, URL Architecture, Templates
+- Detail side panel with every field editable in place; edits autosave through Supabase like the OKR planner
+- **Template in, then fully editable:** the SEO Foundations CSVs (proposed sitemap, keyword clusters, optional metadata sheet) land the whole tree. Re-importing shows a diff and never overwrites edits unless chosen
+- **Versions:** the planning version plus any number of review versions. A review takes Search Console Pages and Queries CSVs, an Ahrefs or SEMrush rank tracking export and optionally refreshed volumes. Nothing unmatched is dropped; it is kept with the version for review
+- **Exports:** WordPress import CSV (fixed format, see `reference/seo-foundations/`), plus the tool's own sitemap and keyword cluster CSVs which re-import cleanly
+- Review cadence per client: Quarterly / Biannual / Annual
 
-**Status:** Exists separately, needs integration into this app
+**Logic lives in `src/lib/sitemap/`** (CSV parsing, tree derivation, importers, matching, exports). Run `pnpm test:sitemap` after touching it; the parity test proves the WordPress export is byte-identical to the reference file.
+
+**Status:** Built, connected to Supabase (migration 015). Needs real-client testing.
 
 ### Future App Ideas
 
@@ -233,10 +241,13 @@ okr_periods (client_id, start_date, end_date, goal, is_published, ...)
 okr_objectives (period_id, title, scope, ...)
 okr_tasks (objective_id, description, am_hours, seo_hours, status, ...)
 
--- Sitemap Tool (future)
-sitemaps (client_id, domain, last_synced, ...)
-sitemap_pages (sitemap_id, url, title, parent_id, ...)
-sitemap_metrics (page_id, period, clicks, impressions, position, ...)
+-- Sitemap Tool
+sitemaps (client_id, review_cadence, menus, ...)
+sitemap_page_templates (sitemap_id, code, name, description, blocks, ...)
+sitemap_pages (sitemap_id, name, url, status, template_id, title_tag, meta_description, h1, post_type, ...)
+sitemap_keywords (page_id, keyword, volume, is_primary, ...)
+sitemap_versions (sitemap_id, name, type, ...)
+sitemap_version_uploads / _page_metrics / _keyword_positions / _queries (per version performance rows)
 ```
 
 ### Authentication
@@ -270,6 +281,10 @@ sitemap_metrics (page_id, period, clicks, impressions, position, ...)
 /clients              # All clients list
 /okr                  # OKR Planner home
 /okr/:clientId        # OKR for specific client
+/hours                # WFM Hours home
+/hours/:clientId      # WFM Hours for specific client
+/sitemap              # Sitemap Tool home
+/sitemap/:clientId    # Sitemap Tool for specific client
 ```
 
 ---
@@ -290,9 +305,9 @@ sitemap_metrics (page_id, period, clicks, impressions, position, ...)
 - [x] OKR Planner — Prototype complete, connected to Supabase
 - [x] Security — Auth gate, RLS policies, security headers
 - [ ] Hub — Basic dashboard exists, needs work
-- [ ] Sitemap Tool — Exists separately, needs integration
+- [x] Sitemap Tool — Built (SEO Foundations sitemap, keyword clusters, reviews, WordPress export)
 - [ ] Full authentication — Login works, needs polish
 
 ---
 
-*Last updated: February 2026*
+*Last updated: September 2026*

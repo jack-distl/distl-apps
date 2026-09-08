@@ -1,0 +1,210 @@
+import { useState, useEffect } from 'react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Modal } from '@/components'
+import { Button } from '@/components/ui/button'
+import { FileDrop } from './FileDrop'
+import { StatusChip } from './Chips'
+import { readFileText } from '@/lib/sitemap/csv'
+import { detectKind, parseKeywordClusters, parseSitemapSheet } from '@/lib/sitemap/importers'
+import { parseWordPressCsv } from '@/lib/sitemap/wordpressExport'
+import { buildLandingPlan, diffLanding, planOperations } from '@/lib/sitemap/landing'
+
+const FIELD_LABELS = { name: 'Name', status: 'Status', title_tag: 'Title tag', meta_description: 'Meta description', h1: 'H1', post_type: 'Post type', template_id: 'Template' }
+
+const SLOTS = [
+  { key: 'sitemap', label: 'Proposed sitemap', description: 'Page | Parent | Title | Meta Description. The WordPress import CSV also works here. Extra columns (URL, Status, Template, H1) are picked up when present.' },
+  { key: 'keywords', label: 'Keyword clusters', description: 'Category | Keywords | Search Volume, one row per keyword. "Parent > Page" categories nest. Pages named here but missing from the sitemap are created as opportunities.' },
+  { key: 'metadata', label: 'Metadata sheet', description: 'Page (or URL) | Title | Meta Description | H1. Only needed if metadata lives in a separate file.', optional: true },
+]
+
+const MODES = [
+  { value: 'add', label: 'Add new pages and keywords only', hint: 'Existing pages are left exactly as they are.' },
+  { value: 'fill', label: 'Add new, and fill in blank fields', hint: 'Recommended. Edits you have made are never overwritten.' },
+  { value: 'replace', label: 'Add new, and replace changed fields', hint: 'The files win over what is currently in the tool.' },
+]
+
+export function ImportModal({ open, onClose, sitemap, onApply }) {
+  const [files, setFiles] = useState({})
+  const [step, setStep] = useState('files')
+  const [mode, setMode] = useState('fill')
+  const [plan, setPlan] = useState(null)
+  const [diff, setDiff] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => { if (open) { setFiles({}); setStep('files'); setMode('fill'); setPlan(null); setDiff(null); setError(null) } }, [open])
+
+  async function handleFile(slot, file) {
+    setFiles(f => ({ ...f, [slot]: { busy: true, name: file.name } }))
+    try {
+      const text = await readFileText(file)
+      const kind = detectKind(text)
+      let parsed
+      let summary
+      if (slot === 'sitemap') {
+        if (kind === 'wordpress') { parsed = { wordpress: parseWordPressCsv(text) }; summary = `${parsed.wordpress.pages.length} pages, ${parsed.wordpress.templates.length} templates (WordPress format)` }
+        else { const rows = parseSitemapSheet(text); parsed = { sitemapRows: rows }; summary = `${rows.length} pages` }
+      } else if (slot === 'keywords') {
+        const rows = parseKeywordClusters(text)
+        const groups = new Set(rows.map(r => r.category))
+        parsed = { keywordRows: rows }
+        summary = `${rows.length} keywords in ${groups.size} clusters`
+      } else {
+        const rows = parseSitemapSheet(text)
+        parsed = { metadataRows: rows }
+        summary = `${rows.length} rows`
+      }
+      if (kind && kind !== 'wordpress' && kind !== slot && !(slot === 'metadata' && kind === 'sitemap') && !(slot === 'sitemap' && kind === 'metadata')) {
+        summary += ` · looks like a ${kind.replace('_', ' ')} file`
+      }
+      setFiles(f => ({ ...f, [slot]: { name: file.name, summary, parsed } }))
+    } catch (err) {
+      setFiles(f => ({ ...f, [slot]: { name: file.name, error: err.message || 'Could not read this file' } }))
+    }
+  }
+
+  const ready = Object.values(files).some(f => f?.parsed)
+
+  function preview() {
+    setError(null)
+    try {
+      const merged = {}
+      for (const f of Object.values(files)) if (f?.parsed) Object.assign(merged, f.parsed)
+      const p = buildLandingPlan({ ...merged, templates: sitemap.templates })
+      setPlan(p)
+      setDiff(diffLanding(sitemap.pages, p.pages))
+      setStep('preview')
+    } catch (err) {
+      setError(err.message || 'Could not build the import preview')
+    }
+  }
+
+  async function apply() {
+    setBusy(true)
+    try {
+      await onApply(planOperations(diff, mode))
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Import failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const changedCount = diff ? diff.matched.reduce((s, m) => s + m.changes.length, 0) : 0
+  const newKwCount = diff ? diff.matched.reduce((s, m) => s + m.newKeywords.length, 0) : 0
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={step === 'files' ? 'Import SEO Foundations files' : 'Review import'}
+      description={step === 'files'
+        ? 'Drop the CSVs and the whole tree lands filled in: pages, keywords, metadata. Everything stays editable afterwards.'
+        : 'Nothing is overwritten unless you choose it below.'}
+    >
+      {step === 'files' ? (
+        <div className="space-y-3">
+          {SLOTS.map(s => (
+            <FileDrop
+              key={s.key}
+              label={s.label}
+              description={s.description}
+              optional={s.optional}
+              busy={files[s.key]?.busy}
+              file={files[s.key]?.parsed ? files[s.key] : null}
+              error={files[s.key]?.error}
+              onFile={file => handleFile(s.key, file)}
+              onClear={() => setFiles(f => { const n = { ...f }; delete n[s.key]; return n })}
+            />
+          ))}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button onClick={preview} disabled={!ready}>Preview import</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <Stat n={diff.added.length} label="pages to add" />
+            <Stat n={diff.matched.length} label="existing pages touched" />
+            <Stat n={newKwCount} label="keywords to add" />
+          </div>
+
+          {sitemap.pages.length > 0 && (
+            <fieldset className="space-y-1.5">
+              {MODES.map(m => (
+                <label key={m.value} className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 cursor-pointer ${mode === m.value ? 'border-coral bg-coral-50/40' : 'border-gray-200'}`}>
+                  <input type="radio" name="mode" value={m.value} checked={mode === m.value} onChange={() => setMode(m.value)} className="mt-0.5 accent-[#E8806A]" />
+                  <span>
+                    <span className="text-sm text-charcoal">{m.label}</span>
+                    <span className="block text-xs text-gray-500">{m.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+
+          <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100 text-sm">
+            {diff.added.map(p => (
+              <div key={p.url} className="flex items-center gap-2 px-3 py-1.5">
+                <StatusChip status={p.status} />
+                <span className="font-medium text-charcoal truncate">{p.name}</span>
+                <span className="font-mono text-[11px] text-gray-400 truncate">{p.url}</span>
+                <span className="ml-auto text-xs text-gray-400 shrink-0">{p.keywords.length} kw</span>
+              </div>
+            ))}
+            {diff.matched.map(m => (
+              <div key={m.existing.id} className="px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-charcoal">{m.existing.name}</span>
+                  <span className="font-mono text-[11px] text-gray-400">{m.existing.url}</span>
+                  {m.newKeywords.length > 0 && <span className="ml-auto text-xs text-green-600">+{m.newKeywords.length} kw</span>}
+                </div>
+                {m.changes.map(c => (
+                  <div key={c.field} className="text-xs text-gray-500 mt-0.5 pl-2">
+                    <span className="text-gray-400">{FIELD_LABELS[c.field] || c.field}:</span>{' '}
+                    <span className={c.blank ? 'text-gray-300 italic' : 'line-through text-gray-400'}>{c.blank ? 'blank' : String(c.from)}</span>
+                    {' → '}<span className="text-charcoal">{String(c.to)}</span>
+                    {!c.blank && mode !== 'replace' && <span className="text-gray-300"> (kept)</span>}
+                  </div>
+                ))}
+              </div>
+            ))}
+            {diff.added.length === 0 && diff.matched.length === 0 && (
+              <div className="px-3 py-6 text-center text-gray-400 text-sm">Nothing new in these files. The tree already matches.</div>
+            )}
+          </div>
+
+          {plan.warnings.length > 0 && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 space-y-0.5">
+              {plan.warnings.slice(0, 8).map((w, i) => <div key={i}>{w}</div>)}
+              {plan.warnings.length > 8 && <div>… and {plan.warnings.length - 8} more</div>}
+            </div>
+          )}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+
+          <div className="flex items-center justify-between pt-1">
+            <button type="button" onClick={() => setStep('files')} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-charcoal"><ArrowLeft size={14} /> Back</button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button onClick={apply} disabled={busy || (diff.added.length === 0 && changedCount === 0 && newKwCount === 0)}>
+                {busy && <Loader2 size={14} className="animate-spin mr-1.5" />} Import
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+function Stat({ n, label }) {
+  return (
+    <div className="rounded-lg bg-gray-50 py-2">
+      <div className="text-xl font-semibold text-charcoal tabular-nums">{n}</div>
+      <div className="text-[11px] text-gray-500">{label}</div>
+    </div>
+  )
+}

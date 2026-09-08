@@ -10,7 +10,7 @@ const navItems = [
   // Sub-item of OKR Planner: only shown while in the OKR area, indented
   { label: 'Edit Templates', href: '/okr/templates', icon: LayoutTemplate, parent: '/okr', indent: true },
   { label: 'WFM Hours', href: '/hours', icon: Clock },
-  { label: 'Sitemap Tool', href: '/sitemap', icon: Map, disabled: true },
+  { label: 'Sitemap Tool', href: '/sitemap', icon: Map },
   { label: 'Settings', href: '/settings', icon: Settings, disabled: true },
 ]
 
