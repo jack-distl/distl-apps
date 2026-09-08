@@ -15,6 +15,9 @@ function periodFromDb(row) {
     goal: row.goal || '',
     seoRetainer: row.seo_retainer ?? null,
     offsiteAllowancePercent: Number(row.offsite_allowance_percent),
+    adHocPercent: row.adhoc_percent != null ? Number(row.adhoc_percent) : 10,
+    accountManagementName: row.account_management_name ?? 'Account Management',
+    accountManagementPercent: row.account_management_percent != null ? Number(row.account_management_percent) : 5,
     adminTasks: {
       monthlyReportingAM: Number(row.admin_monthly_reporting_am),
       monthlyReportingSEO: Number(row.admin_monthly_reporting_seo),
@@ -37,10 +40,15 @@ function periodToDb(period, clientId) {
     goal: period.goal,
     seo_retainer: period.seoRetainer ?? null,
     offsite_allowance_percent: period.offsiteAllowancePercent,
-    admin_monthly_reporting_am: period.adminTasks.monthlyReportingAM,
-    admin_monthly_reporting_seo: period.adminTasks.monthlyReportingSEO,
-    admin_okr_reporting_am: period.adminTasks.okrReportingAM,
-    admin_okr_reporting_seo: period.adminTasks.okrReportingSEO,
+    adhoc_percent: period.adHocPercent ?? 10,
+    account_management_name: period.accountManagementName ?? 'Account Management',
+    account_management_percent: period.accountManagementPercent ?? 5,
+    // Admin reporting columns are retained for backwards-compat; reporting
+    // is now modelled as objectives, so fall back to defaults when absent.
+    admin_monthly_reporting_am: period.adminTasks?.monthlyReportingAM ?? 0,
+    admin_monthly_reporting_seo: period.adminTasks?.monthlyReportingSEO ?? 0,
+    admin_okr_reporting_am: period.adminTasks?.okrReportingAM ?? 0,
+    admin_okr_reporting_seo: period.adminTasks?.okrReportingSEO ?? 0,
   }
 }
 

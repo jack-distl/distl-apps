@@ -1,0 +1,57 @@
+post_title,parent_title,slug,template,menu,menu_uid,post_type
+Primary Navigation,,,,,1,menu
+Footer Navigation,,,,,2,menu
+Controls Navigation,,,,,3,menu
+Legal Navigation,,,,,4,menu
+Above Primary Navigation,,,,,5,menu
+Home,,,,,1,template
+Standard Parent,,,,,2,template
+Standard Internal,,,,,3,template
+Services Ointernal,,,,,4,template
+Resources Parent,,,,,5,template
+Resources Internal,,,,,6,template
+Contact,,,,,7,template
+Home,,,1,,1,page
+About,,about,3,,2,page
+Process,About,process,3,,1,page
+Team,About,team,3,,2,page
+Industries,,industries,2,,3,page
+NFP,Industries,nfp,3,,1,page
+Engineering & Construction,Industries,engineering-and-construction,3,,2,page
+Logistics & Transportation,Industries,logistics-and-transportation,3,,3,page
+Manufacturing,Industries,manufacturing,3,,4,page
+Marine & Subsea,Industries,marine-and-subsea,3,,5,page
+Professional Services,Industries,professional-services,3,,6,page
+Indigenous Corporations,Industries,indigenous-corporations,3,,7,page
+Healthcare,Industries,healthcare,3,,8,page
+Schools & Education,Industries,schools-education,3,,9,page
+IT Services,,it-services,2,,4,page
+Managed,IT Services,managed,2,,1,page
+IT Support,Managed,it-support,4,,1,page
+VOIP Phone Systems,Managed,voip-phone-systems,4,,2,page
+Offsite Backup Solutions,Managed,offsite-backup-solutions,4,,3,page
+VCIO,Managed,vcio,4,,4,page
+Business Internet Solutions,Managed,business-internet-solutions,4,,5,page
+Staffing Solutions,Managed,staffing-solutions,4,,6,page
+Cyber Security,IT Services,cyber-security,2,,2,page
+Threat Detection & Response,Cyber Security,threat-detection-and-response,4,,1,page
+Vulnerability Management,Cyber Security,vulnerability-management,4,,2,page
+Compliance & Risk Management,Cyber Security,compliance-and-risk-management,4,,3,page
+Incident Response & Recovery,Cyber Security,incident-response-and-recovery,4,,4,page
+Cloud,IT Services,cloud,2,,3,page
+Microsoft 365,Cloud,microsoft-365,4,,1,page
+Microsoft Azure,Cloud,microsoft-azure,4,,2,page
+Data Centre,Cloud,data-centre,4,,3,page
+Strategic Consulting,IT Services,strategic-consulting,2,,4,page
+Security Frameworks,Strategic Consulting,security-frameworks,4,,1,page
+AI Governance,Strategic Consulting,ai-governance,4,,2,page
+Business Relocation,Strategic Consulting,business-relocation,4,,3,page
+SharePoint,Strategic Consulting,sharepoint,4,,4,page
+DISP Compliance,Strategic Consulting,disp-compliance,4,,5,page
+IT Communications,Strategic Consulting,it-communications,4,,6,page
+Resources,,resources,5,,5,post
+Resource Internal,Resources,resource-internal,6,,1,post
+Contact,,contact,7,,6,page
+Perth,Contact,perth,3,,1,page
+Broome,Contact,broome,3,,2,page
+Melbourne,Contact,melbourne,3,,3,page

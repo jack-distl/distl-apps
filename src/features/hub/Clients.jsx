@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ClientCard, ClientEditModal, LoadingSpinner } from '../../components'
+import { Plus } from 'lucide-react'
+import { ClientCard, ClientEditModal, LoadingSpinner, NewClientModal } from '../../components'
+import { Button } from '../../components/ui/button'
 import { useClients, fetchAllClientRetainers } from '../../hooks'
 import { mockClientRetainers } from '../../lib/mockData'
 
@@ -17,9 +19,10 @@ const fadeUp = {
 
 export default function Clients() {
   const navigate = useNavigate()
-  const { clients, loading, updateClient, deleteClient } = useClients()
+  const { clients, loading, addClient, updateClient, deleteClient } = useClients()
   const [retainersByClient, setRetainersByClient] = useState(null)
   const [editingClient, setEditingClient] = useState(null)
+  const [showNewClient, setShowNewClient] = useState(false)
 
   useEffect(() => {
     fetchAllClientRetainers().then(data => {
@@ -37,9 +40,15 @@ export default function Clients() {
 
   return (
     <div className="max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-charcoal">Clients</h1>
-        <p className="text-gray-500 mt-1">{clients.length} clients total</p>
+      <div className="flex items-start justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl font-semibold text-charcoal">Clients</h1>
+          <p className="text-gray-500 mt-1">{clients.length} clients total</p>
+        </div>
+        <Button onClick={() => setShowNewClient(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          New Client
+        </Button>
       </div>
 
       <motion.div
@@ -60,6 +69,15 @@ export default function Clients() {
           </motion.div>
         ))}
       </motion.div>
+
+      <NewClientModal
+        open={showNewClient}
+        onClose={() => setShowNewClient(false)}
+        addClient={addClient}
+        onAdded={(client, seoAmount) => {
+          if (client && seoAmount > 0) setRetainersByClient(prev => ({ ...prev, [client.id]: { seo: seoAmount } }))
+        }}
+      />
 
       <ClientEditModal
         client={editingClient}
