@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { X, ExternalLink, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, ExternalLink, Trash2, ChevronDown, ChevronUp, Flag, Layers } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { EditableText, FieldEditor } from './Editable'
 import { StatusChip, ChangeIndicator } from './Chips'
 import { KeywordTable } from './KeywordTable'
-import { STATUS_META, STATUSES, normaliseUrl, cascadeUrlChange, templateLabel, formatNumber, buildHierarchy, isHome } from '@/lib/sitemap/tree'
-import { hasPerf, pagePerfSummary, averagePosition, previousReview, pageClickBreakdown, pageMetric, change, versionPeriodLabel } from '@/lib/sitemap/perf'
+import { STATUS_META, STATUSES, normaliseUrl, cascadeUrlChange, templateLabel, formatNumber, buildHierarchy, isHome, visualDescendants } from '@/lib/sitemap/tree'
+import { hasPerf, pagePerfSummary, averagePosition, previousReview, pageClickBreakdown, pageMetric, change, versionPeriodLabel, aggregatePages } from '@/lib/sitemap/perf'
 import { cn } from '@/lib/utils'
 
 const TOP_QUERIES = 3
@@ -38,7 +38,7 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, onDeletePage, onBulkEdit, actions }) {
+export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, onDeletePage, onBulkEdit, rolledUp = null, actions }) {
   const { updatePage, updatePageUrl, addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword } = actions
   const isReview = version?.type === 'review'
   const showPerf = isReview && hasPerf(version, page)
@@ -194,7 +194,17 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
             ))}
           </div>
         </div>
-        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600" title="Close"><X size={16} /></button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => updatePage(page.id, { is_priority: !page.is_priority }, { immediate: true })}
+            title={page.is_priority ? 'Priority: actively being worked on. Click to clear.' : 'Mark as a priority hub or page'}
+            className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors', page.is_priority ? 'border-coral bg-coral text-white' : 'border-gray-200 text-gray-400 hover:border-coral hover:text-coral')}
+          >
+            <Flag size={11} fill={page.is_priority ? 'currentColor' : 'none'} /> Priority
+          </button>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600" title="Close"><X size={16} /></button>
+        </div>
       </div>
 
       <h2 className="text-lg font-semibold text-charcoal mt-3 leading-tight">
@@ -239,6 +249,24 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
           {page.group_parent_id && <span className="text-[10px] uppercase tracking-wider text-gray-400">grouped</span>}
         </div>
       )}
+
+      {rolledUp && (() => {
+        const under = rolledUp === 'site' ? sitemap.pages.filter(p => p.id !== page.id) : visualDescendants(sitemap.pages, page)
+        if (!under.length) return null
+        const agg = aggregatePages(sitemap, version, [page, ...under])
+        return (
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs">
+            <div className="flex items-center gap-1.5 text-charcoal font-medium mb-1.5"><Layers size={12} className="text-gray-400" /> Rolled up: {agg.pageCount} of {sitemap.pages.length} pages</div>
+            <div className="grid grid-cols-3 gap-2 tabular-nums">
+              <div><div className="text-base font-semibold text-charcoal">{formatNumber(agg.volume)}</div><div className="text-gray-500">volume /mo</div></div>
+              {isReview && <div><div className="text-base font-semibold text-charcoal flex items-baseline gap-1">{formatNumber(agg.clicks)} <ChangeIndicator change={agg.clicksChange} /></div><div className="text-gray-500">clicks</div></div>}
+              {isReview && <div><div className="text-base font-semibold text-charcoal">{formatNumber(agg.impressions)}</div><div className="text-gray-500">impressions</div></div>}
+              {!isReview && <div><div className="text-base font-semibold text-charcoal">{agg.keywordCount}</div><div className="text-gray-500">keywords</div></div>}
+            </div>
+            <div className="text-gray-400 mt-1.5">The figures below are this page on its own.</div>
+          </div>
+        )
+      })()}
 
       {perfBlock}
 

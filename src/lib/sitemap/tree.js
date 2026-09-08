@@ -292,3 +292,19 @@ export function moveAmong(siblings, pageId, direction) {
   ;[next[i], next[j]] = [next[j], next[i]]
   return next
 }
+
+/** All pages shown beneath `page` on the board (visual children, recursively). */
+export function visualDescendants(pages, page) {
+  const h = buildHierarchy(pages)
+  const out = []
+  const seen = new Set([page.id])
+  ;(function walk(p) {
+    for (const c of h.pages) {
+      if (seen.has(c.id) || visualParentOf(h, c) !== p) continue
+      seen.add(c.id)
+      out.push(c)
+      walk(c)
+    }
+  })(page)
+  return out
+}

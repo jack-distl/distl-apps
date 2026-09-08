@@ -52,7 +52,7 @@ const tree = {
           meta: 'Thinking about a postnuptial agreement? Our WA family lawyers draft agreements that hold up.',
           h1: 'Postnuptial Agreement Lawyers' },
       ] },
-    { name: 'Wills & Estates', url: '/wills-estates/', status: 'keep', template: 'T2',
+    { name: 'Wills & Estates', url: '/wills-estates/', status: 'keep', template: 'T2', priority: true,
       keywords: [kw('legal wills perth', 590, true), kw('wills perth wa', 590), kw('wills lawyers perth', 390), kw('estate planning lawyer perth', 320)],
       title: 'Wills Lawyers Perth | Estate Planning | Hammond Legal',
       meta: 'Expert wills lawyers in Perth. We protect your legacy and your loved ones.',
@@ -172,7 +172,7 @@ export function buildSampleSitemap(clientId = 'sample') {
       name: node.name, url: node.url, status: node.status,
       template_id: tplByCode[node.template] || null,
       title_tag: node.title || '', meta_description: node.meta || '', h1: node.h1 || '',
-      post_type: 'page', menu_names: null, sort_order: pages.length,
+      post_type: 'page', menu_names: null, sort_order: pages.length, is_priority: !!node.priority,
       keywords: (node.keywords || []).map((k, i) => ({
         id: `kw-${clientId}-${++kwIdx}`, page_id: id, keyword: k.keyword, volume: k.volume, is_primary: k.is_primary, sort_order: i,
       })),

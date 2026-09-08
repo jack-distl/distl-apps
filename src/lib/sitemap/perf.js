@@ -132,3 +132,44 @@ export function defaultReviewPeriod(now = new Date()) {
   const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
   return { period_start: iso(start), period_end: iso(end) }
 }
+
+// ─── Roll-ups ────────────────────────────────────────────────
+
+/**
+ * Sum a set of pages into one line: page and keyword counts, combined
+ * volume and, on a review version, clicks, impressions and the average of
+ * the primary keyword positions that exist. Change compares against the
+ * same pages on the previous review.
+ */
+export function aggregatePages(sitemap, version, pages) {
+  const isReview = version?.type === 'review'
+  const prev = isReview ? previousReview(sitemap, version) : null
+  let volume = 0
+  let keywordCount = 0
+  let clicks = 0
+  let impressions = 0
+  let prevClicks = 0
+  let prevHad = false
+  const positions = []
+  for (const p of pages) {
+    for (const k of p.keywords || []) { volume += Number(k.volume) || 0; keywordCount++ }
+    if (isReview) {
+      const m = pageMetric(version, p.id)
+      if (m) { clicks += Number(m.clicks) || 0; impressions += Number(m.impressions) || 0 }
+      const primary = (p.keywords || []).find(k => k.is_primary)
+      const pos = primary ? keywordPosition(version, primary.id) : null
+      if (pos != null) positions.push(pos)
+      if (prev && hasPerf(prev, p)) { prevHad = true; const pm = pageMetric(prev, p.id); if (pm) prevClicks += Number(pm.clicks) || 0 }
+    }
+  }
+  return {
+    pageCount: pages.length,
+    keywordCount,
+    volume,
+    clicks,
+    impressions,
+    avgPosition: positions.length ? Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10 : null,
+    clicksChange: isReview ? change(clicks, prevHad ? prevClicks : null) : { kind: 'none', delta: 0 },
+    hasPerf: isReview && pages.some(p => hasPerf(version, p)),
+  }
+}

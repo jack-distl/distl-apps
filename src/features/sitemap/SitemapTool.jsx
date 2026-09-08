@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
-  ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, Map as MapIcon, FileSpreadsheet, ListTree, Plus, Globe,
+  ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, Map as MapIcon, FileSpreadsheet, ListTree, Plus, Globe, Flag,
 } from 'lucide-react'
 import { LoadingSpinner, UndoToast } from '@/components'
 import { Button } from '@/components/ui/button'
@@ -37,8 +37,14 @@ import { BulkKeywordsModal } from './components/BulkKeywordsModal'
 const TABS = [
   { value: 'sitemap', label: 'Sitemap' },
   { value: 'keywords', label: 'Keyword Research' },
-  { value: 'urls', label: 'URL Architecture' },
-  { value: 'templates', label: 'Templates' },
+  { value: 'urls', label: 'URL Architecture', foundationsOnly: true },
+  { value: 'templates', label: 'Templates', foundationsOnly: true },
+]
+
+const ROLLUPS = [
+  { value: 'site', label: 'Site', title: 'Everything rolled up into Home' },
+  { value: 'hubs', label: 'Hubs', title: 'Each top-level page summed over its children' },
+  { value: 'all', label: 'All pages', title: 'Every page with its own numbers' },
 ]
 
 export default function SitemapTool() {
@@ -59,6 +65,9 @@ export default function SitemapTool() {
   const [addPage, setAddPage] = useState(null)           // null | defaults
   const [showMenus, setShowMenus] = useState(false)
   const [bulkEdit, setBulkEdit] = useState(null)          // null | { pageId: string|null }
+  const [filters, setFilters] = useState({ hideNoKeyword: false, priorityOnly: false })
+  const [rollup, setRollup] = useState('all')             // 'site' | 'hubs' | 'all'
+  const [collapsed, setCollapsed] = useState(new Set())    // hub ids rolled up individually
   const [undo, setUndo] = useState(null)
   const [creating, setCreating] = useState(false)
 
@@ -66,6 +75,16 @@ export default function SitemapTool() {
   const version = versions.find(v => v.id === versionId) || versions[versions.length - 1] || null
   const isReview = version?.type === 'review'
   const selectedPage = sitemap?.pages.find(p => p.id === selectedPageId) || null
+  // Templates and URL Architecture belong to SEO Foundations (the planning version)
+  const visibleTabs = TABS.filter(t => !isReview || !t.foundationsOnly)
+
+  useEffect(() => { if (isReview && (tab === 'templates' || tab === 'urls')) setTab('sitemap') }, [isReview, tab])
+
+  function toggleCollapse(id) {
+    if (id === '__site__') { setRollup('hubs'); return }
+    if (rollup === 'hubs') { setRollup('all'); setCollapsed(new Set(sitemap.pages.filter(p => p.id !== id && !p.group_parent_id).map(p => p.id))); return }
+    setCollapsed(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
 
   useEffect(() => { if (!selectedPage && selectedPageId) setSelectedPageId(null) }, [selectedPage, selectedPageId])
   useEffect(() => { if (tab !== 'templates') setHighlightTemplateId(null) }, [tab])
@@ -256,7 +275,7 @@ export default function SitemapTool() {
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 mb-4">
             <Tabs value={tab} onValueChange={setTab}>
               <TabsList className="bg-gray-100">
-                {TABS.map(t => (
+                {visibleTabs.map(t => (
                   <TabsTrigger key={t.value} value={t.value} className="data-[state=active]:bg-charcoal data-[state=active]:text-white">{t.label}</TabsTrigger>
                 ))}
               </TabsList>
@@ -287,21 +306,46 @@ export default function SitemapTool() {
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <Legend isReview={isReview} />
-                    <div className="flex bg-gray-100 rounded-lg p-0.5 shrink-0">
-                      {['tree', 'table'].map(v => (
-                        <button
-                          key={v}
-                          onClick={() => setView(v)}
-                          className={`px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors ${view === v ? 'bg-white text-charcoal shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                          {v}
-                        </button>
-                      ))}
+                    <div className="flex flex-wrap items-center gap-3 shrink-0">
+                      <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+                        <input type="checkbox" className="accent-[#E8806A]" checked={filters.hideNoKeyword} onChange={e => setFilters(f => ({ ...f, hideNoKeyword: e.target.checked }))} />
+                        Keyword focus only
+                      </label>
+                      <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+                        <input type="checkbox" className="accent-[#E8806A]" checked={filters.priorityOnly} onChange={e => setFilters(f => ({ ...f, priorityOnly: e.target.checked }))} />
+                        <Flag size={11} className="text-coral" fill="currentColor" /> Priority only
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Roll up</span>
+                        <div className="flex bg-gray-100 rounded-lg p-0.5">
+                          {ROLLUPS.map(r => (
+                            <button
+                              key={r.value}
+                              title={r.title}
+                              onClick={() => { setRollup(r.value); if (r.value !== 'all') setCollapsed(new Set()) }}
+                              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${rollup === r.value && !(r.value === 'all' && collapsed.size) ? 'bg-white text-charcoal shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                              {r.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex bg-gray-100 rounded-lg p-0.5">
+                        {['tree', 'table'].map(v => (
+                          <button
+                            key={v}
+                            onClick={() => setView(v)}
+                            className={`px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors ${view === v ? 'bg-white text-charcoal shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   {view === 'tree'
-                    ? <TreeView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} onAddPage={handleAddPage} onMove={handleMove} />
-                    : <TableView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} />}
+                    ? <TreeView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} onAddPage={handleAddPage} onMove={handleMove} filters={filters} rollup={rollup} collapsed={collapsed} onToggleCollapse={toggleCollapse} />
+                    : <TableView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} filters={filters} rollup={rollup} collapsed={collapsed} />}
                 </>
               )}
               {tab === 'keywords' && <KeywordsTab sitemap={sitemap} onSelectPage={selectPage} onBulkEdit={(pageId) => setBulkEdit({ pageId })} />}
@@ -327,6 +371,7 @@ export default function SitemapTool() {
                   onJumpTemplate={jumpToTemplate}
                   onDeletePage={handleDeletePage}
                   onBulkEdit={(pageId) => setBulkEdit({ pageId })}
+                  rolledUp={rollup === 'site' ? 'site' : (rollup === 'hubs' || collapsed.has(selectedPage.id)) ? 'hub' : null}
                   actions={{
                     updatePage: data.updatePage,
                     updatePageUrl: data.updatePageUrl,

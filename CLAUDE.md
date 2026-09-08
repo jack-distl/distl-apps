@@ -197,12 +197,13 @@ Each client card shows:
 - **Board layout:** pages move left/right (columns) and up/down with hover arrows; "Show under" groups a page into another column visually without changing its URL. The table view reads the board left to right
 - **Starting points:** the live site's sitemap.xml (fetched through `api/sitemap/fetch.js`), an uploaded sitemap.xml, the SEO Foundations CSVs, a WordPress import CSV, or review uploads
 - **Bulk edit tracked keywords:** tick to remove across a page or the whole sitemap
+- **Ongoing use:** filters (keyword focus only, priority only), a Priority flag per page that lightly emphasises hubs being worked on, and Site / Hubs / All pages roll-ups that sum clicks, impressions and volume up the tree ("20 of 20 pages"). Templates and URL Architecture only show on the SEO Foundations version
 - **Exports:** WordPress import CSV (fixed format, see `reference/seo-foundations/`), plus the tool's own sitemap and keyword cluster CSVs which re-import cleanly
 - Review cadence per client: Quarterly / Biannual / Annual
 
 **Logic lives in `src/lib/sitemap/`** (CSV parsing, tree derivation, importers, matching, exports). Run `pnpm test:sitemap` after touching it; the parity test proves the WordPress export is byte-identical to the reference file.
 
-**Status:** Built, connected to Supabase (migrations 015 and 016). Needs real-client testing.
+**Status:** Built, connected to Supabase (migrations 015 to 017). Needs real-client testing.
 
 ### Future App Ideas
 
@@ -248,7 +249,7 @@ okr_tasks (objective_id, description, am_hours, seo_hours, status, ...)
 -- Sitemap Tool
 sitemaps (client_id, review_cadence, menus, ...)
 sitemap_page_templates (sitemap_id, code, name, description, blocks, ...)
-sitemap_pages (sitemap_id, name, url, status, template_id, title_tag, meta_description, h1, post_type, group_parent_id, ...)
+sitemap_pages (sitemap_id, name, url, status, template_id, title_tag, meta_description, h1, post_type, group_parent_id, is_priority, ...)
 sitemap_keywords (page_id, keyword, volume, is_primary, ...)
 sitemap_versions (sitemap_id, name, type, period_start, period_end, ...)
 sitemap_version_uploads / _page_metrics / _keyword_positions / _queries (per version performance rows)
