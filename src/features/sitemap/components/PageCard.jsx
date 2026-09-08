@@ -43,8 +43,8 @@ export function PageCard({ sitemap, version, page, selected, onSelect, className
           <div className="text-[11px] text-gray-400 font-mono truncate mt-0.5">{page.url}</div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {showPerf && perf.primary
-            ? <PositionChip position={perf.position} />
+          {isReview
+            ? (showPerf && perf.primary ? <PositionChip position={perf.position} /> : <span className="text-[10px] uppercase tracking-wider text-gray-300 pt-0.5">{showPerf ? 'no keyword' : 'no data'}</span>)
             : <StatusChip status={page.status} />}
           {onToggleCollapse && (
             <button
