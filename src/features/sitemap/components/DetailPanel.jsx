@@ -174,6 +174,10 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
       className="w-[26rem] shrink-0 rounded-xl border border-gray-200 bg-white shadow-sm p-5 self-start sticky top-6 max-h-[calc(100vh-6rem)] overflow-y-auto"
     >
       <div className="flex items-start justify-between gap-3">
+        {/* Status and post type belong to SEO Foundations (the planning version) */}
+        {isReview ? (
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 pt-1">{versionPeriodLabel(version) || version?.name}</div>
+        ) : (
         <div className="flex items-center gap-2">
           <Select value={page.status} onValueChange={v => updatePage(page.id, { status: v }, { immediate: true })}>
             <SelectTrigger className="h-7 w-auto border-0 bg-transparent p-0 shadow-none focus:ring-0 gap-1 [&>svg]:opacity-40">
@@ -197,6 +201,7 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
             ))}
           </div>
         </div>
+        )}
         <div className="flex items-center gap-2">
           <button
             type="button"
