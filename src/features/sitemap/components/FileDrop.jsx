@@ -37,12 +37,12 @@ export function FileDrop({ label, description, optional, file, error, busy, onFi
         </div>
         {description && !file && <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{description}</p>}
         {file && (
-          <p className="text-xs text-green-700 mt-0.5 truncate">
+          <p className="text-xs text-green-700 mt-0.5 break-all">
             <span className="font-medium">{file.name}</span>
             {file.summary && <span className="text-green-700/80"> — {file.summary}</span>}
           </p>
         )}
-        {error && <p className="text-xs text-red-600 mt-0.5">{error}</p>}
+        {error && <p className="text-xs text-red-600 mt-0.5 break-words">{error}</p>}
       </div>
       {file ? (
         <button type="button" onClick={e => { e.stopPropagation(); onClear?.() }} className="text-gray-400 hover:text-gray-600 shrink-0" title="Remove file">

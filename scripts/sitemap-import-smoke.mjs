@@ -136,5 +136,54 @@ check(volUpd && volUpd.to === 2900, 'volumes file proposes a change (volumes fil
 check(snap.volumeUpdates.some(v => v.keyword === 'criminal lawyer perth' && v.to === 500), 'rank tracker volume proposes a change when no volumes row')
 check(snap.stats.gsc_pages.matched === 3 && snap.stats.rankings.matched === 3, 'stats count matches')
 
+
+// ─── 4. Discovery: XML sitemap → rows, additions from uploads ──
+{
+  const { parseSitemapXml } = await import('../src/lib/sitemap/sitemapXml.js')
+  const { titleFromSlug, isLikelyContentUrl, urlsToSitemapRows, pathSections, planAdditionsFromUploads, augmentSitemapForPreview } = await import('../src/lib/sitemap/discovery.js')
+  console.log('Discovery')
+  const xml = `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url><loc>https://ampeddigital.com.au/</loc><lastmod>2026-08-01</lastmod></url>
+    <url><loc>https://ampeddigital.com.au/it-services/</loc></url>
+    <url><loc>https://ampeddigital.com.au/it-services/managed-it-support/</loc></url>
+    <url><loc>https://ampeddigital.com.au/blog/</loc></url>
+    <url><loc>https://ampeddigital.com.au/blog/why-voip-matters/</loc></url>
+    <url><loc>https://ampeddigital.com.au/tag/voip/</loc></url>
+    <url><loc>https://ampeddigital.com.au/wp-content/uploads/logo.png</loc></url>
+    <url><loc>https://ampeddigital.com.au/blog/page/2/</loc></url>
+  </urlset>`
+  const { urls } = parseSitemapXml(xml)
+  check(urls.length === 8 && urls[0].lastmod === '2026-08-01', 'urlset parsed with lastmod')
+  const idx = parseSitemapXml('<sitemapindex><sitemap><loc>https://x.com/a.xml</loc></sitemap><sitemap><loc>https://x.com/b.xml</loc></sitemap></sitemapindex>')
+  check(idx.sitemaps.length === 2, 'sitemapindex parsed')
+  check(titleFromSlug('engineering-and-construction') === 'Engineering and Construction' && titleFromSlug('it-services') === 'IT Services', 'names from slugs')
+  check(!isLikelyContentUrl('/tag/voip/') && !isLikelyContentUrl('/wp-content/uploads/logo.png') && !isLikelyContentUrl('/blog/page/2/') && isLikelyContentUrl('/it-services/'), 'junk URLs filtered')
+  const sections = pathSections(urls.map(u => u.loc))
+  check(sections[0].key === '' && sections.find(s => s.key === 'blog')?.suggestPost, 'sections detected, blog suggested as posts')
+  const rows = urlsToSitemapRows(urls.map(u => u.loc), { postSections: new Set(['blog']) })
+  check(rows.length === 5 && rows[0].url === '/' && rows[0].name === 'Home', 'rows: junk removed, home first')
+  check(rows.find(r => r.url === '/blog/why-voip-matters/')?.postType === 'post' && rows.find(r => r.url === '/blog/')?.postType === 'page', 'post type by section, section root stays a page')
+  check(rows.find(r => r.url === '/it-services/managed-it-support/')?.name === 'Managed IT Support', 'nested page named from slug')
+
+  // Additions from uploads against an empty sitemap
+  const empty = { id: 'sm', pages: [], templates: buildSampleSitemap('d').templates }
+  const adds = planAdditionsFromUploads(empty, {
+    gscPages: parseGscPages(rowsToCsv([['Top pages', 'Clicks', 'Impressions'], ['https://ampeddigital.com.au/', 300, 5000], ['https://ampeddigital.com.au/it-services/', 40, 900], ['https://ampeddigital.com.au/tag/x/', 2, 10]])),
+    rankings: parseRankings(rowsToCsv([['Keyword', 'Volume', 'Position', 'URL'], ['it support perth', 480, 6, 'https://ampeddigital.com.au/it-services/'], ['managed it perth', 210, 9, 'https://ampeddigital.com.au/it-services/'], ['voip perth', 90, 12, 'https://ampeddigital.com.au/voip/'], ['no url kw', 50, 3, '']])),
+  })
+  check(adds.pageInserts.length === 3, `3 pages discovered from uploads (${adds.pageInserts.map(p => p.url).join(', ')})`)
+  const it = adds.pageInserts.find(p => p.url === '/it-services/')
+  check(it && it.keywords.length === 2 && it.keywords.find(k => k.is_primary).keyword === 'it support perth', 'ranking keywords attach to discovered page, highest volume primary')
+  check(adds.pageInserts.find(p => p.url === '/')?.templateId === empty.templates[0].id, 'home gets Home template')
+  const aug = augmentSitemapForPreview(empty, adds)
+  const snap = buildReviewSnapshot({ sitemap: aug, gscPages: parseGscPages(rowsToCsv([['Top pages', 'Clicks', 'Impressions'], ['https://ampeddigital.com.au/it-services/', 40, 900]])), rankings: parseRankings(rowsToCsv([['Keyword', 'Volume', 'Position', 'URL'], ['it support perth', 480, 6, 'https://ampeddigital.com.au/it-services/']])) })
+  check(snap.stats.gsc_pages.matched === 1 && snap.stats.rankings.matched === 1, 'augmented preview matches the uploads')
+
+  // Additions against an existing page without keywords
+  const withPage = { ...empty, pages: [{ id: 'p1', url: '/it-services/', name: 'IT Services', status: 'keep', keywords: [], sort_order: 0 }] }
+  const adds2 = planAdditionsFromUploads(withPage, { rankings: parseRankings(rowsToCsv([['Keyword', 'Volume', 'Position', 'URL'], ['it support perth', 480, 6, 'https://ampeddigital.com.au/it-services/']])) })
+  check(adds2.pageInserts.length === 0 && adds2.keywordInserts.length === 1 && adds2.keywordInserts[0].is_primary, 'keyword added to existing page becomes primary when it had none')
+}
+
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed')
 process.exit(failures ? 1 : 0)

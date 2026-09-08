@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
-  ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, X, Map as MapIcon, FileSpreadsheet, ListTree, Plus,
+  ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, Map as MapIcon, FileSpreadsheet, ListTree, Plus, Globe,
 } from 'lucide-react'
 import { LoadingSpinner, UndoToast } from '@/components'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { useClients, useAuth } from '@/hooks'
 import { useSitemapData } from '@/hooks/useSitemapData'
 import { REVIEW_CADENCES } from '@/lib/sitemap/defaults'
 import { sortedVersions } from '@/lib/sitemap/perf'
+import { buildReviewSnapshot } from '@/lib/sitemap/matching'
 import { downloadText } from '@/lib/sitemap/csv'
 import { buildWordPressCsv, wordPressFilename } from '@/lib/sitemap/wordpressExport'
 import { buildSitemapDataCsv, buildKeywordClusterCsv, dataFilename } from '@/lib/sitemap/dataExport'
@@ -92,23 +93,41 @@ export default function SitemapTool() {
     if (removed) setUndo({ message: `Removed "${removed.name}"`, page: removed })
   }
 
-  async function handleCreateVersion({ name, snapshot, uploads, volumeUpdates }) {
-    const v = await data.addVersion({ name, type: 'review', snapshot, uploads })
-    if (volumeUpdates?.length) await data.applyOperations({ keywordUpdates: volumeUpdates.map(u => ({ keywordId: u.keyword_id, fields: { volume: u.to } })) })
-    setVersionId(v.id)
-  }
-
-  async function handleReplaceVersion(id, { name, snapshot, uploads, volumeUpdates }) {
-    await data.replaceVersionData(id, { snapshot, uploads })
-    if (name && name !== version?.name) data.updateVersion(id, { name })
-    if (volumeUpdates?.length) await data.applyOperations({ keywordUpdates: volumeUpdates.map(u => ({ keywordId: u.keyword_id, fields: { volume: u.to } })) })
+  /**
+   * Create or replace a review from uploaded rows. If the files revealed pages
+   * or keywords the tree lacks and the user kept the option on, those land
+   * first, then the rows are matched against the grown tree so the new pages
+   * carry their performance data straight away.
+   */
+  async function handleReviewConfirm({ name, rows, additions, applyVolumes, uploadsMeta, existingVersionId }) {
+    let matchSitemap = sitemap
+    if (additions && (additions.pageInserts.length || additions.keywordInserts.length)) {
+      const result = await data.applyOperations({ pageInserts: additions.pageInserts, keywordInserts: additions.keywordInserts })
+      if (result?.pages) matchSitemap = { ...sitemap, pages: result.pages }
+    }
+    const snapshot = buildReviewSnapshot({ sitemap: matchSitemap, ...rows })
+    // Refresh upload stats against the final tree
+    const uploads = uploadsMeta.map(u => {
+      const unmatchedKey = { gsc_pages: 'pages', gsc_queries: 'queries', rankings: 'keywords', volumes: 'volumes' }[u.kind]
+      return { ...u, row_count: snapshot.stats[u.kind].rows, matched_count: snapshot.stats[u.kind].matched, unmatched: (snapshot.unmatched[unmatchedKey] || []).slice(0, 500) }
+    })
+    if (existingVersionId) {
+      await data.replaceVersionData(existingVersionId, { snapshot, uploads })
+      if (name && name !== version?.name) data.updateVersion(existingVersionId, { name })
+    } else {
+      const v = await data.addVersion({ name, type: 'review', snapshot, uploads })
+      setVersionId(v.id)
+    }
+    if (applyVolumes && snapshot.volumeUpdates.length) {
+      await data.applyOperations({ keywordUpdates: snapshot.volumeUpdates.map(u => ({ keywordId: u.keyword_id, fields: { volume: u.to } })) })
+    }
   }
 
   async function startSitemap(thenImport) {
     setCreating(true)
     try {
       await data.createSitemap()
-      if (thenImport) setShowImport(true)
+      if (thenImport) setShowImport(thenImport)
     } finally {
       setCreating(false)
     }
@@ -180,8 +199,8 @@ export default function SitemapTool() {
 
         {sitemap && (
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" onClick={() => setShowImport(true)}>
-              <Upload size={15} className="mr-1.5" /> Import files
+            <Button variant="secondary" onClick={() => setShowImport('files')}>
+              <Upload size={15} className="mr-1.5" /> Import
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -207,10 +226,11 @@ export default function SitemapTool() {
           <div className="w-12 h-12 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-4"><MapIcon size={22} className="text-coral" /></div>
           <h2 className="text-lg font-semibold text-charcoal mb-2">No sitemap for {client.name} yet</h2>
           <p className="text-gray-500 mb-6 max-w-md mx-auto text-sm">
-            Import the SEO Foundations files (proposed sitemap, keyword clusters, metadata) and the whole tree lands filled in. Or start from a blank sitemap and build it by hand.
+            Pull the live site's sitemap.xml, import the SEO Foundations files (proposed sitemap, keyword clusters, metadata), or start blank. Review uploads can grow the tree too, so any starting point works.
           </p>
-          <div className="flex justify-center gap-2">
-            <Button onClick={() => startSitemap(true)} disabled={creating}>{creating ? <Loader2 size={16} className="animate-spin mr-1.5" /> : <Upload size={16} className="mr-1.5" />} Import SEO Foundations files</Button>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button onClick={() => startSitemap('site')} disabled={creating}>{creating ? <Loader2 size={16} className="animate-spin mr-1.5" /> : <Globe size={16} className="mr-1.5" />} Import from website</Button>
+            <Button variant="secondary" onClick={() => startSitemap('files')} disabled={creating}><Upload size={16} className="mr-1.5" /> Import SEO Foundations files</Button>
             <Button variant="secondary" onClick={() => startSitemap(false)} disabled={creating}><Plus size={16} className="mr-1.5" /> Start blank</Button>
           </div>
         </Card>
@@ -305,15 +325,14 @@ export default function SitemapTool() {
             </AnimatePresence>
           </div>
 
-          <ImportModal open={showImport} onClose={() => setShowImport(false)} sitemap={sitemap} onApply={data.applyOperations} />
+          <ImportModal open={!!showImport} initialFocus={showImport === 'site' ? 'site' : null} onClose={() => setShowImport(false)} sitemap={sitemap} onApply={data.applyOperations} />
           <NewVersionModal
             open={!!versionModal}
             onClose={() => setVersionModal(null)}
             sitemap={sitemap}
             existingVersion={versionModal?.existing || null}
             userName={user?.user_metadata?.name || user?.email || null}
-            onCreate={handleCreateVersion}
-            onReplace={handleReplaceVersion}
+            onConfirm={handleReviewConfirm}
           />
           <AddPageModal
             open={!!addPage}

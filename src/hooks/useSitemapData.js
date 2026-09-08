@@ -400,22 +400,21 @@ export function useSitemapData(clientId) {
     const pageUpd = new Map(pageUpdates.map(u => [u.pageId, u.fields]))
     const kwUpd = new Map(keywordUpdates.map(u => [u.keywordId, u.fields]))
 
-    patch(sm => ({
-      ...sm,
-      pages: [
-        ...sm.pages.map(p => {
-          let np = pageUpd.has(p.id) ? { ...p, ...pageUpd.get(p.id) } : p
-          const added = kwInserts.filter(k => k.page_id === p.id)
-          if (added.length || np.keywords.some(k => kwUpd.has(k.id))) {
-            np = { ...np, keywords: [...np.keywords.map(k => (kwUpd.has(k.id) ? { ...k, ...kwUpd.get(k.id) } : k)), ...added] }
-          }
-          return np
-        }),
-        ...newPages,
-      ],
-    }))
+    const nextPages = [
+      ...sitemap.pages.map(p => {
+        let np = pageUpd.has(p.id) ? { ...p, ...pageUpd.get(p.id) } : p
+        const added = kwInserts.filter(k => k.page_id === p.id)
+        if (added.length || np.keywords.some(k => kwUpd.has(k.id))) {
+          np = { ...np, keywords: [...np.keywords.map(k => (kwUpd.has(k.id) ? { ...k, ...kwUpd.get(k.id) } : k)), ...added] }
+        }
+        return np
+      }),
+      ...newPages,
+    ]
+    patch(sm => ({ ...sm, pages: nextPages }))
+    const result = { pages: nextPages, newPages }
 
-    if (!supabase) return
+    if (!supabase) return result
     if (newPages.length) {
       await runWrite(() => supabase.from('sitemap_pages').insert(newPages.map(({ keywords, ...row }) => row)))
       const kws = newPages.flatMap(p => p.keywords)
@@ -424,6 +423,7 @@ export function useSitemapData(clientId) {
     if (kwInserts.length) await runWrite(() => supabase.from('sitemap_keywords').insert(kwInserts))
     for (const [id, fields] of pageUpd) await runWrite(() => supabase.from('sitemap_pages').update(fields).eq('id', id))
     for (const [id, fields] of kwUpd) await runWrite(() => supabase.from('sitemap_keywords').update(fields).eq('id', id))
+    return result
   }, [patch, runWrite, sitemap])
 
   return {
