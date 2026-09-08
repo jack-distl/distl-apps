@@ -5,7 +5,7 @@ import {
   ArrowLeft, Plus, Copy, ChevronDown, ChevronUp,
   Trash2, Globe, FileText, Hash, CheckCircle, XCircle,
   AlertTriangle, Search, X, ClipboardCheck, Loader2, Check, Circle, Pencil,
-  BookmarkPlus, Upload
+  BookmarkPlus, Upload, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { UndoToast } from '../../components/UndoToast'
 import { ClientEditModal } from '../../components/ClientEditModal'
@@ -424,6 +424,20 @@ export default function OkrPlanner() {
     setDeletedObjective(null)
     triggerDebouncedSave(deletedObjective.periodId)
   }, [deletedObjective, setPeriods, triggerDebouncedSave])
+
+  // Move an objective one slot left/right (earlier/later) in the grid
+  const moveObjective = useCallback((periodId, objectiveId, direction) => {
+    setPeriods(prev => prev.map(p => {
+      if (p.id !== periodId) return p
+      const i = p.objectives.findIndex(o => o.id === objectiveId)
+      const j = i + direction
+      if (i < 0 || j < 0 || j >= p.objectives.length) return p
+      const objectives = [...p.objectives]
+      ;[objectives[i], objectives[j]] = [objectives[j], objectives[i]]
+      return { ...p, objectives }
+    }))
+    triggerDebouncedSave(periodId)
+  }, [setPeriods, triggerDebouncedSave])
 
   const duplicateObjective = useCallback((periodId, objectiveId) => {
     setPeriods(prev => prev.map(p => {
@@ -1203,7 +1217,7 @@ export default function OkrPlanner() {
               initial="hidden"
               animate="show"
             >
-              {currentPeriod.objectives.map(obj => {
+              {currentPeriod.objectives.map((obj, objIndex) => {
                 const ScopeIcon = SCOPE_ICONS[obj.scope] || Globe
                 const scopeOption = SCOPE_OPTIONS.find(s => s.id === obj.scope)
                 const isCollapsed = collapsedObjectives[obj.id]
@@ -1283,12 +1297,32 @@ export default function OkrPlanner() {
                             />
                           )}
                         </div>
-                        <button
-                          onClick={() => toggleCollapse(obj.id)}
-                          className="text-gray-300 hover:text-gray-500 p-0.5"
-                        >
-                          {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-                        </button>
+                        <div className="flex flex-col items-center gap-0.5 shrink-0">
+                          <button
+                            onClick={() => toggleCollapse(obj.id)}
+                            className="text-gray-300 hover:text-gray-500 p-0.5"
+                          >
+                            {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                          </button>
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              onClick={() => moveObjective(currentPeriod.id, obj.id, -1)}
+                              disabled={objIndex === 0}
+                              title="Move earlier"
+                              className="text-gray-300 hover:text-coral disabled:opacity-30 disabled:hover:text-gray-300 p-0.5"
+                            >
+                              <ChevronLeft size={14} />
+                            </button>
+                            <button
+                              onClick={() => moveObjective(currentPeriod.id, obj.id, 1)}
+                              disabled={objIndex === currentPeriod.objectives.length - 1}
+                              title="Move later"
+                              className="text-gray-300 hover:text-coral disabled:opacity-30 disabled:hover:text-gray-300 p-0.5"
+                            >
+                              <ChevronRight size={14} />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -1332,7 +1366,9 @@ export default function OkrPlanner() {
                                     )}
                                     placeholder="Internal notes (not visible to client)..."
                                     rows={2}
-                                    className="w-full mt-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300 placeholder:text-amber-300"
+                                    onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}
+                                    title="Drag the corner to make this bigger"
+                                    className="w-full mt-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 resize-y min-h-[3rem] focus:outline-none focus:ring-1 focus:ring-amber-300 placeholder:text-amber-300"
                                   />
                                   <div className="flex items-center gap-3 mt-1">
                                     <div className="flex items-center gap-1">
