@@ -340,7 +340,7 @@ export function NewVersionModal({ open, onClose, sitemap, existingVersion, userN
 
           <UnmatchedList title="Search Console pages with no matching sitemap page" rows={snapshot.unmatched.pages} render={r => <><span className="font-mono">{r.path}</span> · {r.clicks} clicks</>} />
           <UnmatchedList title="Ranking keywords not in any cluster" rows={snapshot.unmatched.keywords} render={r => <>{r.keyword} · {r.position == null ? 'not ranking' : `#${r.position}`}{r.url ? <span className="text-gray-400"> · {r.url}</span> : ''}</>} />
-          <UnmatchedList title="Queries not attributed to a page (counted in "other queries")" rows={snapshot.unmatched.queries} render={r => <>{r.query} · {r.clicks} clicks</>} />
+          <UnmatchedList title="Queries not attributed to a page (counted in other queries)" rows={snapshot.unmatched.queries} render={r => <>{r.query} · {r.clicks} clicks</>} />
 
           {snapshot.volumeUpdates.length > 0 && (
             <label className="flex items-start gap-2.5 rounded-lg border border-gray-200 px-3 py-2 cursor-pointer">
