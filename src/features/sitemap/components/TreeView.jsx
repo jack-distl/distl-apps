@@ -97,7 +97,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
     return (
       <div className="min-w-0">
         <div className="flex justify-center">
-          <div className="w-80">
+          <div className="w-96">
             {home ? (
               <PageCard page={home} selected={home.id === selectedPageId} aggregate={agg} collapsed onToggleCollapse={() => onToggleCollapse('__site__')} {...cardProps} />
             ) : (
@@ -116,7 +116,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
     <div className="min-w-0">
       {/* Home */}
       <div className="flex justify-center">
-        <div className="w-64">
+        <div className="w-80">
           {home ? (
             <PageCard page={home} selected={home.id === selectedPageId} {...cardProps} />
           ) : (
@@ -130,7 +130,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
       <div className="overflow-x-auto pb-4 -mx-1 px-1">
         <div className="flex gap-4 items-start min-w-max pt-4">
           <motion.div variants={stagger} initial="hidden" animate="show" className="relative flex gap-4 items-start">
-            <div className="absolute top-0 left-28 right-28 h-px bg-gray-300" />
+            <div className="absolute top-0 left-36 right-36 h-px bg-gray-300" />
             {visibleSilos.map(({ root, children }) => {
               const si = siloRoots.indexOf(root)
               const rolled = rollup === 'hubs' || collapsed.has(root.id)
@@ -138,7 +138,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
               const hidden = children.length - shownChildren.length
               const agg = rolled && children.length ? aggregatePages(sitemap, version, [root, ...children]) : null
               return (
-                <motion.div key={root.id} variants={fadeUp} className={cn('shrink-0 relative rounded-xl', root.is_priority ? 'w-60 bg-coral-50/40 ring-1 ring-coral/20 p-2' : 'w-56')}>
+                <motion.div key={root.id} variants={fadeUp} className={cn('shrink-0 relative rounded-xl', root.is_priority ? 'w-[19rem] bg-coral-50/40 ring-1 ring-coral/20 p-2' : 'w-72')}>
                   <div className="absolute -top-4 left-1/2 w-px h-4 bg-gray-300" />
                   {root.is_priority && <div className="text-[10px] font-semibold uppercase tracking-wider text-coral mb-1.5 pl-1">Priority hub</div>}
                   <MovableCard
@@ -187,7 +187,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
             })}
 
             {!filters.priorityOnly && (
-              <motion.div variants={fadeUp} className="w-56 shrink-0 relative">
+              <motion.div variants={fadeUp} className="w-72 shrink-0 relative">
                 <div className="absolute -top-4 left-1/2 w-px h-4 bg-gray-300" />
                 <AddButton label="Add top-level page" onClick={() => onAddPage({ parentUrl: '/', status: 'add' })} className="py-3" />
               </motion.div>
@@ -196,7 +196,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
 
           {/* Functional column (hidden entirely when filtering to keyword focus) */}
           {!filters.hideNoKeyword && (visibleFunctional.length > 0 || !filters.priorityOnly) && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-56 shrink-0 relative ml-4 pl-4 border-l border-dashed border-gray-300">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-72 shrink-0 relative ml-4 pl-4 border-l border-dashed border-gray-300">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Functional</div>
               <div className="space-y-2">
                 {visibleFunctional.map(p => {
