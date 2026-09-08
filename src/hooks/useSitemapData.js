@@ -345,8 +345,7 @@ export function useSitemapData(clientId) {
    * Create a version. For reviews pass `snapshot` from buildReviewSnapshot
    * and `uploads` metadata; rows are bulk-inserted.
    */
-  const addVersion = useCallback(async ({ name, type = 'review', snapshot = null, uploads = [], period_start = null, period_end = null }) => {
-    const id = generateId()
+  const addVersion = useCallback(async ({ id = generateId(), name, type = 'review', snapshot = null, uploads = [], period_start = null, period_end = null }) => {
     const now = new Date().toISOString()
     const sortOrder = sitemap.versions.length ? Math.max(...sitemap.versions.map(v => v.sort_order)) + 1 : 0
     const pageMetrics = Object.fromEntries(Object.values(snapshot?.pageMetrics || {}).map(m => [m.page_id, { id: generateId(), version_id: id, ...m }]))

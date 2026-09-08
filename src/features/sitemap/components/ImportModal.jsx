@@ -46,7 +46,6 @@ export function ImportModal({ open, onClose, sitemap, onApply, initialFocus }) {
   const [mode, setMode] = useState('fill')
   const [plan, setPlan] = useState(null)
   const [diff, setDiff] = useState(null)
-  const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -137,16 +136,11 @@ export function ImportModal({ open, onClose, sitemap, onApply, initialFocus }) {
     }
   }
 
-  async function apply() {
-    setBusy(true)
-    try {
-      await onApply(planOperations(diff, mode))
-      onClose()
-    } catch (err) {
-      setError(err.message || 'Import failed')
-    } finally {
-      setBusy(false)
-    }
+  // Local state lands at once; the writes finish behind the save indicator.
+  function apply() {
+    const ops = planOperations(diff, mode)
+    onClose()
+    Promise.resolve(onApply(ops)).catch(err => console.error('Import apply error:', err))
   }
 
   function toggle(setter, key) {
@@ -303,8 +297,8 @@ export function ImportModal({ open, onClose, sitemap, onApply, initialFocus }) {
             <button type="button" onClick={() => setStep('files')} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-charcoal"><ArrowLeft size={14} /> Back</button>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={onClose}>Cancel</Button>
-              <Button onClick={apply} disabled={busy || (diff.added.length === 0 && changedCount === 0 && newKwCount === 0)}>
-                {busy && <Loader2 size={14} className="animate-spin mr-1.5" />} Import
+              <Button onClick={apply} disabled={diff.added.length === 0 && changedCount === 0 && newKwCount === 0}>
+                Import
               </Button>
             </div>
           </div>
