@@ -49,7 +49,12 @@ export default function ClientView({
   periods,
   selectedPeriodId,
   onPeriodChange,
+  sitemapPages,
 }) {
+  // Named pages an objective covers: the sitemap pages it links, falling back
+  // to the free-text scope detail when there are none.
+  const pageName = id => (sitemapPages || []).find(p => p.id === id)?.name
+  const linkedNames = obj => (obj.linkedPageIds || []).map(pageName).filter(Boolean)
   // Find the selected period for its label
   const selectedPeriod = periods.find(p => p.id === selectedPeriodId)
   const periodLabel = selectedPeriod
@@ -228,9 +233,18 @@ export default function ClientView({
                                 <Badge className="bg-gray-100 text-gray-500">Not Actioned</Badge>
                               )}
                             </div>
-                            {obj.scopeDetail && (
-                              <p className="text-sm text-gray-500 mt-1.5">{obj.scopeDetail}</p>
-                            )}
+                            {(() => {
+                              const names = linkedNames(obj)
+                              const detail = (obj.scopeDetail || '').trim()
+                              if (!names.length && !detail) return null
+                              return (
+                                <p className="text-sm text-gray-500 mt-1.5">
+                                  {names.join(', ')}
+                                  {names.length > 0 && detail ? ' · ' : ''}
+                                  {detail}
+                                </p>
+                              )
+                            })()}
                             {!isActioned && obj.notActionedReason && (
                               <p className="text-xs text-gray-400 italic mt-1.5">{obj.notActionedReason}</p>
                             )}

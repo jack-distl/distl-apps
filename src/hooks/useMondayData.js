@@ -98,6 +98,9 @@ export function buildMondayTasks(period, abbreviation = '') {
       tasks.push({
         name: `${prefix}${krName} - ${i + 1} of ${total}`,
         objectiveTitle: label,
+        // Posted as an update on the subitem so the specialist has the brief
+        description: kr.description || '',
+        internalNotes: kr.internalNotes || '',
         hours: estHoursFor(kr),
         amHours: Number(kr.amHours) || 0,
         seoHours: Number(kr.seoHours) || 0,

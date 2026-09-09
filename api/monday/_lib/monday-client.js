@@ -116,6 +116,17 @@ export class MondayClient {
 
     return String(data?.create_subitem?.id || '')
   }
+
+  /** Post an update (the conversation entry) on an item or subitem. */
+  async createUpdate({ itemId, body }) {
+    const data = await this.query(
+      `mutation ($itemId: ID!, $body: String!) {
+        create_update(item_id: $itemId, body: $body) { id }
+      }`,
+      { itemId: String(itemId), body }
+    )
+    return String(data?.create_update?.id || '')
+  }
 }
 
 function sleep(ms) {
