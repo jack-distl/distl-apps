@@ -1,4 +1,4 @@
-import { Plus, Home, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Link2 } from 'lucide-react'
+import { Plus, Home, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Link2, Flag } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { PageCard } from './PageCard'
 import { buildVisualSilos, primaryKeyword, isHome } from '@/lib/sitemap/tree'
@@ -82,6 +82,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
   }
 
   const cardProps = { sitemap, version, onSelect: onSelectPage, totalPages }
+  const anyPriority = sitemap.pages.some(p => p.is_priority)
   const isGrouped = p => !!p.group_parent_id
   const hasPriorityIn = (root, children) => root.is_priority || children.some(c => c.is_priority)
 
@@ -143,6 +144,11 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
       </div>
       <div className="flex justify-center"><div className="w-px h-6 bg-gray-300" /></div>
 
+      {filters.priorityOnly && !anyPriority && (
+        <div className="mx-auto mb-4 max-w-xl rounded-lg border border-coral/30 bg-coral-50/40 px-4 py-2.5 text-xs text-gray-600 text-center">
+          <span className="inline-flex items-center gap-1"><Flag size={11} className="text-coral" fill="currentColor" /> <b className="text-charcoal">Priority keywords</b></span> is on but nothing is flagged yet. Open a page and click Priority to flag it, or untick the filter to see every page.
+        </div>
+      )}
       <div className="overflow-x-auto pb-4 -mx-1 px-1">
         <div className="w-max min-w-full flex justify-center">
           <div className="flex gap-4 items-start pt-4">

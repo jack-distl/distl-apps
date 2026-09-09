@@ -197,7 +197,7 @@ Each client card shows:
 - **Board layout:** pages move left/right (columns) and up/down with hover arrows; "Show under" groups a page into another column visually without changing its URL. The table view reads the board left to right
 - **Starting points:** the live site's sitemap.xml (fetched through `api/sitemap/fetch.js`), an uploaded sitemap.xml, the SEO Foundations CSVs, a WordPress import CSV, or review uploads
 - **Bulk edit tracked keywords:** tick to remove across a page or the whole sitemap
-- **Ongoing use:** filters (keyword focus only, priority only), a Priority flag per page that lightly emphasises hubs being worked on, and Site / Hubs / All pages roll-ups that sum clicks, impressions and volume up the tree ("20 of 20 pages"). Templates and URL Architecture only show on the SEO Foundations version
+- **Ongoing use:** filters (Priority keywords, Tracked keywords), a Priority flag per page that lightly emphasises hubs being worked on, and Site / Hubs / All pages roll-ups that sum clicks, impressions and volume up the tree ("20 of 20 pages"). Arriving at a sitemap opens the Sitemap tab on the latest version with Priority keywords on, Hubs roll-up and Tree view. Templates and URL Architecture only show on the SEO Foundations version
 - **Exports:** WordPress import CSV (fixed format, see `reference/seo-foundations/`), plus the tool's own sitemap and keyword cluster CSVs which re-import cleanly
 - Review cadence per client: Quarterly / Biannual / Annual
 
