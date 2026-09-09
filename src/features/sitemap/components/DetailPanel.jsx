@@ -90,7 +90,12 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
     perfBlock = (
       <>
         <div className="grid grid-cols-3 gap-2 mt-4">
-          <StatBox value={avg ?? '—'} label={<>Avg position <Hint size={11}>Average rank across this page's tracked keywords, from the rank tracker upload. The chip on the card is the primary keyword only.</Hint></>} sub={rankUpload ? fmtDate(rankUpload.uploaded_at) : null} />
+          <StatBox
+            value={avg ?? '—'}
+            change={summary.avgPositionChange}
+            label={<>Avg position <Hint size={11}>Average rank across this page's tracked keywords, from the rank tracker upload. The chip on the card is the primary keyword only. The change compares keywords that ranked in both reviews, so keywords entering or leaving do not read as movement.</Hint></>}
+            sub={rankUpload ? fmtDate(rankUpload.uploaded_at) : null}
+          />
           <StatBox value={formatNumber(summary.clicks)} change={summary.clicksChange} label="Clicks" sub={period || null} />
           <StatBox
             value={metric ? formatNumber(metric.impressions) : '—'}
@@ -269,7 +274,13 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
               <Layers size={12} className="text-gray-400" />
               {rolledUp === 'site' ? `All ${agg.pageCount} pages` : <>All {agg.pageCount} pages under <span className="font-mono font-normal text-gray-600">{page.url}</span></>}
             </div>
-            <div className="grid grid-cols-3 gap-2 tabular-nums">
+            <div className="grid grid-cols-4 gap-2 tabular-nums">
+              {isReview && (
+                <div>
+                  <div className="text-base font-semibold text-charcoal flex items-baseline gap-1">{agg.avgPosition ?? '—'} <ChangeIndicator change={agg.avgPositionChange} /></div>
+                  <div className="text-gray-500">avg position</div>
+                </div>
+              )}
               <div><div className="text-base font-semibold text-charcoal">{formatNumber(agg.volume)}</div><div className="text-gray-500">volume /mo</div></div>
               {isReview && <div><div className="text-base font-semibold text-charcoal flex items-baseline gap-1">{formatNumber(agg.clicks)} <ChangeIndicator change={agg.clicksChange} /></div><div className="text-gray-500">clicks</div></div>}
               {isReview && <div><div className="text-base font-semibold text-charcoal">{formatNumber(agg.impressions)}</div><div className="text-gray-500">impressions</div></div>}

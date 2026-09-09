@@ -142,7 +142,7 @@ export function TableView({ sitemap, version, selectedPageId, onSelectPage, filt
                 {isReview ? (
                   <>
                     <TableCell className="text-right">{aggregate ? (aggregate.avgPosition != null ? <span className="text-xs text-gray-500">avg #{aggregate.avgPosition}</span> : <span className="text-gray-300">—</span>) : perf && primary ? <PositionChip position={perf.position} /> : <span className="text-gray-300">—</span>}</TableCell>
-                    <TableCell className="text-right">{aggregate ? <ChangeIndicator change={aggregate.clicksChange} /> : perf && primary && <ChangeIndicator change={perf.positionChange} />}</TableCell>
+                    <TableCell className="text-right">{aggregate ? <ChangeIndicator change={aggregate.avgPositionChange} /> : perf && primary && <ChangeIndicator change={perf.positionChange} />}</TableCell>
                     <TableCell className="text-right tabular-nums font-medium whitespace-nowrap">
                       {aggregate ? <>{formatNumber(aggregate.clicks)} <ChangeIndicator change={aggregate.clicksChange} className="ml-1" /></>
                         : perf ? <>{formatNumber(perf.clicks)} <ChangeIndicator change={perf.clicksChange} className="ml-1" /></>

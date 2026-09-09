@@ -52,8 +52,38 @@ export function change(current, previous, { betterWhenLower = false } = {}) {
   if (current == null) return { kind: 'none', delta: 0 }
   if (previous == null) return { kind: 'new', delta: 0 }
   const raw = betterWhenLower ? previous - current : current - previous
-  if (raw === 0) return { kind: 'flat', delta: 0 }
-  return { kind: raw > 0 ? 'up' : 'down', delta: Math.abs(raw) }
+  // Averages are fractional; round before deciding whether anything moved
+  const delta = Math.round(Math.abs(raw) * 10) / 10
+  if (delta === 0) return { kind: 'flat', delta: 0 }
+  return { kind: raw > 0 ? 'up' : 'down', delta }
+}
+
+/**
+ * Average position across every tracked keyword that ranks, plus the change
+ * against the previous review. The change is measured only over keywords
+ * that rank in BOTH versions, so keywords entering or leaving the set do
+ * not masquerade as movement.
+ */
+export function positionAverages(version, prev, pages) {
+  const now = []
+  const pairedNow = []
+  const pairedPrev = []
+  for (const p of pages) {
+    for (const k of p.keywords || []) {
+      const pos = keywordPosition(version, k.id)
+      if (pos == null) continue
+      now.push(pos)
+      const before = prev ? keywordPosition(prev, k.id) : null
+      if (before != null) { pairedNow.push(pos); pairedPrev.push(before) }
+    }
+  }
+  const mean = arr => (arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null)
+  return {
+    avgPosition: mean(now),
+    rankedCount: now.length,
+    comparedCount: pairedNow.length,
+    avgPositionChange: change(mean(pairedNow), mean(pairedPrev), { betterWhenLower: true }),
+  }
 }
 
 export function pageMetric(version, pageId) {
@@ -104,9 +134,13 @@ export function pagePerfSummary(sitemap, version, page) {
   const prevHad = prev ? hasPerf(prev, page) : false
   const metric = pageMetric(version, page.id)
   const prevMetric = prev ? pageMetric(prev, page.id) : null
+  const ranks = positionAverages(version, prev, [page])
   return {
     primary,
     position: pos,
+    avgPosition: ranks.avgPosition,
+    avgPositionChange: ranks.avgPositionChange,
+    comparedCount: ranks.comparedCount,
     positionChange: change(pos, prevHad ? prevPos : null, { betterWhenLower: true }),
     clicks: clicks.total,
     clicksChange: change(clicks.total, prevHad ? prevClicks.total : null),
@@ -168,25 +202,27 @@ export function aggregatePages(sitemap, version, pages) {
   let prevClicks = 0
   let prevImpressions = 0
   let prevHad = false
-  const positions = []
   for (const p of pages) {
     for (const k of p.keywords || []) { volume += Number(k.volume) || 0; keywordCount++ }
     if (isReview) {
       const m = pageMetric(version, p.id)
       if (m) { clicks += Number(m.clicks) || 0; impressions += Number(m.impressions) || 0 }
-      const primary = (p.keywords || []).find(k => k.is_primary)
-      const pos = primary ? keywordPosition(version, primary.id) : null
-      if (pos != null) positions.push(pos)
       if (prev && hasPerf(prev, p)) { prevHad = true; const pm = pageMetric(prev, p.id); if (pm) { prevClicks += Number(pm.clicks) || 0; prevImpressions += Number(pm.impressions) || 0 } }
     }
   }
+  // Ranking is averaged over every tracked keyword beneath the roll-up, not
+  // just each page's primary
+  const ranks = isReview ? positionAverages(version, prev, pages) : { avgPosition: null, rankedCount: 0, comparedCount: 0, avgPositionChange: { kind: 'none', delta: 0 } }
   return {
     pageCount: pages.length,
     keywordCount,
     volume,
     clicks,
     impressions,
-    avgPosition: positions.length ? Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10 : null,
+    avgPosition: ranks.avgPosition,
+    avgPositionChange: ranks.avgPositionChange,
+    rankedCount: ranks.rankedCount,
+    comparedCount: ranks.comparedCount,
     clicksChange: isReview ? change(clicks, prevHad ? prevClicks : null) : { kind: 'none', delta: 0 },
     impressionsChange: isReview ? change(impressions, prevHad ? prevImpressions : null) : { kind: 'none', delta: 0 },
     hasPerf: isReview && pages.some(p => hasPerf(version, p)),
