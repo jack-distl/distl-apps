@@ -133,7 +133,7 @@ export function TableView({ sitemap, version, selectedPageId, onSelectPage, filt
                   <span className="inline-flex items-center gap-1.5">
                     {p.is_priority && <Flag size={11} className="text-coral" fill="currentColor" />}
                     {p.name}
-                    {aggregate && <span className="inline-flex items-center gap-1 text-[11px] font-normal text-gray-400"><Layers size={10} /> {aggregate.pageCount} of {totalPages} pages</span>}
+                    {aggregate && <span className="inline-flex items-center gap-1 text-[11px] font-normal text-gray-400"><Layers size={10} /> all {aggregate.pageCount} pages</span>}
                   </span>
                 </TableCell>
                 <TableCell className="font-mono text-xs text-gray-500">{p.url}</TableCell>

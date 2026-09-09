@@ -16,6 +16,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '../../components/ui/select'
 import ClientView from './ClientView'
+import { Hint } from '../../components'
 import { useClients } from '../../hooks'
 import { useClientRetainers } from '../../hooks/useClientRetainers'
 import { useOkrData } from '../../hooks/useOkrData'
@@ -782,6 +783,7 @@ export default function OkrPlanner() {
               </TabsTrigger>
               <TabsTrigger
                 value="client"
+                title="The simplified version presented to the client. Only published periods appear here."
                 className="data-[state=active]:bg-charcoal data-[state=active]:text-white"
               >
                 Client View
@@ -794,6 +796,7 @@ export default function OkrPlanner() {
             <>
               <button
                 onClick={openMondayPush}
+                title="Create this period's tasks on the SEO Project Management board in Monday"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-charcoal text-white hover:bg-charcoal/90 transition-colors"
               >
                 <Upload size={16} />
@@ -829,6 +832,7 @@ export default function OkrPlanner() {
                     ))
                   })
                 }}
+                title={currentPeriod.isPublished ? 'Published: this period shows in Client View. Click to return it to draft.' : 'Draft: internal only. Click to publish it to Client View.'}
                 className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                   currentPeriod.isPublished
                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -1074,7 +1078,7 @@ export default function OkrPlanner() {
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Buffers &amp; Allowances</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-500">Offsite</span>
+                    <span className="text-gray-500 inline-flex items-center gap-1">Offsite <Hint>Share of the retainer spent on off-site work such as link building. Taken off the dollars before they are converted to hours.</Hint></span>
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
@@ -1089,7 +1093,7 @@ export default function OkrPlanner() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-500">Ad hoc</span>
+                    <span className="text-gray-500 inline-flex items-center gap-1">Ad hoc <Hint>Hours held back for unplanned requests during the period, so the objectives do not use every hour.</Hint></span>
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
@@ -1104,7 +1108,7 @@ export default function OkrPlanner() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-500">Account Management</span>
+                    <span className="text-gray-500 inline-flex items-center gap-1">Account Management <Hint>Hours reserved for account management, taken from the pool before OKR tasks are allocated.</Hint></span>
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
@@ -1154,7 +1158,7 @@ export default function OkrPlanner() {
               transition={{ delay: 0.2 }}
               className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6"
             >
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">AM / SEO Split</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 inline-flex items-center gap-1">AM / SEO Split <Hint>How the allocated task hours divide between account management and SEO delivery. The target is 40% AM, 60% SEO.</Hint></h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <p className="text-gray-500">SEO Hours</p>
@@ -1272,6 +1276,7 @@ export default function OkrPlanner() {
                           )}
                           {/* Actioned toggle */}
                           <button
+                            title="Is this objective actually being worked on this period? Not Actioned greys it out and lets you note why."
                             onClick={() => updateObjective(currentPeriod.id, obj.id, {
                               isActioned: !obj.isActioned,
                               notActionedReason: !obj.isActioned ? '' : obj.notActionedReason,
