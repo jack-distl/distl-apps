@@ -71,7 +71,11 @@ export function PageCard({ sitemap, version, page, selected, onSelect, className
               <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">{short(aggregate.clicks)} clicks</span>
               <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">{short(aggregate.impressions)} imp</span>
               <ChangeIndicator change={aggregate.clicksChange} />
-              {aggregate.avgPosition != null && <span className="text-[11px] text-gray-400">avg #{aggregate.avgPosition}</span>}
+              {aggregate.avgPosition != null && (
+                <span className="text-[11px] text-gray-400 inline-flex items-center gap-1">
+                  avg #{aggregate.avgPosition} <ChangeIndicator change={aggregate.avgPositionChange} />
+                </span>
+              )}
             </div>
           ) : (
             <div className="flex items-center justify-between gap-2">
