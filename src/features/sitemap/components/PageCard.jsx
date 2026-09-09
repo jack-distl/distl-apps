@@ -63,7 +63,7 @@ export function PageCard({ sitemap, version, page, selected, onSelect, className
         <div className="mt-2.5 pt-2 border-t border-gray-100 text-xs space-y-1">
           <div className="flex items-center gap-1.5 text-gray-600">
             <Layers size={11} className="text-gray-400" />
-            <span className="font-medium">{aggregate.pageCount} of {totalPages} pages</span>
+            <span className="font-medium">All {aggregate.pageCount} pages</span>
             <span className="text-gray-400">· {aggregate.keywordCount} kw</span>
           </div>
           {isReview ? (

@@ -4,7 +4,7 @@ import { AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, Map as MapIcon, FileSpreadsheet, ListTree, Plus, Globe, Flag,
 } from 'lucide-react'
-import { LoadingSpinner, UndoToast } from '@/components'
+import { LoadingSpinner, UndoToast, Hint } from '@/components'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -241,7 +241,7 @@ export default function SitemapTool() {
             </h1>
             {sitemap && (
               <div className="flex items-center gap-2 mt-1.5 text-sm text-gray-500">
-                <span>Review cadence</span>
+                <span className="inline-flex items-center gap-1">Review cadence <Hint>How often a performance review version is added for this client. A reminder for the team; nothing is scheduled automatically.</Hint></span>
                 <Select value={sitemap.review_cadence} onValueChange={v => data.updateSitemap({ review_cadence: v })}>
                   <SelectTrigger className="h-7 w-auto text-sm border-0 bg-transparent p-0 shadow-none font-medium text-charcoal gap-1 focus:ring-0">
                     <SelectValue />
@@ -335,13 +335,15 @@ export default function SitemapTool() {
                       <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
                         <input type="checkbox" className="accent-[#E8806A]" checked={filters.priorityOnly} onChange={e => setFilters(f => ({ ...f, priorityOnly: e.target.checked }))} />
                         <Flag size={11} className="text-coral" fill="currentColor" /> Priority keywords
+                        <Hint>Only the hubs and pages flagged Priority in their panel: the ones actively being worked on for this client.</Hint>
                       </label>
                       <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none" title="Only pages with a tracked keyword cluster">
                         <input type="checkbox" className="accent-[#E8806A]" checked={filters.hideNoKeyword} onChange={e => setFilters(f => ({ ...f, hideNoKeyword: e.target.checked }))} />
                         Tracked keywords
+                        <Hint>Only pages with a keyword cluster. Hides functional pages such as About and Contact.</Hint>
                       </label>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Roll up</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 inline-flex items-center gap-1">Roll up <Hint>Sums clicks, impressions and volume up the tree. Site rolls every page into Home. Hubs sums each top-level page with the pages beneath it. All pages shows each page on its own.</Hint></span>
                         <div className="flex bg-gray-100 rounded-lg p-0.5">
                           {ROLLUPS.map(r => (
                             <button
