@@ -60,6 +60,7 @@ function objectiveFromDb(row) {
     scopeDetail: row.scope_detail || '',
     isActioned: row.is_actioned ?? true,
     notActionedReason: row.not_actioned_reason || '',
+    linkedPageIds: [],
     keyResults: [],
   }
 }
@@ -147,6 +148,16 @@ export function useOkrData(clientId) {
 
       const objectiveIds = (objRows || []).map(o => o.id)
 
+      // Optional crosslink to sitemap pages
+      let linkRows = []
+      if (objectiveIds.length > 0) {
+        const { data } = await supabase
+          .from('okr_objective_pages')
+          .select('objective_id, page_id')
+          .in('objective_id', objectiveIds)
+        linkRows = data || []
+      }
+
       let krRows = []
       if (objectiveIds.length > 0) {
         const { data, error: kErr } = await supabase
@@ -166,6 +177,7 @@ export function useOkrData(clientId) {
           .filter(o => o.period_id === pRow.id)
           .map(oRow => {
             const obj = objectiveFromDb(oRow)
+            obj.linkedPageIds = linkRows.filter(l => l.objective_id === oRow.id).map(l => l.page_id)
             obj.keyResults = krRows
               .filter(kr => kr.objective_id === oRow.id)
               .map(keyResultFromDb)
@@ -232,6 +244,27 @@ export function useOkrData(clientId) {
           .upsert(objRows)
 
         if (oErr) throw oErr
+      }
+
+      // Sync the optional objective → sitemap page links
+      const objIdsForLinks = period.objectives.map(o => o.id)
+      if (objIdsForLinks.length > 0) {
+        const { data: existingLinks } = await supabase
+          .from('okr_objective_pages')
+          .select('objective_id, page_id')
+          .in('objective_id', objIdsForLinks)
+        const existingKeys = new Set((existingLinks || []).map(l => `${l.objective_id}|${l.page_id}`))
+        const wanted = period.objectives.flatMap(o =>
+          (o.linkedPageIds || []).map(pageId => ({ objective_id: o.id, page_id: pageId }))
+        )
+        const wantedKeys = new Set(wanted.map(w => `${w.objective_id}|${w.page_id}`))
+        const toInsert = wanted.filter(w => !existingKeys.has(`${w.objective_id}|${w.page_id}`))
+        if (toInsert.length) await supabase.from('okr_objective_pages').insert(toInsert)
+        for (const l of existingLinks || []) {
+          if (wantedKeys.has(`${l.objective_id}|${l.page_id}`)) continue
+          await supabase.from('okr_objective_pages')
+            .delete().eq('objective_id', l.objective_id).eq('page_id', l.page_id)
+        }
       }
 
       // Diff key results: find removed ones

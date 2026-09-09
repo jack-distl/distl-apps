@@ -485,3 +485,41 @@ export async function fetchSitemapSummaries() {
   }
   return out
 }
+
+/**
+ * Pages (with keywords) for one client's sitemap, without versions or
+ * templates. Used by the OKR planner's page picker and the client overview.
+ * Returns null when the client has no sitemap, so callers can fall back to
+ * the free-text pathway.
+ */
+export async function fetchClientSitemapPages(clientId) {
+  if (!clientId) return null
+  if (!supabase) {
+    const sm = buildSampleSitemap(clientId)
+    return sm.pages
+  }
+  const { data: sm, error } = await supabase.from('sitemaps').select('id').eq('client_id', clientId).maybeSingle()
+  if (error || !sm) return null
+  const [pageRes, kwRes] = await Promise.all([
+    supabase.from('sitemap_pages').select('id, name, url, status, is_priority, sort_order, group_parent_id').eq('sitemap_id', sm.id).order('sort_order'),
+    supabase.from('sitemap_keywords').select('id, page_id, keyword, volume, is_primary, sort_order').order('sort_order'),
+  ])
+  if (pageRes.error) return null
+  const pages = pageRes.data || []
+  const ids = new Set(pages.map(p => p.id))
+  const kwByPage = {}
+  for (const k of kwRes.data || []) if (ids.has(k.page_id)) (kwByPage[k.page_id] ||= []).push(k)
+  return pages.map(p => ({ ...p, keywords: kwByPage[p.id] || [] }))
+}
+
+/** The whole sitemap for one client (pages, keywords, versions) outside the hook. */
+export async function fetchClientSitemap(clientId) {
+  if (!clientId) return null
+  if (!supabase) return buildSampleSitemap(clientId)
+  try {
+    return await loadSitemap(clientId)
+  } catch (err) {
+    console.error('fetchClientSitemap error:', err)
+    return null
+  }
+}

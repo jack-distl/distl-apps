@@ -7,6 +7,7 @@ import { supabase } from './lib/supabase'
 import { TemplateProvider } from './contexts/TemplateContext'
 import Dashboard from './features/hub/Dashboard'
 import Clients from './features/hub/Clients'
+import ClientOverview from './features/hub/ClientOverview'
 import PlannerHome from './features/okr/PlannerHome'
 import OkrPlanner from './features/okr/OkrPlanner'
 import TemplateEditor from './features/okr/TemplateEditor'
@@ -83,6 +84,7 @@ export default function App() {
                 <Routes location={location}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/clients" element={<Clients />} />
+                  <Route path="/clients/:clientId" element={<ClientOverview />} />
                   <Route path="/okr" element={<PlannerHome />} />
                   <Route path="/okr/templates" element={<TemplateEditor />} />
                   <Route path="/okr/:clientId" element={<OkrPlanner />} />

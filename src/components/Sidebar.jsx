@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, Target, LayoutTemplate, Map, Settings, Users, ChevronRight, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, Target, LayoutTemplate, Map, Settings, Users, ChevronRight, ChevronDown, TrendingUp } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,7 @@ function isMatch(href, pathname) {
 
 // Per-client services linked from the sidebar client list
 const CLIENT_SERVICES = [
+  { label: 'Overview', href: id => `/clients/${id}`, icon: TrendingUp },
   { label: 'OKR Planner', href: id => `/okr/${id}`, icon: Target },
   { label: 'Sitemap Tool', href: id => `/sitemap/${id}`, icon: Map },
 ]
@@ -30,7 +31,7 @@ function ClientList({ pathname, onClose }) {
   const [openId, setOpenId] = useState(null)
   const active = clients.filter(c => c.is_active)
   // Auto-expand the client whose page is open
-  const currentId = pathname.match(/^\/(?:okr|sitemap)\/([^/]+)/)?.[1] || null
+  const currentId = pathname.match(/^\/(?:okr|sitemap|clients)\/([^/]+)/)?.[1] || null
   const expanded = openId ?? currentId
 
   return (
