@@ -8,6 +8,7 @@ import { KeywordTable } from './KeywordTable'
 import { STATUS_META, STATUSES, normaliseUrl, cascadeUrlChange, templateLabel, formatNumber, buildHierarchy, isHome, visualDescendants } from '@/lib/sitemap/tree'
 import { hasPerf, pagePerfSummary, averagePosition, previousReview, pageClickBreakdown, pageMetric, change, versionPeriodLabel, aggregatePages } from '@/lib/sitemap/perf'
 import { cn } from '@/lib/utils'
+import { Hint } from '@/components'
 
 const TOP_QUERIES = 3
 
@@ -89,7 +90,7 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
     perfBlock = (
       <>
         <div className="grid grid-cols-3 gap-2 mt-4">
-          <StatBox value={avg ?? '—'} label="Avg position" sub={rankUpload ? fmtDate(rankUpload.uploaded_at) : null} />
+          <StatBox value={avg ?? '—'} label={<>Avg position <Hint size={11}>Average rank across this page's tracked keywords, from the rank tracker upload. The chip on the card is the primary keyword only.</Hint></>} sub={rankUpload ? fmtDate(rankUpload.uploaded_at) : null} />
           <StatBox value={formatNumber(summary.clicks)} change={summary.clicksChange} label="Clicks" sub={period || null} />
           <StatBox
             value={metric ? formatNumber(metric.impressions) : '—'}
@@ -146,7 +147,7 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
                   </tr>
                 )}
                 <tr className="border-t border-gray-100 text-gray-500 italic">
-                  <td className="py-1.5">Additional clicks from other queries</td>
+                  <td className="py-1.5">Additional clicks from other queries <Hint size={11}>Clicks Google reports for this page that did not match a listed query, including the queries Google keeps anonymous. Included so the total matches the Search Console pages export.</Hint></td>
                   <td className="py-1.5 text-right tabular-nums">{formatNumber(breakdown.anonymous)}</td>
                   <td className="py-1.5 text-right tabular-nums text-gray-400">{metric ? formatNumber(Math.max(0, (metric.impressions || 0) - breakdown.queries.reduce((s, q) => s + (Number(q.impressions) || 0), 0))) : ''}</td>
                   <td className="py-1.5 text-right"><ChangeIndicator change={change(breakdown.anonymous, prevHad ? prevBreakdown.anonymous : null)} /></td>
@@ -242,7 +243,7 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
 
       {!isHome(page) && (
         <div className="flex items-center gap-2 mt-2 text-xs">
-          <span className="text-gray-400 w-20 shrink-0 whitespace-nowrap" title="Visual only: where this page sits on the board. URL and export are unaffected.">Show under</span>
+          <span className="text-gray-400 w-20 shrink-0 whitespace-nowrap inline-flex items-center gap-1">Show under <Hint>Puts this page in another hub's column on the board so related pages sit together. Visual only: the URL, hierarchy and WordPress export do not change.</Hint></span>
           <Select value={page.group_parent_id || '__auto__'} onValueChange={v => updatePage(page.id, { group_parent_id: v === '__auto__' ? null : v }, { immediate: true })}>
             <SelectTrigger className="h-7 w-auto min-w-[10rem] text-xs">
               <SelectValue />
@@ -264,7 +265,10 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
         const agg = aggregatePages(sitemap, version, [page, ...under])
         return (
           <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs">
-            <div className="flex items-center gap-1.5 text-charcoal font-medium mb-1.5"><Layers size={12} className="text-gray-400" /> Rolled up: {agg.pageCount} of {sitemap.pages.length} pages</div>
+            <div className="flex items-center gap-1.5 text-charcoal font-medium mb-1.5">
+              <Layers size={12} className="text-gray-400" />
+              {rolledUp === 'site' ? `All ${agg.pageCount} pages` : <>All {agg.pageCount} pages under <span className="font-mono font-normal text-gray-600">{page.url}</span></>}
+            </div>
             <div className="grid grid-cols-3 gap-2 tabular-nums">
               <div><div className="text-base font-semibold text-charcoal">{formatNumber(agg.volume)}</div><div className="text-gray-500">volume /mo</div></div>
               {isReview && <div><div className="text-base font-semibold text-charcoal flex items-baseline gap-1">{formatNumber(agg.clicks)} <ChangeIndicator change={agg.clicksChange} /></div><div className="text-gray-500">clicks</div></div>}

@@ -3,6 +3,7 @@ import { Plus, X, Pencil } from 'lucide-react'
 import { ConfirmDialog } from '../../../components'
 import { sortedVersions } from '../../../lib/sitemap/perf'
 import { cn } from '@/lib/utils'
+import { Hint } from '@/components'
 
 function RenameInput({ value, onCommit, onCancel }) {
   const [draft, setDraft] = useState(value)
@@ -30,7 +31,7 @@ export function VersionPills({ sitemap, currentId, onSelect, onRename, onDelete,
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mr-1">Version</span>
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mr-1 inline-flex items-center gap-1">Version <Hint>SEO Foundations is the plan. Each review layers Search Console and rank tracker data for the period it covers over the same sitemap; arrows show change against the previous review.</Hint></span>
       {versions.map(v => {
         const active = v.id === currentId
         const editing = editingId === v.id
