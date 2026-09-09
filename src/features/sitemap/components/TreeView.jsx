@@ -112,9 +112,26 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
     )
   }
 
+  // Connector segments are drawn by each column: a tick up to the bar and a
+  // bar segment from its centre outwards, so the line always meets the
+  // neighbours and the trunk from Home whatever the column widths.
+  const connectorCount = visibleSilos.length + (filters.priorityOnly ? 0 : 1)
+  const Connector = ({ index }) => (
+    <>
+      <div className="absolute -top-4 left-1/2 w-px h-4 bg-gray-300" />
+      {connectorCount > 1 && (
+        <div
+          className="absolute -top-4 h-px bg-gray-300"
+          style={{ left: index === 0 ? '50%' : '-1rem', right: index === connectorCount - 1 ? '50%' : '-1rem' }}
+        />
+      )}
+    </>
+  )
+
   return (
     <div className="min-w-0">
-      {/* Home */}
+      {/* Home stays centred in view; the columns below centre themselves when they fit,
+          and the trunk lands on the connector bar either way. */}
       <div className="flex justify-center">
         <div className="w-80">
           {home ? (
@@ -126,99 +143,99 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
       </div>
       <div className="flex justify-center"><div className="w-px h-6 bg-gray-300" /></div>
 
-      {/* Silos */}
       <div className="overflow-x-auto pb-4 -mx-1 px-1">
-        <div className="flex gap-4 items-start min-w-max pt-4">
-          <motion.div variants={stagger} initial="hidden" animate="show" className="relative flex gap-4 items-start">
-            <div className="absolute top-0 left-36 right-36 h-px bg-gray-300" />
-            {visibleSilos.map(({ root, children }) => {
-              const si = siloRoots.indexOf(root)
-              const rolled = rollup === 'hubs' || collapsed.has(root.id)
-              const shownChildren = rolled ? [] : children.filter(c => passesFilters(c, filters) && (!filters.priorityOnly || c.is_priority || root.is_priority))
-              const hidden = children.length - shownChildren.length
-              const agg = rolled && children.length ? aggregatePages(sitemap, version, [root, ...children]) : null
-              return (
-                <motion.div key={root.id} variants={fadeUp} className={cn('shrink-0 relative rounded-xl', root.is_priority ? 'w-[19rem] bg-coral-50/40 ring-1 ring-coral/20 p-2' : 'w-72')}>
-                  <div className="absolute -top-4 left-1/2 w-px h-4 bg-gray-300" />
-                  {root.is_priority && <div className="text-[10px] font-semibold uppercase tracking-wider text-coral mb-1.5 pl-1">Priority hub</div>}
-                  <MovableCard
-                    page={root}
-                    selected={root.id === selectedPageId}
-                    grouped={false}
-                    aggregate={agg}
-                    collapsed={rolled}
-                    onToggleCollapse={children.length ? () => onToggleCollapse(root.id) : undefined}
-                    moves={{
-                      left: { onClick: () => onMove(root.id, -1, { siblings: siloRoots }), disabled: si === 0 },
-                      right: { onClick: () => onMove(root.id, 1, { siblings: siloRoots }), disabled: si === siloRoots.length - 1 },
-                    }}
-                    {...cardProps}
-                  />
-                  {shownChildren.length > 0 && (
-                    <div className="mt-2 ml-3 pl-3 border-l border-gray-200 space-y-2">
-                      {shownChildren.map(c => {
-                        const ci = children.indexOf(c)
-                        return (
-                          <MovableCard
-                            key={c.id}
-                            page={c}
-                            selected={c.id === selectedPageId}
-                            grouped={isGrouped(c)}
-                            moves={{
-                              up: { onClick: () => onMove(c.id, -1, { siblings: children }), disabled: ci === 0 },
-                              down: { onClick: () => onMove(c.id, 1, { siblings: children }), disabled: ci === children.length - 1 },
-                            }}
-                            {...cardProps}
-                          />
-                        )
-                      })}
-                    </div>
-                  )}
-                  {!rolled && hidden > 0 && (
-                    <div className="mt-1.5 ml-6 text-[11px] text-gray-400">{hidden} page{hidden === 1 ? '' : 's'} hidden by filters</div>
-                  )}
-                  {!rolled && (
-                    <div className="mt-2 ml-3 pl-3">
-                      <AddButton label="Add child" onClick={() => onAddPage({ parentUrl: root.url, status: 'add' })} />
-                    </div>
-                  )}
-                </motion.div>
-              )
-            })}
-
-            {!filters.priorityOnly && (
-              <motion.div variants={fadeUp} className="w-72 shrink-0 relative">
-                <div className="absolute -top-4 left-1/2 w-px h-4 bg-gray-300" />
-                <AddButton label="Add top-level page" onClick={() => onAddPage({ parentUrl: '/', status: 'add' })} className="py-3" />
-              </motion.div>
-            )}
-          </motion.div>
-
-          {/* Functional column (hidden entirely when filtering to keyword focus) */}
-          {!filters.hideNoKeyword && (visibleFunctional.length > 0 || !filters.priorityOnly) && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-72 shrink-0 relative ml-4 pl-4 border-l border-dashed border-gray-300">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Functional</div>
-              <div className="space-y-2">
-                {visibleFunctional.map(p => {
-                  const fi = functional.indexOf(p)
-                  return (
+        <div className="w-max min-w-full flex justify-center">
+          <div className="flex gap-4 items-start pt-4">
+            <motion.div variants={stagger} initial="hidden" animate="show" className="flex gap-4 items-start">
+              {visibleSilos.map(({ root, children }, index) => {
+                const si = siloRoots.indexOf(root)
+                const rolled = rollup === 'hubs' || collapsed.has(root.id)
+                const shownChildren = rolled ? [] : children.filter(c => passesFilters(c, filters) && (!filters.priorityOnly || c.is_priority || root.is_priority))
+                const hidden = children.length - shownChildren.length
+                const agg = rolled && children.length ? aggregatePages(sitemap, version, [root, ...children]) : null
+                return (
+                  <motion.div key={root.id} variants={fadeUp} className={cn('shrink-0 relative rounded-xl', root.is_priority ? 'w-[19rem] bg-coral-50/40 ring-1 ring-coral/20 p-2' : 'w-72')}>
+                    <Connector index={index} />
+                    {root.is_priority && <div className="text-[10px] font-semibold uppercase tracking-wider text-coral mb-1.5 pl-1">Priority hub</div>}
                     <MovableCard
-                      key={p.id}
-                      page={p}
-                      selected={p.id === selectedPageId}
+                      page={root}
+                      selected={root.id === selectedPageId}
                       grouped={false}
+                      aggregate={agg}
+                      collapsed={rolled}
+                      onToggleCollapse={children.length ? () => onToggleCollapse(root.id) : undefined}
                       moves={{
-                        up: { onClick: () => onMove(p.id, -1, { siblings: functional }), disabled: fi === 0 },
-                        down: { onClick: () => onMove(p.id, 1, { siblings: functional }), disabled: fi === functional.length - 1 },
+                        left: { onClick: () => onMove(root.id, -1, { siblings: siloRoots }), disabled: si === 0 },
+                        right: { onClick: () => onMove(root.id, 1, { siblings: siloRoots }), disabled: si === siloRoots.length - 1 },
                       }}
                       {...cardProps}
                     />
-                  )
-                })}
-                {!filters.priorityOnly && <AddButton label="Add functional page" onClick={() => onAddPage({ parentUrl: '/', status: 'functional' })} />}
-              </div>
+                    {shownChildren.length > 0 && (
+                      <div className="mt-2 ml-3 pl-3 border-l border-gray-200 space-y-2">
+                        {shownChildren.map(c => {
+                          const ci = children.indexOf(c)
+                          return (
+                            <MovableCard
+                              key={c.id}
+                              page={c}
+                              selected={c.id === selectedPageId}
+                              grouped={isGrouped(c)}
+                              moves={{
+                                up: { onClick: () => onMove(c.id, -1, { siblings: children }), disabled: ci === 0 },
+                                down: { onClick: () => onMove(c.id, 1, { siblings: children }), disabled: ci === children.length - 1 },
+                              }}
+                              {...cardProps}
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
+                    {!rolled && hidden > 0 && (
+                      <div className="mt-1.5 ml-6 text-[11px] text-gray-400">{hidden} page{hidden === 1 ? '' : 's'} hidden by filters</div>
+                    )}
+                    {!rolled && (
+                      <div className="mt-2 ml-3 pl-3">
+                        <AddButton label="Add child" onClick={() => onAddPage({ parentUrl: root.url, status: 'add' })} />
+                      </div>
+                    )}
+                  </motion.div>
+                )
+              })}
+
+              {!filters.priorityOnly && (
+                <motion.div variants={fadeUp} className="w-72 shrink-0 relative">
+                  <Connector index={connectorCount - 1} />
+                  <AddButton label="Add top-level page" onClick={() => onAddPage({ parentUrl: '/', status: 'add' })} className="py-3" />
+                </motion.div>
+              )}
             </motion.div>
-          )}
+
+            {/* Functional column (hidden entirely when filtering to keyword focus) */}
+            {!filters.hideNoKeyword && (visibleFunctional.length > 0 || !filters.priorityOnly) && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-72 shrink-0 relative ml-4 pl-4 border-l border-dashed border-gray-300">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Functional</div>
+                <div className="space-y-2">
+                  {visibleFunctional.map(p => {
+                    const fi = functional.indexOf(p)
+                    return (
+                      <MovableCard
+                        key={p.id}
+                        page={p}
+                        selected={p.id === selectedPageId}
+                        grouped={false}
+                        moves={{
+                          up: { onClick: () => onMove(p.id, -1, { siblings: functional }), disabled: fi === 0 },
+                          down: { onClick: () => onMove(p.id, 1, { siblings: functional }), disabled: fi === functional.length - 1 },
+                        }}
+                        {...cardProps}
+                      />
+                    )
+                  })}
+                  {!filters.priorityOnly && <AddButton label="Add functional page" onClick={() => onAddPage({ parentUrl: '/', status: 'functional' })} />}
+                </div>
+              </motion.div>
+            )}
+          </div>
         </div>
       </div>
       <p className="text-[11px] text-gray-400 mt-1">Hover a page for arrows to move it. The chevron on a hub rolls its pages up into one total. "Show under" in a page's panel groups it into another column without changing its URL.</p>
