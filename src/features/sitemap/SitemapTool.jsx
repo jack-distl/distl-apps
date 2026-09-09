@@ -66,8 +66,9 @@ export default function SitemapTool() {
   const [addPage, setAddPage] = useState(null)           // null | defaults
   const [showMenus, setShowMenus] = useState(false)
   const [bulkEdit, setBulkEdit] = useState(null)          // null | { pageId: string|null }
-  const [filters, setFilters] = useState({ hideNoKeyword: false, priorityOnly: false })
-  const [rollup, setRollup] = useState('all')             // 'site' | 'hubs' | 'all'
+  // Defaults on arrival: Sitemap tab, latest version, Priority keywords on, Tracked keywords off, Hubs roll-up, Tree view
+  const [filters, setFilters] = useState({ hideNoKeyword: false, priorityOnly: true })
+  const [rollup, setRollup] = useState('hubs')            // 'site' | 'hubs' | 'all'
   const [collapsed, setCollapsed] = useState(new Set())    // hub ids rolled up individually
   const [undo, setUndo] = useState(null)
   const [creating, setCreating] = useState(false)
@@ -332,12 +333,12 @@ export default function SitemapTool() {
                     <Legend isReview={isReview} />
                     <div className="flex flex-wrap items-center gap-3 shrink-0">
                       <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
-                        <input type="checkbox" className="accent-[#E8806A]" checked={filters.hideNoKeyword} onChange={e => setFilters(f => ({ ...f, hideNoKeyword: e.target.checked }))} />
-                        Keyword focus only
-                      </label>
-                      <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
                         <input type="checkbox" className="accent-[#E8806A]" checked={filters.priorityOnly} onChange={e => setFilters(f => ({ ...f, priorityOnly: e.target.checked }))} />
-                        <Flag size={11} className="text-coral" fill="currentColor" /> Priority only
+                        <Flag size={11} className="text-coral" fill="currentColor" /> Priority keywords
+                      </label>
+                      <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none" title="Only pages with a tracked keyword cluster">
+                        <input type="checkbox" className="accent-[#E8806A]" checked={filters.hideNoKeyword} onChange={e => setFilters(f => ({ ...f, hideNoKeyword: e.target.checked }))} />
+                        Tracked keywords
                       </label>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Roll up</span>
