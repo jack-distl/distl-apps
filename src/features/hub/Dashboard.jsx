@@ -1,15 +1,11 @@
-import { useState, useEffect } from 'react'
-import { Target, Map as MapIcon, Users, Clock, ArrowRight, TrendingUp, CheckCircle2, Flag, FileText } from 'lucide-react'
+import { Target, Map as MapIcon, Users, ArrowRight, TrendingUp, CheckCircle2, Flag, FileText } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { LoadingSpinner, Hint } from '../../components'
 import { Card, CardContent } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '../../components/ui/table'
-import { useClients, fetchAllClientRetainers } from '../../hooks'
+import { useClients } from '../../hooks'
 import { useHubStats } from '../../hooks/useHubStats'
-import { mockClientRetainers } from '../../lib/mockData'
-import { HOURLY_RATE, formatHours } from '../../lib/constants'
 import { formatNumber } from '../../lib/sitemap/tree'
 import { ChangeIndicator } from '../sitemap/components/Chips'
 
@@ -39,20 +35,13 @@ function StatCard({ icon: Icon, label, value, sub, hint, accent = false }) {
 
 export default function Dashboard() {
   const { clients, loading } = useClients()
-  const [retainersByClient, setRetainersByClient] = useState(null)
   const activeClients = clients.filter(c => c.is_active)
   const { stats, loading: statsLoading } = useHubStats(activeClients)
-
-  useEffect(() => {
-    fetchAllClientRetainers().then(data => setRetainersByClient(data || mockClientRetainers))
-  }, [])
 
   if (loading) {
     return <div className="max-w-5xl flex items-center justify-center py-20"><LoadingSpinner /></div>
   }
 
-  const totalSeoRetainer = activeClients.reduce((sum, c) => sum + (retainersByClient?.[c.id]?.seo || 0), 0)
-  const monthlyHours = Math.round(totalSeoRetainer / HOURLY_RATE)
   const clicksChange = stats
     ? { kind: stats.clicksDelta > 0 ? 'up' : stats.clicksDelta < 0 ? 'down' : 'flat', delta: Math.abs(stats.clicksDelta) }
     : null
@@ -70,14 +59,14 @@ export default function Dashboard() {
 
       {/* What we have delivered */}
       <h2 className="text-sm font-semibold text-charcoal mb-3">Delivered</h2>
-      <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <motion.div variants={fadeUp}>
           <StatCard
             icon={CheckCircle2}
             accent
             label="Tasks delivered"
             value={statsLoading ? '—' : formatNumber(stats?.tasksDelivered ?? 0)}
-            sub={stats ? `${stats.objectivesActioned} objectives actioned · ${formatHours(stats.hours)} planned` : null}
+            sub={stats ? `${stats.objectivesActioned} objectives actioned` : null}
             hint="Every task inside an objective marked Actioned, across all clients and quarters."
           />
         </motion.div>
@@ -86,15 +75,7 @@ export default function Dashboard() {
             icon={Users}
             label="Active clients"
             value={activeClients.length}
-            sub={`${formatNumber(monthlyHours)} SEO hours a month`}
-          />
-        </motion.div>
-        <motion.div variants={fadeUp}>
-          <StatCard
-            icon={Clock}
-            label="SEO retainer"
-            value={`$${formatNumber(totalSeoRetainer)}`}
-            sub={`per month at $${HOURLY_RATE}/hr`}
+            sub={stats?.reviewedClients ? `${stats.reviewedClients} reviewed` : null}
           />
         </motion.div>
         <motion.div variants={fadeUp}>
@@ -159,47 +140,6 @@ export default function Dashboard() {
           />
         </motion.div>
       </motion.div>
-
-      {/* Per client */}
-      {stats?.movers?.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold text-charcoal mb-3">Movement by client</h2>
-          <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Client</TableHead>
-                  <TableHead>Latest review</TableHead>
-                  <TableHead className="text-right">Clicks</TableHead>
-                  <TableHead className="text-right">Avg position</TableHead>
-                  <TableHead className="text-right">Priority keywords up</TableHead>
-                  <TableHead className="text-right">Pages improved</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stats.movers.map(m => (
-                  <TableRow key={m.client.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium text-charcoal">
-                      <Link to={`/clients/${m.client.id}`} className="hover:text-coral">{m.client.name}</Link>
-                    </TableCell>
-                    <TableCell className="text-gray-500 whitespace-nowrap">{m.label}</TableCell>
-                    <TableCell className="text-right tabular-nums whitespace-nowrap">
-                      {formatNumber(m.clicks)} <ChangeIndicator change={m.clicksChange} className="ml-1" />
-                    </TableCell>
-                    <TableCell className="text-right whitespace-nowrap"><ChangeIndicator change={m.avgPositionChange} /></TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {m.priorityImproved == null
-                        ? <span className="text-gray-300">—</span>
-                        : <>{m.priorityImproved}<span className="text-gray-400 text-xs"> / {m.priorityCompared}</span></>}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{m.pagesImproved || <span className="text-gray-300">—</span>}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      )}
 
       {/* Apps */}
       <h2 className="text-sm font-semibold text-charcoal mb-3">Apps</h2>
