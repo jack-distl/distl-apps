@@ -183,7 +183,9 @@ Each client card shows:
 - Track AM vs SEO hour split (target: 40% / 60%)
 - 10% buffer for ad hoc work
 - Objective templates for common SEO work
-- Optional crosslink: an objective scoped to pages or a keyword group can name the sitemap pages it works on (`okr_objective_pages`), which feeds the client overview. Entirely optional — the free-text scope detail still works, and clients with no sitemap are unaffected
+- Optional crosslink: an objective scoped to pages or a keyword group can name the sitemap pages it works on (`okr_objective_pages`), one page or a whole hub at a time, which feeds the client overview and shows in Client View. Entirely optional — the free-text scope detail still works, and clients with no sitemap are unaffected
+- Add Objective filters templates by task type with pills; nothing selected shows every type
+- Push to Monday posts each task's details and internal notes as an update on the subitem it creates
 - Dual view: Internal (full detail) vs Client (simplified)
 - Export tasks to Monday.com format
 - Period-based: Q1, Q2, etc. with history

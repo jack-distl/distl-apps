@@ -15,6 +15,8 @@
 //   timeline-> "Scheduled For" range, spaced evenly across the period's working days
 //   status_1-> "Scheduled"
 //   person  -> intentionally left unset (specialist not stored in the app)
+// The task's details and internal notes are posted as an update on the
+// subitem, so the specialist sees the brief in the conversation.
 
 import { MondayClient } from './_lib/monday-client.js'
 
@@ -79,7 +81,21 @@ export default async function handler(req, res) {
           name: task.name || 'Untitled task',
           columnValues,
         })
-        results.push({ name: task.name, subitemId })
+
+        // Brief the specialist in the subitem's updates. A failure here must
+        // not lose the subitem, so it is reported separately.
+        const body = buildUpdateBody(task)
+        let updatePosted = false
+        if (subitemId && body) {
+          try {
+            await client.createUpdate({ itemId: subitemId, body })
+            updatePosted = true
+          } catch (err) {
+            console.error(`Failed to post update on "${task.name}":`, err)
+            errors.push({ name: task.name, error: `Subitem created, but its update failed: ${err.message}` })
+          }
+        }
+        results.push({ name: task.name, subitemId, updatePosted })
       } catch (err) {
         console.error(`Failed to create subitem "${task.name}":`, err)
         errors.push({ name: task.name, error: err.message })
@@ -90,6 +106,7 @@ export default async function handler(req, res) {
       success: errors.length === 0,
       parentItemId: String(parentItemId),
       created: results.length,
+      updatesPosted: results.filter(r => r.updatePosted).length,
       failed: errors.length,
       results,
       errors,
@@ -98,6 +115,26 @@ export default async function handler(req, res) {
     console.error('Monday push error:', err)
     res.status(500).json({ error: err.message })
   }
+}
+
+// ─── Update body ────────────────────────────────────────────
+// Monday renders updates as HTML. Both fields are optional; when neither is
+// filled in no update is posted at all.
+export function buildUpdateBody(task) {
+  const parts = []
+  const details = (task.description || '').trim()
+  const notes = (task.internalNotes || '').trim()
+  if (details) parts.push(`<b>Details:</b> ${escapeHtml(details)}`)
+  if (notes) parts.push(`<b>Internal notes:</b> ${escapeHtml(notes)}`)
+  return parts.join('<br/><br/>')
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br/>')
 }
 
 // ─── Task spacing ───────────────────────────────────────────
