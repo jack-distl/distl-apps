@@ -147,10 +147,11 @@ The hub is where users land after login. The sidebar lists every active client a
 
 The hub shows platform-wide numbers pulled from both apps (`useHubStats`, which pages past Supabase's 1000-row cap):
 
-1. **Delivered** — tasks delivered (tasks inside actioned objectives), active clients, SEO retainer, pages improved
+1. **Delivered** — tasks delivered (tasks inside actioned objectives), active clients, pages improved
 2. **Latest reviews** — priority keywords improved, keywords improved, Search Console clicks and impressions with change, comparing each client's latest review to the one before
-3. **Movement by client** — a row per client with a review, linking to their overview
-4. **App launcher**
+3. **App launcher**
+
+Money and hour figures stay out of the hub; they live in the OKR Planner where they are planned.
 
 ### Client Overview (`/clients/:clientId`)
 
