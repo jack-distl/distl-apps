@@ -143,14 +143,20 @@ pnpm preview     # Preview the production build locally
 
 ## The Hub (Central Dashboard)
 
-The hub is where users land after login. The sidebar lists every active client at the bottom; expanding one links straight to its OKR Planner and Sitemap Tool. New clients are added from the Clients list or the OKR Planner home (shared `NewClientModal`).
+The hub is where users land after login. The sidebar lists every active client at the bottom: the client name opens their overview, the chevron expands their tools. New clients are added from the Clients list, the Sitemap Tool home or the OKR Planner home (shared `NewClientModal`).
 
-It shows:
+The hub shows platform-wide numbers pulled from both apps (`useHubStats`, which pages past Supabase's 1000-row cap):
 
-1. **Overview stats** — Total clients, active projects, upcoming deadlines
-2. **Client list** — All clients with quick access to their data across apps
-3. **App launcher** — Grid of available apps
-4. **Recent activity** — What's been worked on lately
+1. **Delivered** — tasks delivered (tasks inside actioned objectives), active clients, SEO retainer, pages improved
+2. **Latest reviews** — priority keywords improved, keywords improved, Search Console clicks and impressions with change, comparing each client's latest review to the one before
+3. **Movement by client** — a row per client with a review, linking to their overview
+4. **App launcher**
+
+### Client Overview (`/clients/:clientId`)
+
+The CEO view of one client: every sitemap review period side by side with clicks, impressions, average position across all tracked keywords and across priority keywords, the OKR objectives and tasks whose months overlap that review, and the pages that moved underneath. Reviews and OKR periods are matched by overlapping dates, so the two line up without being locked together; periods with no counterpart still appear.
+
+Clicks are Search Console clicks, not GA4 sessions. "Tasks" counts tasks in objectives; objectives show actioned of planned, since tasks carry no individual completion flag.
 
 ### Client View in Hub
 
@@ -176,6 +182,7 @@ Each client card shows:
 - Track AM vs SEO hour split (target: 40% / 60%)
 - 10% buffer for ad hoc work
 - Objective templates for common SEO work
+- Optional crosslink: an objective scoped to pages or a keyword group can name the sitemap pages it works on (`okr_objective_pages`), which feeds the client overview. Entirely optional — the free-text scope detail still works, and clients with no sitemap are unaffected
 - Dual view: Internal (full detail) vs Client (simplified)
 - Export tasks to Monday.com format
 - Period-based: Q1, Q2, etc. with history
@@ -203,7 +210,7 @@ Each client card shows:
 
 **Logic lives in `src/lib/sitemap/`** (CSV parsing, tree derivation, importers, matching, exports). Run `pnpm test:sitemap` after touching it; the parity test proves the WordPress export is byte-identical to the reference file.
 
-**Status:** Built, connected to Supabase (migrations 015 to 018). Needs real-client testing.
+**Status:** Built, connected to Supabase (migrations 015 to 019). Needs real-client testing.
 
 ### Future App Ideas
 
@@ -245,6 +252,7 @@ team_members
 okr_periods (client_id, start_date, end_date, goal, is_published, ...)
 okr_objectives (period_id, title, scope, ...)
 okr_tasks (objective_id, description, am_hours, seo_hours, status, ...)
+okr_objective_pages (objective_id, page_id)   -- optional link to Sitemap Tool pages
 
 -- Sitemap Tool
 sitemaps (client_id, review_cadence, menus, ...)
@@ -284,6 +292,7 @@ sitemap_version_uploads / _page_metrics / _keyword_positions / _queries (per ver
 ```
 /                     # Hub (dashboard)
 /clients              # All clients list
+/clients/:clientId    # Client overview (what we did vs what moved)
 /okr                  # OKR Planner home
 /okr/:clientId        # OKR for specific client
 /sitemap              # Sitemap Tool home

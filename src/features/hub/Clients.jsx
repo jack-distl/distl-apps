@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, LayoutGrid, List, Pencil, Trash2, Target, Map as MapIcon } from 'lucide-react'
+import { Plus, LayoutGrid, List, Pencil, Trash2, Target, Map as MapIcon, TrendingUp, Search, X } from 'lucide-react'
 import { ClientCard, ClientEditModal, LoadingSpinner, NewClientModal, ConfirmDialog } from '../../components'
 import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '../../components/ui/table'
 import { useClients, fetchAllClientRetainers } from '../../hooks'
@@ -33,6 +34,7 @@ export default function Clients() {
   const [deletingClient, setDeletingClient] = useState(null)
   const [showNewClient, setShowNewClient] = useState(false)
   const [view, setView] = useState(readView)
+  const [search, setSearch] = useState('')
   const [deleteError, setDeleteError] = useState(null)
 
   useEffect(() => {
@@ -64,16 +66,40 @@ export default function Clients() {
     )
   }
 
-  const sorted = [...clients].sort((a, b) => (Number(b.is_active) - Number(a.is_active)) || a.name.localeCompare(b.name))
+  const q = search.trim().toLowerCase()
+  const matched = q
+    ? clients.filter(c => c.name.toLowerCase().includes(q) || (c.abbreviation || '').toLowerCase().includes(q))
+    : clients
+  const sorted = [...matched].sort((a, b) => (Number(b.is_active) - Number(a.is_active)) || a.name.localeCompare(b.name))
 
   return (
     <div className="w-full">
       <div className="flex items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-semibold text-charcoal">Clients</h1>
-          <p className="text-gray-500 mt-1">{clients.length} clients total</p>
+          <p className="text-gray-500 mt-1">
+            {q ? `${sorted.length} of ${clients.length} clients` : `${clients.length} clients total`}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search clients..."
+              className="pl-9 pr-8"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                title="Clear"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
           <div className="flex bg-gray-100 rounded-lg p-0.5">
             <button
               type="button"
@@ -110,13 +136,16 @@ export default function Clients() {
           animate="show"
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4"
         >
+          {!sorted.length && (
+            <p className="col-span-full text-center text-gray-400 py-10">No clients match "{search}".</p>
+          )}
           {sorted.map((client) => (
             <motion.div key={client.id} variants={fadeUp}>
               <ClientCard
                 client={client}
                 retainers={retainersByClient?.[client.id] || {}}
                 apps={client.is_active ? ['OKR', 'Sitemap'] : []}
-                onSelect={() => navigate(`/okr/${client.id}`)}
+                onSelect={() => navigate(`/clients/${client.id}`)}
                 onEdit={setEditingClient}
               />
             </motion.div>
@@ -140,12 +169,16 @@ export default function Clients() {
                 const seo = retainersByClient?.[client.id]?.seo || 0
                 return (
                   <TableRow key={client.id} className={!client.is_active ? 'text-gray-400' : ''}>
-                    <TableCell className="font-medium text-charcoal">{client.name}</TableCell>
+                    <TableCell className="font-medium text-charcoal">
+                      <Link to={`/clients/${client.id}`} className="hover:text-coral">{client.name}</Link>
+                    </TableCell>
                     <TableCell className="text-gray-500">{client.abbreviation}</TableCell>
                     <TableCell>{client.is_active ? <Badge variant="success">Active</Badge> : <Badge>Inactive</Badge>}</TableCell>
                     <TableCell className="text-right tabular-nums">{seo ? `$${seo.toLocaleString()}/mo` : <span className="text-gray-300">—</span>}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 text-xs">
+                        <Link to={`/clients/${client.id}`} className="inline-flex items-center gap-1 text-gray-500 hover:text-coral"><TrendingUp size={12} /> Overview</Link>
+                        <span className="text-gray-200">|</span>
                         <Link to={`/okr/${client.id}`} className="inline-flex items-center gap-1 text-gray-500 hover:text-coral"><Target size={12} /> OKR</Link>
                         <span className="text-gray-200">|</span>
                         <Link to={`/sitemap/${client.id}`} className="inline-flex items-center gap-1 text-gray-500 hover:text-coral"><MapIcon size={12} /> Sitemap</Link>
@@ -161,7 +194,7 @@ export default function Clients() {
                 )
               })}
               {!sorted.length && (
-                <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-8">No clients yet.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-8">{q ? `No clients match "${search}".` : 'No clients yet.'}</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

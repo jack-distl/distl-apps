@@ -5,7 +5,7 @@ import {
   ArrowLeft, Plus, Copy, ChevronDown, ChevronUp,
   Trash2, Globe, FileText, Hash, CheckCircle, XCircle,
   AlertTriangle, Search, X, ClipboardCheck, Loader2, Check, Circle, Pencil,
-  BookmarkPlus, Upload, ChevronLeft, ChevronRight,
+  BookmarkPlus, Upload, ChevronLeft, ChevronRight, Link2, Flag,
 } from 'lucide-react'
 import { UndoToast } from '../../components/UndoToast'
 import { ClientEditModal } from '../../components/ClientEditModal'
@@ -16,6 +16,8 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '../../components/ui/select'
 import ClientView from './ClientView'
+import { PageLinkPicker } from './components/PageLinkPicker'
+import { fetchClientSitemapPages } from '../../hooks/useSitemapData'
 import { Hint } from '../../components'
 import { useClients } from '../../hooks'
 import { useClientRetainers } from '../../hooks/useClientRetainers'
@@ -87,6 +89,7 @@ function buildObjectiveFromTemplate(template) {
     scopeDetail: '',
     isActioned: true,
     notActionedReason: '',
+    linkedPageIds: [],
     keyResults: template.resolvedTasks.map(task => ({
       id: generateId(),
       task: task.name,
@@ -142,6 +145,10 @@ export default function OkrPlanner() {
   const [addTaskObjectiveId, setAddTaskObjectiveId] = useState(null)
   const [showEditClient, setShowEditClient] = useState(false)
   const [showMondayPush, setShowMondayPush] = useState(false)
+  // The client's sitemap pages, when they have one. Null means no sitemap:
+  // objectives then use the free-text scope detail alone.
+  const [sitemapPages, setSitemapPages] = useState(null)
+  const [linkingObjectiveId, setLinkingObjectiveId] = useState(null)
   const [pushedPeriodIds, setPushedPeriodIds] = useState(() => new Set())
 
   const isClientView = viewMode === 'client'
@@ -152,6 +159,12 @@ export default function OkrPlanner() {
       setSelectedPeriodId(periods[0].id)
     }
   }, [periods, selectedPeriodId])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchClientSitemapPages(clientId).then(pages => { if (!cancelled) setSitemapPages(pages) })
+    return () => { cancelled = true }
+  }, [clientId])
 
   // ─── Debounced Auto-Save + Unsaved Changes Tracking ─────
   const saveTimerRef = useRef(null)
@@ -1259,12 +1272,45 @@ export default function OkrPlanner() {
                             </select>
                             <span className="text-xs text-gray-400">{formatHours(objTotalHours)}</span>
                           </div>
-                          {/* Scope detail */}
+                          {/* Scope detail, plus the optional link to sitemap pages */}
                           {(obj.scope === 'specific-pages' || obj.scope === 'keyword-group') && (
                             <div className="mt-2">
-                              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">
-                                {obj.scope === 'specific-pages' ? 'Pages / Clusters' : 'Keyword Group'}
-                              </label>
+                              <div className="flex items-center justify-between mb-0.5">
+                                <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                                  {obj.scope === 'specific-pages' ? 'Pages / Clusters' : 'Keyword Group'}
+                                </label>
+                                {sitemapPages?.length > 0 && (
+                                  <button
+                                    onClick={() => setLinkingObjectiveId(obj.id)}
+                                    title="Link this objective to pages in the client's sitemap. Optional: the note below works on its own."
+                                    className="inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-coral transition-colors"
+                                  >
+                                    <Link2 size={11} /> {obj.linkedPageIds?.length ? 'Edit links' : 'Link pages'}
+                                  </button>
+                                )}
+                              </div>
+                              {obj.linkedPageIds?.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-1">
+                                  {obj.linkedPageIds.map(pid => {
+                                    const pg = (sitemapPages || []).find(x => x.id === pid)
+                                    return (
+                                      <span key={pid} className="inline-flex items-center gap-1 rounded-full border border-coral/40 bg-coral-50/60 pl-1.5 pr-1 py-0.5 text-[10px] text-coral-dark">
+                                        {pg?.is_priority && <Flag size={9} fill="currentColor" />}
+                                        <span className="max-w-[9rem] truncate">{pg ? pg.name : 'Removed page'}</span>
+                                        <button
+                                          onClick={() => updateObjective(currentPeriod.id, obj.id, {
+                                            linkedPageIds: obj.linkedPageIds.filter(x => x !== pid),
+                                          })}
+                                          className="text-coral/60 hover:text-coral"
+                                          title="Unlink"
+                                        >
+                                          <X size={9} />
+                                        </button>
+                                      </span>
+                                    )
+                                  })}
+                                </div>
+                              )}
                               <input
                                 type="text"
                                 value={obj.scopeDetail || ''}
@@ -1552,6 +1598,17 @@ export default function OkrPlanner() {
         deleteClient={deleteClient}
       />
 
+      {linkingObjectiveId && (
+        <PageLinkPicker
+          open
+          onClose={() => setLinkingObjectiveId(null)}
+          pages={sitemapPages}
+          objectiveTitle={currentPeriod?.objectives.find(o => o.id === linkingObjectiveId)?.title}
+          linkedIds={currentPeriod?.objectives.find(o => o.id === linkingObjectiveId)?.linkedPageIds || []}
+          onSave={ids => updateObjective(currentPeriod.id, linkingObjectiveId, { linkedPageIds: ids })}
+        />
+      )}
+
       <MondayPushModal
         open={showMondayPush}
         onClose={() => setShowMondayPush(false)}
@@ -1775,6 +1832,7 @@ function AddObjectiveModal({ onAdd, onClose }) {
       scopeDetail: '',
       isActioned: true,
       notActionedReason: '',
+      linkedPageIds: [],
       keyResults: [],
     })
   }

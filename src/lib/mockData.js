@@ -100,6 +100,47 @@ export const mockOkrData = {
           },
         ],
       },
+      {
+        // Overlaps the sample sitemap's Apr – Jun 2026 review, with objectives
+        // linked to sample pages so the client overview shows the crosslink.
+        id: 'p1b',
+        startMonth: 4,
+        startYear: 2026,
+        endMonth: 6,
+        endYear: 2026,
+        isPublished: true,
+        goal: 'Own the wills and estates cluster',
+        seoRetainer: 5400,
+        offsiteAllowancePercent: 5,
+        adminTasks: { monthlyReportingAM: 1, monthlyReportingSEO: 2, okrReportingAM: 1, okrReportingSEO: 2 },
+        objectives: [
+          {
+            id: 'o3',
+            title: 'Wills & Estates content build',
+            scope: 'specific-pages',
+            scopeDetail: 'probate and contesting a will',
+            isActioned: true,
+            notActionedReason: '',
+            linkedPageIds: ['page-1-9', 'page-1-11'],
+            keyResults: [
+              { id: 'kr7', task: 'Service Page Copywriting', description: 'Rewrite the Wills & Estates hub', internalNotes: '', amHours: 1, seoHours: 5 },
+              { id: 'kr8', task: 'Internal Linking', description: 'Link the cluster back to the hub', internalNotes: '', amHours: 0, seoHours: 2 },
+            ],
+          },
+          {
+            id: 'o4',
+            title: 'Criminal law technical fixes',
+            scope: 'specific-pages',
+            scopeDetail: '',
+            isActioned: true,
+            notActionedReason: '',
+            linkedPageIds: ['page-1-2'],
+            keyResults: [
+              { id: 'kr9', task: 'Technical Site Audit', description: 'Fix crawl issues on the criminal law silo', internalNotes: '', amHours: 0.5, seoHours: 3 },
+            ],
+          },
+        ],
+      },
     ],
   },
   '2': {
