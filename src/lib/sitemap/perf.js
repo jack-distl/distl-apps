@@ -228,3 +228,29 @@ export function aggregatePages(sitemap, version, pages) {
     hasPerf: isReview && pages.some(p => hasPerf(version, p)),
   }
 }
+
+/**
+ * How many tracked keywords moved between two reviews. Only keywords
+ * ranking in both are comparable.
+ */
+export function keywordMovements(version, prev, pages) {
+  let improved = 0
+  let declined = 0
+  let held = 0
+  let ranked = 0
+  let compared = 0
+  for (const p of pages) {
+    for (const k of p.keywords || []) {
+      const now = keywordPosition(version, k.id)
+      if (now == null) continue
+      ranked++
+      const before = prev ? keywordPosition(prev, k.id) : null
+      if (before == null) continue
+      compared++
+      if (now < before) improved++
+      else if (now > before) declined++
+      else held++
+    }
+  }
+  return { improved, declined, held, ranked, compared }
+}

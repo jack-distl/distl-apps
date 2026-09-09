@@ -5,7 +5,7 @@
 // with no matching OKR period (and OKR periods with no review) still appear,
 // and objectives need not be linked to pages for any of this to work.
 
-import { sortedVersions, previousReview, aggregatePages, positionAverages, periodLabel, hasPerf } from './sitemap/perf.js'
+import { sortedVersions, previousReview, aggregatePages, positionAverages, keywordMovements, periodLabel, hasPerf } from './sitemap/perf.js'
 import { buildHierarchy, visualParentOf } from './sitemap/tree.js'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -142,6 +142,8 @@ export function buildClientOverview(sitemap, okrPeriods = []) {
       range,
       all: aggregatePages(sitemap, version, pages),
       priority: priorityScope.length ? aggregatePages(sitemap, version, priorityScope) : null,
+      keywordsAll: keywordMovements(version, prev, pages),
+      keywordsPriority: priorityScope.length ? keywordMovements(version, prev, priorityScope) : null,
       priorityHubs: priorityPages,
       improved,
       declined,

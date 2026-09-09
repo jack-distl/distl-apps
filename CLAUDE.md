@@ -143,14 +143,14 @@ pnpm preview     # Preview the production build locally
 
 ## The Hub (Central Dashboard)
 
-The hub is where users land after login. The sidebar lists every active client at the bottom; expanding one links straight to its OKR Planner and Sitemap Tool. New clients are added from the Clients list or the OKR Planner home (shared `NewClientModal`).
+The hub is where users land after login. The sidebar lists every active client at the bottom: the client name opens their overview, the chevron expands their tools. New clients are added from the Clients list, the Sitemap Tool home or the OKR Planner home (shared `NewClientModal`).
 
-It shows:
+The hub shows platform-wide numbers pulled from both apps (`useHubStats`, which pages past Supabase's 1000-row cap):
 
-1. **Overview stats** — Total clients, active projects, upcoming deadlines
-2. **Client list** — All clients with quick access to their data across apps
-3. **App launcher** — Grid of available apps
-4. **Recent activity** — What's been worked on lately
+1. **Delivered** — tasks delivered (tasks inside actioned objectives), active clients, SEO retainer, pages improved
+2. **Latest reviews** — priority keywords improved, keywords improved, Search Console clicks and impressions with change, comparing each client's latest review to the one before
+3. **Movement by client** — a row per client with a review, linking to their overview
+4. **App launcher**
 
 ### Client Overview (`/clients/:clientId`)
 

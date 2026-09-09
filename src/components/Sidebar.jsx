@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, Target, LayoutTemplate, Map, Settings, Users, ChevronRight, ChevronDown, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, Target, LayoutTemplate, Map, Settings, Users, ChevronRight, ChevronDown } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -21,7 +21,6 @@ function isMatch(href, pathname) {
 
 // Per-client services linked from the sidebar client list
 const CLIENT_SERVICES = [
-  { label: 'Overview', href: id => `/clients/${id}`, icon: TrendingUp },
   { label: 'OKR Planner', href: id => `/okr/${id}`, icon: Target },
   { label: 'Sitemap Tool', href: id => `/sitemap/${id}`, icon: Map },
 ]
@@ -54,17 +53,30 @@ function ClientList({ pathname, onClose }) {
           const isCurrent = currentId === c.id
           return (
             <li key={c.id}>
-              <button
-                type="button"
-                onClick={() => setOpenId(isOpen ? '' : c.id)}
+              <div
                 className={cn(
-                  'w-full flex items-center gap-2 pl-4 pr-2 py-1.5 rounded-md text-[13px] text-left transition-colors',
-                  isCurrent ? 'text-white' : 'text-white/50 hover:text-white hover:bg-white/5'
+                  'flex items-center rounded-md transition-colors',
+                  isCurrent ? 'text-white' : 'text-white/50 hover:bg-white/5'
                 )}
               >
-                {isOpen ? <ChevronDown className="w-3 h-3 shrink-0 text-white/30" /> : <ChevronRight className="w-3 h-3 shrink-0 text-white/30" />}
-                <span className="truncate">{c.name}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(isOpen ? '' : c.id)}
+                  title={isOpen ? 'Hide tools' : 'Show tools'}
+                  aria-label={isOpen ? `Hide ${c.name} tools` : `Show ${c.name} tools`}
+                  className="pl-4 pr-1 py-1.5 text-white/30 hover:text-white shrink-0"
+                >
+                  {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                </button>
+                <Link
+                  to={`/clients/${c.id}`}
+                  onClick={() => onClose?.()}
+                  title={`${c.name} overview`}
+                  className={cn('flex-1 min-w-0 pr-2 py-1.5 text-[13px] truncate hover:text-white', isCurrent ? 'text-white' : 'text-white/50')}
+                >
+                  {c.name}
+                </Link>
+              </div>
               {isOpen && (
                 <ul className="ml-6 mb-1 border-l border-white/10 pl-2 space-y-0.5">
                   {CLIENT_SERVICES.map(svc => {
