@@ -874,6 +874,7 @@ export default function OkrPlanner() {
                 clientName={client.name}
                 goal={currentPeriod.goal}
                 objectives={currentPeriod.objectives}
+                sitemapPages={sitemapPages}
                 periods={visiblePeriods}
                 selectedPeriodId={selectedPeriodId}
                 onPeriodChange={setSelectedPeriodId}
@@ -1799,11 +1800,18 @@ function AddObjectiveModal({ onAdd, onClose }) {
   const [customTitle, setCustomTitle] = useState('')
 
   const { allTemplatesResolved: templates, categories } = useTemplates()
+  // Task-type filter. Nothing selected means every type is shown.
+  const [activeTypes, setActiveTypes] = useState(() => new Set())
   const q = search.toLowerCase()
-  const filtered = templates.filter(t =>
-    t.title.toLowerCase().includes(q) ||
-    (t.category || '').toLowerCase().includes(q)
-  )
+  const typeOptions = [...categories, ...(templates.some(t => !t.category) ? ['Uncategorised'] : [])]
+  const filtered = templates.filter(t => {
+    if (activeTypes.size && !activeTypes.has(t.category || 'Uncategorised')) return false
+    return t.title.toLowerCase().includes(q) || (t.category || '').toLowerCase().includes(q)
+  })
+
+  function toggleType(cat) {
+    setActiveTypes(prev => { const n = new Set(prev); n.has(cat) ? n.delete(cat) : n.add(cat); return n })
+  }
 
   // Group the filtered templates by category, in canonical category order
   // followed by any uncategorised templates.
@@ -1880,6 +1888,38 @@ function AddObjectiveModal({ onAdd, onClose }) {
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30"
             />
           </div>
+
+          {/* Task type pills — none active means every type */}
+          {typeOptions.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              {typeOptions.map(cat => {
+                const on = activeTypes.has(cat)
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => toggleType(cat)}
+                    className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                      on
+                        ? 'border-charcoal bg-charcoal text-white'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                )
+              })}
+              {activeTypes.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTypes(new Set())}
+                  className="rounded-full px-2.5 py-1 text-xs text-gray-400 hover:text-charcoal"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Template List, grouped by category */}
           <div className="max-h-80 overflow-y-auto space-y-3 mb-3">
