@@ -40,7 +40,7 @@ export function ChangeIndicator({ change, className }) {
   const up = change.kind === 'up'
   return (
     <span className={cn('text-[11px] font-semibold tabular-nums', up ? 'text-green-600' : 'text-red-500', className)}>
-      {up ? '▲' : '▼'} {change.delta}
+      {up ? '▲' : '▼'} {Number(change.delta).toLocaleString('en-AU')}
     </span>
   )
 }
