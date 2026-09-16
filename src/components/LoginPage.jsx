@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import { authErrorFromLocation } from '../lib/authProviders'
 import { LoadingSpinner } from './LoadingSpinner'
+import { SsoButtons, OrDivider } from './SsoButtons'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Card, CardContent } from './ui/card'
@@ -56,10 +58,11 @@ function MobileHeader() {
 }
 
 export function LoginPage({ onDevBypass }) {
-  const { signIn, resetPassword } = useAuth()
+  const { signIn, signInWithProvider, resetPassword } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(null)
+  // A failed SSO round trip lands back here with the error in the URL.
+  const [error, setError] = useState(() => (supabase ? authErrorFromLocation() : null))
   const [loading, setLoading] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
@@ -152,6 +155,9 @@ export function LoginPage({ onDevBypass }) {
                   Check your email for a password reset link.
                 </div>
               )}
+
+              <SsoButtons onSignIn={signInWithProvider} onError={setError} disabled={loading} />
+              <OrDivider />
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>

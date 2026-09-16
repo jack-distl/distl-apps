@@ -268,8 +268,8 @@ sitemap_version_uploads / _page_metrics / _keyword_positions / _queries (per ver
 
 ### Authentication
 
-- Supabase Auth with email/password
-- Team members only (no client logins — we present to clients)
+- Supabase Auth with email/password, plus **Sign in with Microsoft / Google** through Supabase's OAuth providers (`azure`, `google`). Setup steps in `docs/sso-login.md`
+- Team members only (no client logins — we present to clients). SSO sign-ups are limited to the domains in `sso_allowed_domains` (migration 020); other accounts are refused before a user is created
 - Role-based: Admin, Account Manager (AM), SEO Specialist
 - All apps share the same auth session
 

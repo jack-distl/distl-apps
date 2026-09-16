@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { supabase } from '../lib/supabase'
+import { authErrorFromLocation } from '../lib/authProviders'
 import { LoadingSpinner } from './LoadingSpinner'
 import { Card, CardContent } from './ui/card'
 
@@ -15,27 +16,44 @@ export function AuthCallback() {
       return
     }
 
+    // Supabase sends SSO failures (provider not enabled, account not on the
+    // team, user cancelled) back here as URL parameters. Show them instead
+    // of waiting for a session that will never arrive.
+    const urlError = authErrorFromLocation()
+    if (urlError) {
+      setError(urlError)
+      return
+    }
+
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    const searchParams = new URLSearchParams(window.location.search)
+    const linkType = hashParams.get('type') || searchParams.get('type')
+    const needsPassword = linkType === 'invite' || linkType === 'recovery'
+
+    function finish(session) {
+      if (!session) return
+      navigate(needsPassword ? '/auth/set-password' : '/', { replace: true })
+    }
+
+    // Invites, password resets and the Microsoft / Google round trip all
+    // arrive with the session in the URL, which the Supabase client picks up
+    // on load and announces through onAuthStateChange. The client may have
+    // finished before this subscription exists, so INITIAL_SESSION and a
+    // direct getSession() cover that gap.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        const hashParams = new URLSearchParams(window.location.hash.substring(1))
-        const searchParams = new URLSearchParams(window.location.search)
-        const isInvite = hashParams.get('type') === 'invite'
-          || searchParams.get('type') === 'invite'
-
-        if (isInvite) {
-          navigate('/auth/set-password', { replace: true })
-        } else {
-          navigate('/', { replace: true })
-        }
-      }
-
       if (event === 'PASSWORD_RECOVERY') {
         navigate('/auth/set-password', { replace: true })
+        return
+      }
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        finish(session)
       }
     })
 
+    supabase.auth.getSession().then(({ data }) => finish(data?.session))
+
     const timeout = setTimeout(() => {
-      setError('The link may have expired. Please ask your admin to send a new invite.')
+      setError('The sign-in did not complete. The link may have expired; try again from the login page or ask your admin for a new invite.')
     }, 10000)
 
     return () => {
@@ -70,7 +88,7 @@ export function AuthCallback() {
         ) : (
           <>
             <LoadingSpinner size="lg" />
-            <p className="text-gray-500 text-sm mt-4">Confirming your account...</p>
+            <p className="text-gray-500 text-sm mt-4">Signing you in...</p>
           </>
         )}
       </motion.div>
