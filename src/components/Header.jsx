@@ -1,4 +1,6 @@
-import { Menu, LogOut, User } from 'lucide-react'
+import { Menu, LogOut, User, Eye, EyeOff } from 'lucide-react'
+import { cn } from '../lib/utils'
+import { useClientView } from '../hooks/useClientView'
 import { Avatar, AvatarFallback } from './ui/avatar'
 import {
   DropdownMenu,
@@ -8,6 +10,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
+
+/**
+ * The one switch between the team's screens and the client's. Platform
+ * wide: on, every client tab shows what the client sees, as a report, with
+ * nothing to edit; off, the tools. Coral while it is on so nobody forgets
+ * which way it is set.
+ */
+export function ClientViewSwitch({ className }) {
+  const { clientView, toggle } = useClientView()
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={clientView}
+      onClick={toggle}
+      title={clientView ? 'Client view is on: every client screen shows what the client sees. Click to go back to the tools.' : 'Show every client screen the way the client sees it, for walking a client through their plan.'}
+      className={cn(
+        'inline-flex h-9 items-center gap-2 rounded-full border pl-3 pr-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink/50 focus-visible:ring-offset-2',
+        clientView ? 'border-pink bg-pink text-white hover:bg-pink-dark hover:border-pink-dark' : 'border-sage-line bg-white text-ink-soft hover:border-ink hover:text-ink',
+        className
+      )}
+    >
+      {clientView ? <Eye size={15} /> : <EyeOff size={15} />}
+      <span>Client view</span>
+      <span className={cn('relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors', clientView ? 'bg-white/30' : 'bg-sage-deep')} aria-hidden="true">
+        <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', clientView ? 'translate-x-[18px]' : 'translate-x-0.5')} />
+      </span>
+    </button>
+  )
+}
 
 export function Header({ onMenuToggle, user, onSignOut }) {
   const initials = user?.name?.split(' ').map(n => n[0]).join('') || '?'
@@ -32,6 +64,8 @@ export function Header({ onMenuToggle, user, onSignOut }) {
         </div>
       </div>
 
+      <div className="flex items-center gap-3 sm:gap-4">
+      <ClientViewSwitch />
       {user && (
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2.5 outline-none">
@@ -61,6 +95,7 @@ export function Header({ onMenuToggle, user, onSignOut }) {
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+      </div>
     </header>
   )
 }

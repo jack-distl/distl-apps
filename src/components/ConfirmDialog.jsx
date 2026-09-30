@@ -10,7 +10,7 @@ import {
   AlertDialogAction,
 } from './ui/alert-dialog'
 
-export function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
+export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmLabel = 'Delete' }) {
   return (
     <AlertDialog open={open} onOpenChange={(v) => !v && onClose()}>
       <AlertDialogContent>
@@ -24,7 +24,7 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={() => { onConfirm(); onClose() }}>
-            Delete
+            {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
