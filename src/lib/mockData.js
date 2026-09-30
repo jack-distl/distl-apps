@@ -181,3 +181,34 @@ export const mockOkrData = {
     ],
   },
 }
+
+// OKR future tasks keyed by client ID: objectives filed under a template
+// category, waiting to be pulled into a period.
+export const mockFutureTasks = {
+  '1': [
+    {
+      id: 'fut-1', category: 'Technical SEO', title: 'Core Web Vitals clean-up', scope: 'sitewide', scopeDetail: '',
+      keyResults: [
+        { id: 'fut-1-1', task: 'Audit LCP and CLS on key templates', description: '', internalNotes: 'Product and category templates are the worst offenders.', amHours: 0, seoHours: 3 },
+        { id: 'fut-1-2', task: 'Brief developer on fixes', description: '', internalNotes: '', amHours: 0.5, seoHours: 1 },
+      ],
+    },
+    {
+      id: 'fut-2', category: 'Technical SEO', title: 'Redirect chain fixes', scope: 'sitewide', scopeDetail: '',
+      keyResults: [
+        { id: 'fut-2-1', task: 'Map and collapse redirect chains', description: '', internalNotes: '', amHours: 0, seoHours: 2 },
+      ],
+    },
+    {
+      id: 'fut-3', category: 'Content & On-Page', title: 'New service page: emergency repairs', scope: 'specific-pages', scopeDetail: '/services/emergency-repairs',
+      keyResults: [
+        { id: 'fut-3-1', task: 'Keyword research', description: '', internalNotes: '', amHours: 0, seoHours: 2 },
+        { id: 'fut-3-2', task: 'Write page copy', description: '', internalNotes: '', amHours: 0.5, seoHours: 4 },
+      ],
+    },
+    {
+      id: 'fut-4', category: 'Conversion & Tracking', title: 'Quote form tracking', scope: 'sitewide', scopeDetail: '',
+      keyResults: [],
+    },
+  ],
+}

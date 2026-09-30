@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useParams, Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, Map as MapIcon, FileSpreadsheet, ListTree, Plus, Globe, Flag,
@@ -10,7 +10,9 @@ import { Card } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu'
-import { useClients, useAuth } from '@/hooks'
+import { useClientRoute, useAuth } from '@/hooks'
+import { useClientView } from '@/hooks/useClientView'
+import { ClientTabs } from '@/components/ClientTabs'
 import { useSitemapData } from '@/hooks/useSitemapData'
 import { REVIEW_CADENCES } from '@/lib/sitemap/defaults'
 import { sortedVersions } from '@/lib/sitemap/perf'
@@ -49,10 +51,9 @@ const ROLLUPS = [
 ]
 
 export default function SitemapTool() {
-  const { clientId } = useParams()
-  const { clients } = useClients()
+  const { client, clientId, clientsLoading } = useClientRoute()
   const { user } = useAuth()
-  const client = clients.find(c => c.id === clientId)
+  const { clientView, setClientView } = useClientView()
   const data = useSitemapData(clientId)
   const { sitemap, loading, error, saveStatus, saveError, retrySave } = data
 
@@ -196,14 +197,28 @@ export default function SitemapTool() {
   function exportKeywords() { downloadText(dataFilename(client?.name, null, 'keyword-clusters'), buildKeywordClusterCsv(sitemap)) }
 
   // ─── Render ───────────────────────────────────────────────
-  if (loading || (!client && clients.length === 0)) {
+  if (clientsLoading || (client && loading)) {
     return <div className="flex items-center justify-center py-20"><LoadingSpinner /></div>
   }
   if (!client) {
     return (
       <div className="max-w-2xl">
-        <Link to="/sitemap" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-coral mb-6"><ArrowLeft size={16} /> Back to Sitemap Tool</Link>
+        <Link to="/clients" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-coral mb-6"><ArrowLeft size={16} /> Back to clients</Link>
         <p className="text-gray-500">Client not found.</p>
+      </div>
+    )
+  }
+
+  // The Sitemap is the team's working tool; the client's tabs leave it out.
+  if (clientView) {
+    return (
+      <div className="w-full">
+        <ClientTabs client={client} />
+        <div className="mx-auto max-w-lg rounded-xl border border-gray-200 bg-white px-8 py-16 text-center">
+          <h2 className="text-lg font-medium text-charcoal">The Sitemap stays with the team</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500">Its numbers reach the client through the SEO plan. Turn Client view off to work on it.</p>
+          <button type="button" onClick={() => setClientView(false)} className="mt-6 inline-flex h-9 items-center rounded-lg bg-charcoal px-4 text-sm font-medium text-white transition-colors hover:bg-charcoal/80">Turn Client view off</button>
+        </div>
       </div>
     )
   }
@@ -220,6 +235,7 @@ export default function SitemapTool() {
 
   return (
     <div className="w-full">
+      <ClientTabs client={client} />
       {saveError && (
         <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2">
           <AlertTriangle size={16} className="text-red-500 shrink-0" />

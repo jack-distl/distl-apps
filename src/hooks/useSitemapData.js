@@ -1,11 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchAllRows, fetchAllIn } from '../lib/fetchAll'
 import { generateId } from '../lib/constants'
 import { buildSampleSitemap } from '../lib/sitemap/sampleData.js'
 import { DEFAULT_MENUS, DEFAULT_PAGE_TEMPLATES, DEFAULT_PLAN_VERSION_NAME } from '../lib/sitemap/defaults.js'
 import { normaliseUrl, cascadeUrlChange } from '../lib/sitemap/tree.js'
 
 // ─── Load ───────────────────────────────────────────────────────
+//
+// The REST layer caps a select at 1,000 rows, so every list here pages
+// through (fetchAllRows / fetchAllIn). Query rows and keyword positions
+// across all reviews are the first to pass 1,000. Each paged select also
+// orders by id, so rows that tie on sort_order keep one place across pages.
+
+const bySortThenId = q => q.order('sort_order').order('id')
 
 async function loadSitemap(clientId) {
   const { data: sm, error: smErr } = await supabase
@@ -13,40 +21,50 @@ async function loadSitemap(clientId) {
   if (smErr) throw smErr
   if (!sm) return null
 
-  const [tplRes, pageRes, verRes] = await Promise.all([
-    supabase.from('sitemap_page_templates').select('*').eq('sitemap_id', sm.id).order('sort_order'),
-    supabase.from('sitemap_pages').select('*').eq('sitemap_id', sm.id).order('sort_order'),
-    supabase.from('sitemap_versions').select('*').eq('sitemap_id', sm.id).order('sort_order'),
+  const inSitemap = q => bySortThenId(q.eq('sitemap_id', sm.id))
+  const [templates, pages, versions] = await Promise.all([
+    fetchAllRows('sitemap_page_templates', '*', inSitemap),
+    fetchAllRows('sitemap_pages', '*', inSitemap),
+    fetchAllRows('sitemap_versions', '*', inSitemap),
   ])
-  for (const r of [tplRes, pageRes, verRes]) if (r.error) throw r.error
 
-  const pages = pageRes.data || []
-  const versions = verRes.data || []
   const pageIds = pages.map(p => p.id)
   const versionIds = versions.map(v => v.id)
 
-  const [kwRes, upRes, pmRes, kpRes, qRes] = await Promise.all([
-    pageIds.length ? supabase.from('sitemap_keywords').select('*').in('page_id', pageIds).order('sort_order') : { data: [] },
-    versionIds.length ? supabase.from('sitemap_version_uploads').select('*').in('version_id', versionIds).order('uploaded_at') : { data: [] },
-    versionIds.length ? supabase.from('sitemap_version_page_metrics').select('*').in('version_id', versionIds) : { data: [] },
-    versionIds.length ? supabase.from('sitemap_version_keyword_positions').select('*').in('version_id', versionIds) : { data: [] },
-    versionIds.length ? supabase.from('sitemap_version_queries').select('*').in('version_id', versionIds).order('sort_order') : { data: [] },
+  const [keywords, uploads, pageMetrics, keywordPositions, queries] = await Promise.all([
+    fetchAllIn('sitemap_keywords', '*', 'page_id', pageIds, bySortThenId),
+    fetchAllIn('sitemap_version_uploads', '*', 'version_id', versionIds, q => q.order('uploaded_at').order('id')),
+    fetchAllIn('sitemap_version_page_metrics', '*', 'version_id', versionIds, q => q.order('id')),
+    fetchAllIn('sitemap_version_keyword_positions', '*', 'version_id', versionIds, q => q.order('id')),
+    fetchAllIn('sitemap_version_queries', '*', 'version_id', versionIds, bySortThenId),
   ])
-  for (const r of [kwRes, upRes, pmRes, kpRes, qRes]) if (r.error) throw r.error
+  // Chunked IN-queries come back chunk by chunk; restore one overall order.
+  keywords.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  uploads.sort((a, b) => String(a.uploaded_at || '').localeCompare(String(b.uploaded_at || '')))
+  queries.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
 
   const kwByPage = {}
-  for (const k of kwRes.data || []) (kwByPage[k.page_id] ||= []).push(k)
+  for (const k of keywords) (kwByPage[k.page_id] ||= []).push(k)
+  const group = rows => {
+    const out = {}
+    for (const r of rows) (out[r.version_id] ||= []).push(r)
+    return out
+  }
+  const upBy = group(uploads)
+  const pmBy = group(pageMetrics)
+  const kpBy = group(keywordPositions)
+  const qBy = group(queries)
 
   return {
     ...sm,
-    templates: tplRes.data || [],
+    templates,
     pages: pages.map(p => ({ ...p, keywords: kwByPage[p.id] || [] })),
     versions: versions.map(v => ({
       ...v,
-      uploads: (upRes.data || []).filter(u => u.version_id === v.id),
-      pageMetrics: Object.fromEntries((pmRes.data || []).filter(m => m.version_id === v.id).map(m => [m.page_id, m])),
-      keywordPositions: Object.fromEntries((kpRes.data || []).filter(k => k.version_id === v.id).map(k => [k.keyword_id, k])),
-      queries: (qRes.data || []).filter(q => q.version_id === v.id),
+      uploads: upBy[v.id] || [],
+      pageMetrics: Object.fromEntries((pmBy[v.id] || []).map(m => [m.page_id, m])),
+      keywordPositions: Object.fromEntries((kpBy[v.id] || []).map(k => [k.keyword_id, k])),
+      queries: qBy[v.id] || [],
     })),
   }
 }
@@ -500,15 +518,21 @@ export async function fetchClientSitemapPages(clientId) {
   }
   const { data: sm, error } = await supabase.from('sitemaps').select('id').eq('client_id', clientId).maybeSingle()
   if (error || !sm) return null
-  const [pageRes, kwRes] = await Promise.all([
-    supabase.from('sitemap_pages').select('id, name, url, status, is_priority, sort_order, group_parent_id').eq('sitemap_id', sm.id).order('sort_order'),
-    supabase.from('sitemap_keywords').select('id, page_id, keyword, volume, is_primary, sort_order').order('sort_order'),
-  ])
-  if (pageRes.error) return null
-  const pages = pageRes.data || []
-  const ids = new Set(pages.map(p => p.id))
+  let pages
+  let keywords = []
+  try {
+    pages = await fetchAllRows('sitemap_pages', 'id, name, url, status, is_priority, sort_order, group_parent_id', q => bySortThenId(q.eq('sitemap_id', sm.id)))
+  } catch {
+    return null
+  }
+  try {
+    keywords = await fetchAllIn('sitemap_keywords', 'id, page_id, keyword, volume, is_primary, sort_order', 'page_id', pages.map(p => p.id), bySortThenId)
+  } catch (err) {
+    console.error('fetchClientSitemapPages keywords error:', err)
+  }
+  keywords.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
   const kwByPage = {}
-  for (const k of kwRes.data || []) if (ids.has(k.page_id)) (kwByPage[k.page_id] ||= []).push(k)
+  for (const k of keywords) (kwByPage[k.page_id] ||= []).push(k)
   return pages.map(p => ({ ...p, keywords: kwByPage[p.id] || [] }))
 }
 

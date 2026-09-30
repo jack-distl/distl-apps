@@ -6,6 +6,8 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
+        pink: 'border-transparent bg-coral text-white',
+        dark: 'border-transparent bg-charcoal text-white',
         default: 'border-transparent bg-gray-100 text-gray-700',
         coral: 'border-transparent bg-coral/10 text-coral-dark',
         success: 'border-transparent bg-green-50 text-green-700',

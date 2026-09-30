@@ -61,8 +61,13 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
     if (match) setSelectedItemId(match.id)
   }, [items, client, selectedItemId])
 
+  // After a partial push, only the tasks Monday refused are sent again; the
+  // ones it created (including those whose update note failed) are not.
+  const failedNames = new Set((result?.errors || []).filter(e => !e.created).map(e => e.name))
+  const toPush = result ? tasks.filter(t => failedNames.has(t.name)) : tasks
+
   async function handlePush() {
-    if (!selectedItemId || !tasks.length) return
+    if (!selectedItemId || !toPush.length) return
     setPushing(true)
     setPushError(null)
     setResult(null)
@@ -70,11 +75,17 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
       const res = await pushPeriodToMonday({
         parentItemId: selectedItemId,
         period,
-        tasks,
+        tasks: toPush,
         amPersonId: amPersonId || undefined,
         seoPersonId: seoPersonId || undefined,
       })
-      setResult(res)
+      // Keep the running total across a retry
+      setResult(prev => prev ? {
+        ...res,
+        created: (prev.created || 0) + (res.created || 0),
+        errors: [...(prev.errors || []).filter(e => e.created), ...(res.errors || [])],
+        failed: res.failed || 0,
+      } : res)
       if (res.created > 0 && onPushed && currentPeriod) onPushed(currentPeriod.id)
     } catch (err) {
       setPushError(err.message || 'Push failed')
@@ -91,28 +102,28 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
         <DialogHeader>
           <DialogTitle>Push to Monday</DialogTitle>
           <DialogDescription>
-            Create each key result as a subitem under the client on the SEO Project Management board.
+            Create each task as a subitem under the client on the SEO Project Management board.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Summary of what will be pushed */}
-          <div className="rounded-lg bg-cream border border-gray-100 px-4 py-3 text-sm text-gray-700">
-            <p><span className="font-medium text-charcoal">{tasks.length}</span> task{tasks.length === 1 ? '' : 's'} across <span className="font-medium text-charcoal">{objectiveCount}</span> objective{objectiveCount === 1 ? '' : 's'}</p>
-            <p className="text-gray-500 mt-0.5">Scheduled across {rangeLabel} (weekdays), estimated hours filled in. Assignee left blank.</p>
+          <div className="rounded-xl bg-sage-light px-4 py-3 text-sm text-ink">
+            <p><span className="font-medium text-ink">{tasks.length}</span> task{tasks.length === 1 ? '' : 's'} across <span className="font-medium text-ink">{objectiveCount}</span> objective{objectiveCount === 1 ? '' : 's'}</p>
+            <p className="text-ink-soft mt-0.5">Scheduled across {rangeLabel} (weekdays), with estimated hours. Pick the people below, or leave them for Monday.</p>
           </div>
 
           {/* Client item picker */}
           <div>
-            <label className="block text-sm font-medium text-charcoal mb-1.5">
+            <label className="block text-sm font-medium text-ink mb-1.5">
               Monday client (Active Clients group)
             </label>
             {loading ? (
-              <p className="text-sm text-gray-400 py-2 inline-flex items-center gap-2">
+              <p className="text-sm text-ink-faint py-2 inline-flex items-center gap-2">
                 <Loader2 size={14} className="animate-spin" /> Loading clients from Monday…
               </p>
             ) : error ? (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg flex items-center justify-between gap-2">
+              <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl flex items-center justify-between gap-2">
                 <span>{error}</span>
                 <button onClick={fetchItems} className="font-medium underline shrink-0">Retry</button>
               </div>
@@ -120,7 +131,7 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
               <select
                 value={selectedItemId}
                 onChange={e => setSelectedItemId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
+                className="w-full h-9 px-3 rounded-xl border border-sage-line bg-white text-sm text-ink focus:outline-none focus:border-ink focus:ring-2 focus:ring-pink/30"
               >
                 <option value="">— Select a client —</option>
                 {items.map(item => (
@@ -133,14 +144,14 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
           {/* AM / SEO specialist pickers (optional) — assigned on the subitems */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-charcoal mb-1.5">
-                AM <span className="text-gray-400 font-normal">(optional)</span>
+              <label className="block text-sm font-medium text-ink mb-1.5">
+                AM <span className="text-ink-faint font-normal">(optional)</span>
               </label>
               <select
                 value={amPersonId}
                 onChange={e => setAmPersonId(e.target.value)}
                 disabled={staffLoading}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral disabled:bg-gray-50"
+                className="w-full h-9 px-3 rounded-xl border border-sage-line bg-white text-sm text-ink focus:outline-none focus:border-ink focus:ring-2 focus:ring-pink/30 disabled:bg-sage-light"
               >
                 <option value="">{staffLoading ? 'Loading staff…' : '— None —'}</option>
                 {staff.map(u => (
@@ -149,14 +160,14 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-charcoal mb-1.5">
-                SEO specialist <span className="text-gray-400 font-normal">(optional)</span>
+              <label className="block text-sm font-medium text-ink mb-1.5">
+                SEO specialist <span className="text-ink-faint font-normal">(optional)</span>
               </label>
               <select
                 value={seoPersonId}
                 onChange={e => setSeoPersonId(e.target.value)}
                 disabled={staffLoading}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral disabled:bg-gray-50"
+                className="w-full h-9 px-3 rounded-xl border border-sage-line bg-white text-sm text-ink focus:outline-none focus:border-ink focus:ring-2 focus:ring-pink/30 disabled:bg-sage-light"
               >
                 <option value="">{staffLoading ? 'Loading staff…' : '— None —'}</option>
                 {staff.map(u => (
@@ -164,11 +175,11 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
                 ))}
               </select>
             </div>
-            <p className="col-span-2 text-xs text-gray-500 -mt-1">
+            <p className="col-span-2 text-xs text-ink-soft -mt-1">
               Assigned per subitem by the task's time: AM on AM-hour tasks, SEO on SEO-hour tasks, both when a task has both.
             </p>
             {staffError && (
-              <div className="col-span-2 p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex items-center justify-between gap-2">
+              <div className="col-span-2 p-2.5 bg-red-50 text-red-700 text-xs rounded-xl flex items-center justify-between gap-2">
                 <span>Couldn't load staff: {staffError}</span>
                 <button onClick={fetchUsers} className="font-medium underline shrink-0">Retry</button>
               </div>
@@ -177,7 +188,7 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
 
           {/* Push error */}
           {pushError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg flex items-start gap-2">
+            <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl flex items-start gap-2">
               <AlertTriangle size={16} className="shrink-0 mt-0.5" />
               <span>{pushError}</span>
             </div>
@@ -185,7 +196,7 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
 
           {/* Result summary */}
           {result && (
-            <div className={`p-3 border text-sm rounded-lg ${result.failed ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
+            <div className={`p-3 text-sm rounded-xl ${result.failed ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
               <p className="inline-flex items-center gap-2 font-medium">
                 {result.failed
                   ? <AlertTriangle size={16} />
@@ -206,18 +217,18 @@ export function MondayPushModal({ open, onClose, client, currentPeriod, onPushed
         </div>
 
         <DialogFooter className="gap-3 sm:gap-0">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             {result ? 'Close' : 'Cancel'}
           </Button>
-          {result && !result.failed ? null : (
+          {result && !toPush.length ? null : (
             <Button
               onClick={handlePush}
-              disabled={pushing || loading || !selectedItemId || !tasks.length}
+              disabled={pushing || loading || !selectedItemId || !toPush.length}
             >
               {pushing
-                ? <><Loader2 size={14} className="animate-spin mr-1.5" /> Pushing {tasks.length}…</>
+                ? <><Loader2 size={14} className="animate-spin mr-1.5" /> Pushing {toPush.length}…</>
                 : result
-                  ? 'Retry failed'
+                  ? `Retry the ${toPush.length} that failed`
                   : 'Push to Monday'}
             </Button>
           )}

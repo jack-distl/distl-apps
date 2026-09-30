@@ -9,6 +9,7 @@ import { Badge } from '../../components/ui/badge'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '../../components/ui/table'
 import { useClients, fetchAllClientRetainers } from '../../hooks'
 import { mockClientRetainers } from '../../lib/mockData'
+import { clientPath } from '../../lib/clientRoutes'
 
 const stagger = {
   hidden: {},
@@ -144,8 +145,8 @@ export default function Clients() {
               <ClientCard
                 client={client}
                 retainers={retainersByClient?.[client.id] || {}}
-                apps={client.is_active ? ['OKR', 'Sitemap'] : []}
-                onSelect={() => navigate(`/clients/${client.id}`)}
+                apps={client.is_active ? ['SEO plan', 'Sitemap'] : []}
+                onSelect={() => navigate(clientPath('clients', client))}
                 onEdit={setEditingClient}
               />
             </motion.div>
@@ -170,18 +171,18 @@ export default function Clients() {
                 return (
                   <TableRow key={client.id} className={!client.is_active ? 'text-gray-400' : ''}>
                     <TableCell className="font-medium text-charcoal">
-                      <Link to={`/clients/${client.id}`} className="hover:text-coral">{client.name}</Link>
+                      <Link to={clientPath('clients', client)} className="hover:text-coral">{client.name}</Link>
                     </TableCell>
                     <TableCell className="text-gray-500">{client.abbreviation}</TableCell>
                     <TableCell>{client.is_active ? <Badge variant="success">Active</Badge> : <Badge>Inactive</Badge>}</TableCell>
                     <TableCell className="text-right tabular-nums">{seo ? `$${seo.toLocaleString()}/mo` : <span className="text-gray-300">—</span>}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 text-xs">
-                        <Link to={`/clients/${client.id}`} className="inline-flex items-center gap-1 text-gray-500 hover:text-coral"><TrendingUp size={12} /> Overview</Link>
+                        <Link to={clientPath('clients', client)} className="inline-flex items-center gap-1 text-gray-500 hover:text-coral"><TrendingUp size={12} /> Overview</Link>
                         <span className="text-gray-200">|</span>
-                        <Link to={`/okr/${client.id}`} className="inline-flex items-center gap-1 text-gray-500 hover:text-coral"><Target size={12} /> OKR</Link>
+                        <Link to={clientPath('okr', client)} className="inline-flex items-center gap-1 text-gray-500 hover:text-coral"><Target size={12} /> SEO plan</Link>
                         <span className="text-gray-200">|</span>
-                        <Link to={`/sitemap/${client.id}`} className="inline-flex items-center gap-1 text-gray-500 hover:text-coral"><MapIcon size={12} /> Sitemap</Link>
+                        <Link to={clientPath('sitemap', client)} className="inline-flex items-center gap-1 text-gray-500 hover:text-coral"><MapIcon size={12} /> Sitemap</Link>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -229,7 +230,7 @@ export default function Clients() {
         onClose={() => setDeletingClient(null)}
         onConfirm={confirmDelete}
         title={`Delete ${deletingClient?.name}?`}
-        message="This permanently deletes the client along with their OKR periods and sitemap. This cannot be undone. If you just want them out of the way, edit the client and mark them inactive instead."
+        message="This permanently deletes the client along with their SEO plan and sitemap. This cannot be undone. If you just want them out of the way, edit the client and mark them inactive instead."
       />
     </div>
   )

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, Target, Map as MapIcon, Flag, TrendingUp, ChevronDown, ChevronUp, Layers, Link2,
@@ -9,7 +9,9 @@ import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Card, CardContent } from '../../components/ui/card'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '../../components/ui/table'
-import { useClients, useClientRetainers } from '../../hooks'
+import { useClientRoute, useClientRetainers } from '../../hooks'
+import { ClientTabs } from '../../components/ClientTabs'
+import { clientPath } from '../../lib/clientRoutes'
 import { useOkrData } from '../../hooks/useOkrData'
 import { fetchClientSitemap } from '../../hooks/useSitemapData'
 import { buildClientOverview, okrPeriodLabel } from '../../lib/clientOverview'
@@ -37,9 +39,7 @@ function Stat({ label, value, change, sub, hint }) {
 }
 
 export default function ClientOverview() {
-  const { clientId } = useParams()
-  const { clients, loading: clientsLoading } = useClients()
-  const client = clients.find(c => c.id === clientId)
+  const { client, clientId, clientsLoading } = useClientRoute()
   const { retainers } = useClientRetainers(clientId)
   const { periods, loading: okrLoading } = useOkrData(clientId)
 
@@ -49,6 +49,7 @@ export default function ClientOverview() {
   useEffect(() => {
     let cancelled = false
     setSitemap(undefined)
+    if (!clientId) return // the route resolves the client by name first
     fetchClientSitemap(clientId).then(sm => { if (!cancelled) setSitemap(sm) })
     return () => { cancelled = true }
   }, [clientId])
@@ -58,7 +59,7 @@ export default function ClientOverview() {
     [sitemap, periods]
   )
 
-  if (clientsLoading || okrLoading || sitemap === undefined) {
+  if (clientsLoading || (client && (okrLoading || sitemap === undefined))) {
     return <div className="flex items-center justify-center py-20"><LoadingSpinner /></div>
   }
   if (!client) {
@@ -76,6 +77,7 @@ export default function ClientOverview() {
 
   return (
     <div className="w-full max-w-[1400px]">
+      <ClientTabs client={client} />
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-6">
         <div className="flex items-start gap-3">
@@ -89,10 +91,6 @@ export default function ClientOverview() {
               {!client.is_active && <Badge>Inactive</Badge>}
             </div>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" asChild><Link to={`/okr/${client.id}`}><Target size={15} className="mr-1.5" /> OKR Planner</Link></Button>
-          <Button variant="secondary" asChild><Link to={`/sitemap/${client.id}`}><MapIcon size={15} className="mr-1.5" /> Sitemap Tool</Link></Button>
         </div>
       </div>
 
@@ -152,9 +150,9 @@ export default function ClientOverview() {
             <p className="text-sm text-gray-500 max-w-md mx-auto mb-4">
               {overview.hasSitemap
                 ? 'Add a review version in the Sitemap Tool with the Search Console and rank tracker exports, and the movement shows up here.'
-                : 'Start a sitemap for this client, then add review versions. Work recorded in the OKR Planner still shows below.'}
+                : 'Start a sitemap for this client, then add review versions. Work recorded in the SEO plan still shows below.'}
             </p>
-            <Button asChild><Link to={`/sitemap/${client.id}`}><MapIcon size={15} className="mr-1.5" /> Open the Sitemap Tool</Link></Button>
+            <Button asChild><Link to={clientPath('sitemap', client)}><MapIcon size={15} className="mr-1.5" /> Open the Sitemap Tool</Link></Button>
           </CardContent>
         </Card>
       )}
@@ -164,7 +162,7 @@ export default function ClientOverview() {
         <div className="mb-8">
           <h2 className="text-sm font-semibold text-charcoal mb-3 inline-flex items-center gap-1">
             Every review period
-            <Hint>Each row is a review version from the Sitemap Tool. Work is the OKR periods whose months overlap that review, so the two line up without being locked together.</Hint>
+            <Hint>Each row is a review version from the Sitemap Tool. Work is the SEO plan periods whose months overlap that review, so the two line up without being locked together.</Hint>
           </h2>
           <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
             <Table>
@@ -202,7 +200,7 @@ export default function ClientOverview() {
             </Table>
           </div>
           <p className="text-[11px] text-gray-400 mt-1.5">
-            Objectives shows actioned of planned. Tasks counts every task in those objectives. Clicks are Search Console clicks, not GA4 sessions.
+            Objectives shows those worked on of those planned. Tasks counts every task in those objectives. Clicks are Search Console clicks, not GA4 sessions.
           </p>
         </div>
       )}
@@ -224,8 +222,8 @@ export default function ClientOverview() {
                       <span className="font-medium text-charcoal">{r.label}</span>
                       <span className="text-xs text-gray-500">
                         {r.work.objectives
-                          ? `${r.work.actioned} of ${r.work.objectives} objectives actioned · ${r.work.deliveredTasks} tasks · ${formatHours(r.work.hours)}`
-                          : 'No OKR period covers these months'}
+                          ? `${r.work.actioned} of ${r.work.objectives} objectives worked on · ${r.work.deliveredTasks} tasks · ${formatHours(r.work.hours)}`
+                          : 'No SEO plan period covers these months'}
                       </span>
                       <span className="ml-auto flex items-center gap-3 text-xs">
                         {r.improved.length > 0 && <span className="text-green-600">{r.improved.length} pages improved</span>}
@@ -240,7 +238,7 @@ export default function ClientOverview() {
                         <div>
                           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Work in these months</h3>
                           {r.okrPeriods.length === 0 ? (
-                            <p className="text-xs text-gray-400 italic">No OKR period overlaps this review.</p>
+                            <p className="text-xs text-gray-400 italic">No SEO plan period overlaps this review.</p>
                           ) : (
                             <ul className="space-y-2">
                               {r.okrPeriods.flatMap(p => (p.objectives || []).map(o => (
@@ -265,7 +263,9 @@ export default function ClientOverview() {
                           )}
                           {r.okrPeriods.length > 0 && (
                             <div className="mt-2 text-[11px] text-gray-400">
-                              {r.okrPeriods.map(p => okrPeriodLabel(p)).join(', ')} · <Link to={`/okr/${client.id}`} className="text-coral hover:text-coral-dark">open in the OKR Planner</Link>
+                              Open in the SEO plan: {r.okrPeriods.map((p, i) => (
+                                <span key={p.id}>{i > 0 && ', '}<Link to={`${clientPath('okr', client)}?period=${p.id}`} className="text-coral hover:text-coral-dark">{okrPeriodLabel(p)}</Link></span>
+                              ))}
                             </div>
                           )}
                         </div>
@@ -283,7 +283,7 @@ export default function ClientOverview() {
                               {[...r.improved, ...r.declined].slice(0, 12).map(m => (
                                 <li key={m.page.id} className="flex items-center gap-2 text-sm">
                                   {m.isPriority && <Flag size={10} className="text-coral shrink-0" fill="currentColor" />}
-                                  <Link to={`/sitemap/${client.id}`} className="text-charcoal hover:text-coral truncate">{m.page.name}</Link>
+                                  <Link to={clientPath('sitemap', client)} className="text-charcoal hover:text-coral truncate">{m.page.name}</Link>
                                   <span className="ml-auto flex items-center gap-2 shrink-0">
                                     <PositionChip position={m.avgPosition} />
                                     <ChangeIndicator change={m.change} />
@@ -312,18 +312,18 @@ export default function ClientOverview() {
         </div>
       )}
 
-      {/* OKR periods with no review to sit against */}
+      {/* SEO plan periods with no review to sit against */}
       {unmatchedOkr.length > 0 && (
         <div className="mt-8">
           <h2 className="text-sm font-semibold text-charcoal mb-3 inline-flex items-center gap-1">
-            Other OKR periods
+            Other SEO plan periods
             <Hint>Planned work whose months do not overlap any review version. Add a review covering those months to see what it moved.</Hint>
           </h2>
           <div className="flex flex-wrap gap-2">
             {unmatchedOkr.map(u => (
               <Link
                 key={u.period.id}
-                to={`/okr/${client.id}`}
+                to={`${clientPath('okr', client)}?period=${u.period.id}`}
                 className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs hover:border-coral transition-colors"
               >
                 <span className="font-medium text-charcoal">{u.label}</span>
@@ -339,14 +339,14 @@ export default function ClientOverview() {
         <EmptyState
           icon={TrendingUp}
           title="Nothing recorded for this client yet"
-          description="Plan a quarter in the OKR Planner and start a sitemap. Once a review version is added, this page shows what moved against the work done."
+          description="Plan a period in the SEO plan and start a sitemap. Once a review version is added, this page shows what moved against the work done."
         />
       )}
 
       {/* Running totals */}
       {totals.objectives > 0 && (
         <div className="mt-8 rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-500 flex flex-wrap gap-x-6 gap-y-1">
-          <span>All time: <b className="text-charcoal">{totals.objectives}</b> objectives planned, <b className="text-charcoal">{totals.actioned}</b> actioned</span>
+          <span>All time: <b className="text-charcoal">{totals.objectives}</b> objectives planned, <b className="text-charcoal">{totals.actioned}</b> worked on</span>
           <span><b className="text-charcoal">{totals.tasks}</b> tasks · <b className="text-charcoal">{formatHours(totals.hours)}</b> allocated</span>
           {priorityHubCount > 0 && <span><b className="text-charcoal">{priorityHubCount}</b> priority hub{priorityHubCount === 1 ? '' : 's'} across {overview.priorityPageCount} pages</span>}
         </div>

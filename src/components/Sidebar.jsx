@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Separator } from './ui/separator'
 import { useClients } from '../hooks/useClients'
+import { clientPath, findClientByRef } from '../lib/clientRoutes'
 
 const navItems = [
   { label: 'Hub', href: '/', icon: LayoutDashboard },
-  { label: 'OKR Planner', href: '/okr', icon: Target },
-  // Sub-item of OKR Planner: only shown while in the OKR area, indented
-  { label: 'Edit Templates', href: '/okr/templates', icon: LayoutTemplate, parent: '/okr', indent: true },
   { label: 'Sitemap Tool', href: '/sitemap', icon: Map },
+  // The SEO plan lives on each client (Clients, then its tab); its shared
+  // objective templates are edited here.
+  { label: 'Objective templates', href: '/okr/templates', icon: LayoutTemplate },
   { label: 'Settings', href: '/settings', icon: Settings, disabled: true },
 ]
 
@@ -21,8 +22,8 @@ function isMatch(href, pathname) {
 
 // Per-client services linked from the sidebar client list
 const CLIENT_SERVICES = [
-  { label: 'OKR Planner', href: id => `/okr/${id}`, icon: Target },
-  { label: 'Sitemap Tool', href: id => `/sitemap/${id}`, icon: Map },
+  { label: 'SEO plan', href: c => clientPath('okr', c), icon: Target },
+  { label: 'Sitemap', href: c => clientPath('sitemap', c), icon: Map },
 ]
 
 function ClientList({ pathname, onClose }) {
@@ -30,7 +31,8 @@ function ClientList({ pathname, onClose }) {
   const [openId, setOpenId] = useState(null)
   const active = clients.filter(c => c.is_active)
   // Auto-expand the client whose page is open
-  const currentId = pathname.match(/^\/(?:okr|sitemap|clients)\/([^/]+)/)?.[1] || null
+  const currentRef = pathname.match(/^\/(?:okr|sitemap|clients)\/([^/]+)/)?.[1] || null
+  const currentId = findClientByRef(active, currentRef)?.id || null
   const expanded = openId ?? currentId
 
   return (
@@ -69,7 +71,7 @@ function ClientList({ pathname, onClose }) {
                   {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                 </button>
                 <Link
-                  to={`/clients/${c.id}`}
+                  to={clientPath('clients', c)}
                   onClick={() => onClose?.()}
                   title={`${c.name} overview`}
                   className={cn('flex-1 min-w-0 pr-2 py-1.5 text-[13px] truncate hover:text-white', isCurrent ? 'text-white' : 'text-white/50')}
@@ -80,7 +82,7 @@ function ClientList({ pathname, onClose }) {
               {isOpen && (
                 <ul className="ml-6 mb-1 border-l border-white/10 pl-2 space-y-0.5">
                   {CLIENT_SERVICES.map(svc => {
-                    const href = svc.href(c.id)
+                    const href = svc.href(c)
                     const on = pathname === href || pathname.startsWith(href + '/')
                     return (
                       <li key={svc.label}>
@@ -113,8 +115,7 @@ export function Sidebar({ open = false, onClose }) {
     item => !item.parent || pathname.startsWith(item.parent)
   )
 
-  // Highlight only the most specific matching nav item (e.g. /okr/templates
-  // lights "Edit Templates", not also "OKR Planner").
+  // Highlight only the most specific matching nav item.
   const activeHref = visibleItems
     .filter(item => !item.disabled && isMatch(item.href, pathname))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href

@@ -1,49 +1,35 @@
-import { motion } from 'framer-motion'
-import { Globe, FileText, Hash, Target, ListTodo, CheckCircle, ChevronDown } from 'lucide-react'
-import { Card, CardHeader, CardContent } from '../../components/ui/card'
-import { Badge } from '../../components/ui/badge'
-import {
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-} from '../../components/ui/select'
+import { useEffect, useMemo, useState } from 'react'
+import { Flag } from 'lucide-react'
+import { Tag } from '../../components'
+import { Report, ReportCover, ReportPage, ReportStats, ReportTable, ReportList, ReportNote, ReportEnd, Kicker, TD } from '../../components/report'
+import { PeriodPills, periodOrder } from '../../components/PeriodPills'
 import { SCOPE_OPTIONS } from '../../lib/taskLibrary'
-import { getPeriodLabel } from '../../lib/constants'
+import { getPeriodLabel, calculatePeriodMonths } from '../../lib/constants'
+import { fetchClientSitemap } from '../../hooks/useSitemapData'
+import { buildClientOverview } from '../../lib/clientOverview'
+import { formatNumber } from '../../lib/sitemap/tree'
+import { cn } from '../../lib/utils'
+import { ChangeIndicator, PositionChip } from '../sitemap/components/Chips'
 
-const SCOPE_ICONS = {
-  'sitewide': Globe,
-  'specific-pages': FileText,
-  'keyword-group': Hash,
+const changeTone = change => (!change || change.kind === 'none' || change.kind === 'flat' ? 'neutral' : change.kind === 'down' ? 'bad' : 'good')
+
+/** "▲ 1,234 against the review before" as a stat's sub line. */
+function ChangeLine({ change, fallback = null }) {
+  if (!change || change.kind === 'none') return fallback
+  return <span className="inline-flex flex-wrap items-baseline gap-x-1"><ChangeIndicator change={change} className="whitespace-nowrap" /> <span>against the review before</span></span>
 }
 
-const SCOPE_BORDER_COLORS = {
-  'sitewide': 'border-t-blue-500',
-  'specific-pages': 'border-t-amber-500',
-  'keyword-group': 'border-t-purple-500',
-}
-
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08 } },
-}
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
-}
-
-const cardStagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.1 } },
-}
-
-const cardFadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
-}
-
-// ─── Main Client View ──────────────────────────────────────────
-
+/**
+ * The SEO plan as the client reads it: a landscape report with the period's
+ * goal, the search numbers for the months it covers (from the Sitemap's
+ * review), the objectives and their tasks, and the pages that moved. Only
+ * periods the team has shared reach it.
+ */
 export default function ClientView({
+  clientId,
   clientName,
+  period,
+  allPeriods = [],
   goal,
   objectives,
   periods,
@@ -55,249 +41,146 @@ export default function ClientView({
   // to the free-text scope detail when there are none.
   const pageName = id => (sitemapPages || []).find(p => p.id === id)?.name
   const linkedNames = obj => (obj.linkedPageIds || []).map(pageName).filter(Boolean)
-  // Find the selected period for its label
-  const selectedPeriod = periods.find(p => p.id === selectedPeriodId)
-  const periodLabel = selectedPeriod
-    ? getPeriodLabel(selectedPeriod.startMonth, selectedPeriod.startYear, selectedPeriod.endMonth, selectedPeriod.endYear)
-    : ''
+  const periodLabel = period ? getPeriodLabel(period.startMonth, period.startYear, period.endMonth, period.endYear) : ''
+  const months = period ? calculatePeriodMonths(period.startMonth, period.startYear, period.endMonth, period.endYear) : 0
 
+  const actioned = objectives.filter(o => o.isActioned !== false)
+  const parked = objectives.filter(o => o.isActioned === false)
   const totalTasks = objectives.reduce((sum, obj) => sum + obj.keyResults.length, 0)
-  const actionedCount = objectives.filter(obj => obj.isActioned !== false).length
+  const pagesCovered = new Set(objectives.flatMap(o => o.linkedPageIds || [])).size
+
+  // What the work moved: the Sitemap review whose months overlap this period
+  const [sitemap, setSitemap] = useState(null)
+  useEffect(() => {
+    let live = true
+    if (clientId) fetchClientSitemap(clientId).then(sm => { if (live) setSitemap(sm) })
+    return () => { live = false }
+  }, [clientId])
+  const review = useMemo(() => {
+    if (!sitemap || !period) return null
+    const { reviews } = buildClientOverview(sitemap, allPeriods)
+    return [...reviews].reverse().find(r => r.okrPeriods.some(p => p.id === period.id)) || null
+  }, [sitemap, period, allPeriods])
+
+  const moved = review ? [...review.improved, ...review.declined] : []
+  const stats = review ? [
+    { label: 'Search clicks', value: formatNumber(review.all.clicks), sub: <ChangeLine change={review.all.clicksChange} fallback="Search Console, whole site" />, tone: changeTone(review.all.clicksChange) },
+    { label: 'Times seen on Google', value: formatNumber(review.all.impressions), sub: <ChangeLine change={review.all.impressionsChange} />, tone: changeTone(review.all.impressionsChange) },
+    { label: 'Average Google ranking', value: review.all.avgPosition ?? '—', sub: <ChangeLine change={review.all.avgPositionChange} fallback={`${review.all.rankedCount} keywords tracked`} />, tone: changeTone(review.all.avgPositionChange) },
+    { label: 'Pages improved', value: review.improved.length, sub: review.declined.length ? `${review.declined.length} declined` : 'none declined', tone: review.declined.length ? 'neutral' : 'good' },
+  ] : [
+    { label: 'Objectives', value: objectives.length, sub: parked.length ? `${actioned.length} being worked on · ${parked.length} parked` : 'all being worked on', tone: 'pink' },
+    { label: 'Tasks', value: totalTasks, sub: `across ${objectives.length} objective${objectives.length === 1 ? '' : 's'}` },
+    { label: 'Pages covered', value: pagesCovered || '—', sub: pagesCovered ? 'pages the work is aimed at' : 'site-wide work' },
+    { label: 'Months', value: months, sub: periodLabel },
+  ]
+
+  const pills = [...periods].sort((a, b) => periodOrder(a) - periodOrder(b)).map(p => ({ id: p.id, label: getPeriodLabel(p.startMonth, p.startYear, p.endMonth, p.endYear) }))
 
   return (
-    <div className="-mx-4 sm:-mx-6 lg:-mx-8">
+    <Report>
+      <PeriodPills label="Period" periods={pills} value={selectedPeriodId} onChange={onPeriodChange} />
+      <ReportCover
+        kicker="Prepared by Distl · SEO plan"
+        title={clientName}
+        period={periodLabel}
+        description={review ? `The objectives and tasks for ${periodLabel}, and what the search numbers did over the same months.` : `The objectives and tasks for ${periodLabel}. The search numbers follow once the period has been reviewed.`}
+        aside={goal ? (
+          <div>
+            <Kicker tone="white" className="mb-2">The goal for this period</Kicker>
+            <p className="text-xl font-light leading-snug text-white md:text-2xl">{goal}</p>
+          </div>
+        ) : null}
+      />
 
-      {/* ── Section A: Hero Header ──────────────────────────── */}
-      <motion.div
-        className="bg-charcoal px-6 py-16 md:py-20"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
+      <ReportPage
+        kicker="Key outcomes"
+        title={review ? `What ${periodLabel} delivered` : 'The period at a glance'}
+        intro={review ? `Search results for ${review.label}, against the review before it.` : null}
       >
-        <motion.div
-          className="max-w-3xl mx-auto text-center"
-          variants={stagger}
-          initial="hidden"
-          animate="show"
-        >
-          <motion.p
-            variants={fadeUp}
-            className="text-xs uppercase tracking-[0.2em] text-gray-500 font-medium mb-6"
-          >
-            Prepared by Distl
-          </motion.p>
+        <ReportStats items={stats} />
+        {review && (
+          <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
+            <ReportList kicker="What we set out to do" items={actioned.map(o => o.title)} empty="No objectives were set for these months." />
+            <ReportList
+              kicker="Pages that gained the most"
+              items={review.improved.slice(0, 5)}
+              empty="Nothing to compare against the previous review yet."
+              renderItem={m => (
+                <span className="flex items-center justify-between gap-3">
+                  <span className="truncate">{m.page.name}</span>
+                  <span className="flex shrink-0 items-center gap-2"><PositionChip position={m.avgPosition} /><ChangeIndicator change={m.change} /></span>
+                </span>
+              )}
+            />
+          </div>
+        )}
+      </ReportPage>
 
-          <motion.h1
-            variants={fadeUp}
-            className="text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight"
-          >
-            {clientName}
-          </motion.h1>
-
-          {/* Period Selector */}
-          <motion.div variants={fadeUp} className="mt-4 flex justify-center">
-            {periods.length > 1 ? (
-              <Select value={selectedPeriodId} onValueChange={onPeriodChange}>
-                <SelectTrigger className="w-auto border-0 bg-transparent text-coral hover:text-coral-light text-lg md:text-xl font-medium shadow-none focus:ring-0 gap-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {periods.map(p => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {getPeriodLabel(p.startMonth, p.startYear, p.endMonth, p.endYear)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <p className="text-lg md:text-xl text-coral font-medium">{periodLabel}</p>
-            )}
-          </motion.div>
-
-          <motion.div variants={fadeUp} className="flex justify-center mt-6">
-            <div className="w-16 bg-coral rounded-full" style={{ height: 3 }} />
-          </motion.div>
-
-          {goal && (
-            <motion.p
-              variants={fadeUp}
-              className="text-lg md:text-xl text-gray-300 font-light italic max-w-2xl mx-auto leading-relaxed mt-6"
-            >
-              "{goal}"
-            </motion.p>
-          )}
-        </motion.div>
-      </motion.div>
-
-      {/* ── Section B: Summary Stats ──────────────────────── */}
-      <motion.div
-        className="bg-white border-b border-gray-100 px-6 py-10"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
+      <ReportPage
+        kicker="Objectives and tasks"
+        title={objectives.length ? 'What we are working on' : 'Nothing planned yet'}
+        intro={objectives.length ? `${actioned.length} objective${actioned.length === 1 ? '' : 's'} and ${totalTasks} task${totalTasks === 1 ? '' : 's'} for ${periodLabel}.${parked.length ? ` ${parked.length} ${parked.length === 1 ? 'objective is' : 'objectives are'} parked for now.` : ''}` : 'The objectives for this period are being drafted.'}
       >
-        <div className="max-w-3xl mx-auto">
-          <motion.div
-            className="grid grid-cols-3 gap-8"
-            variants={stagger}
-            initial="hidden"
-            animate="show"
-          >
-            {/* Objectives count */}
-            <motion.div variants={fadeUp} className="text-center">
-              <div className="flex justify-center mb-2">
-                <div className="w-10 h-10 rounded-full bg-coral/10 flex items-center justify-center">
-                  <Target size={20} className="text-coral" />
-                </div>
-              </div>
-              <p className="text-3xl md:text-4xl font-bold text-charcoal">{objectives.length}</p>
-              <p className="text-sm text-gray-500 uppercase tracking-wider mt-1">Objectives</p>
-            </motion.div>
-
-            {/* Actioned count */}
-            <motion.div variants={fadeUp} className="text-center">
-              <div className="flex justify-center mb-2">
-                <div className="w-10 h-10 rounded-full bg-coral/10 flex items-center justify-center">
-                  <CheckCircle size={20} className="text-coral" />
-                </div>
-              </div>
-              <p className="text-3xl md:text-4xl font-bold text-charcoal">{actionedCount}/{objectives.length}</p>
-              <p className="text-sm text-gray-500 uppercase tracking-wider mt-1">Actioned</p>
-            </motion.div>
-
-            {/* Tasks count */}
-            <motion.div variants={fadeUp} className="text-center">
-              <div className="flex justify-center mb-2">
-                <div className="w-10 h-10 rounded-full bg-coral/10 flex items-center justify-center">
-                  <ListTodo size={20} className="text-coral" />
-                </div>
-              </div>
-              <p className="text-3xl md:text-4xl font-bold text-charcoal">{totalTasks}</p>
-              <p className="text-sm text-gray-500 uppercase tracking-wider mt-1">Tasks</p>
-            </motion.div>
-          </motion.div>
-        </div>
-      </motion.div>
-
-      {/* ── Section C: Objectives Grid ──────────────────────── */}
-      <div className="bg-cream px-6 py-12">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.4 }}
-            className="mb-8"
-          >
-            <h2 className="text-2xl font-semibold text-charcoal">Objectives</h2>
-            <div className="w-12 bg-coral rounded-full mt-2" style={{ height: 3 }} />
-          </motion.div>
-
-          {objectives.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-gray-400">No objectives planned for this period.</p>
-            </div>
-          ) : (
-            <motion.div
-              className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8"
-              variants={cardStagger}
-              initial="hidden"
-              animate="show"
-            >
-              {objectives.map(obj => {
-                const ScopeIcon = SCOPE_ICONS[obj.scope] || Globe
-                const scopeOption = SCOPE_OPTIONS.find(s => s.id === obj.scope)
-                const borderColor = SCOPE_BORDER_COLORS[obj.scope] || 'border-t-gray-300'
-                const isActioned = obj.isActioned !== false
-                const objTotal = obj.keyResults.length
-
-                return (
-                  <motion.div
-                    key={obj.id}
-                    variants={cardFadeUp}
-                    whileHover={{ y: -4 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                  >
-                    <Card className={`overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 border-t-4 ${borderColor} ${
-                      !isActioned ? 'opacity-60' : ''
-                    }`}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-charcoal leading-tight">{obj.title}</h3>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge className={scopeOption?.color || 'bg-gray-100 text-gray-600'}>
-                                <ScopeIcon size={12} className="mr-1" />
-                                {scopeOption?.label || obj.scope}
-                              </Badge>
-                              {!isActioned && (
-                                <Badge className="bg-gray-100 text-gray-500">Not Actioned</Badge>
-                              )}
-                            </div>
-                            {(() => {
-                              const names = linkedNames(obj)
-                              const detail = (obj.scopeDetail || '').trim()
-                              if (!names.length && !detail) return null
-                              return (
-                                <p className="text-sm text-gray-500 mt-1.5">
-                                  {names.join(', ')}
-                                  {names.length > 0 && detail ? ' · ' : ''}
-                                  {detail}
-                                </p>
-                              )
-                            })()}
-                            {!isActioned && obj.notActionedReason && (
-                              <p className="text-xs text-gray-400 italic mt-1.5">{obj.notActionedReason}</p>
-                            )}
+        {objectives.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {objectives.map(obj => {
+              const scope = SCOPE_OPTIONS.find(s => s.id === obj.scope)
+              const isActioned = obj.isActioned !== false
+              const names = linkedNames(obj)
+              const detail = (obj.scopeDetail || '').trim()
+              const where = [names.join(', '), detail].filter(Boolean).join(' · ')
+              return (
+                <div key={obj.id} className={cn('flex flex-col rounded-2xl border border-sage-line bg-white p-5', !isActioned && 'opacity-70')}>
+                  <div className="flex flex-wrap items-center gap-1.5"><Tag tone="soft" size="xs">{scope?.label || obj.scope}</Tag>{!isActioned && <Tag tone="soft" size="xs">Parked</Tag>}</div>
+                  <h3 className="mt-2.5 text-lg font-medium leading-snug text-ink">{obj.title}</h3>
+                  {where && <p className="mt-1 text-sm text-pink">{where}</p>}
+                  {!isActioned && obj.notActionedReason && <p className="mt-1.5 text-xs text-ink-faint">{obj.notActionedReason}</p>}
+                  {obj.keyResults.length === 0 ? (
+                    <p className="mt-4 text-sm text-ink-faint">Tasks to follow.</p>
+                  ) : (
+                    <ul className="mt-4 divide-y divide-sage-line border-t border-sage-line">
+                      {obj.keyResults.map(kr => (
+                        <li key={kr.id} className="flex items-start gap-2.5 py-2.5">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-sage-line" aria-hidden="true" />
+                          <div className="min-w-0">
+                            <p className="text-sm leading-relaxed text-ink">{kr.task}</p>
+                            {kr.description && <p className="mt-0.5 text-xs leading-relaxed text-ink-faint">{kr.description}</p>}
                           </div>
-                          {objTotal > 0 && (
-                            <div className="text-right shrink-0">
-                              <p className="text-sm font-medium text-charcoal">{objTotal}</p>
-                              <p className="text-xs text-gray-400">tasks</p>
-                            </div>
-                          )}
-                        </div>
-                      </CardHeader>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </ReportPage>
 
-                      <CardContent className="pt-0">
-                        {objTotal === 0 ? (
-                          <p className="text-sm text-gray-300 py-2">No tasks defined.</p>
-                        ) : (
-                          <ul className="space-y-3">
-                            {obj.keyResults.map(kr => (
-                              <li key={kr.id} className="flex items-start gap-2.5">
-                                <span className="mt-2 shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm text-gray-700">
-                                    {kr.task}
-                                  </p>
-                                  {kr.description && (
-                                    <p className="text-xs text-gray-400 mt-0.5">{kr.description}</p>
-                                  )}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                )
-              })}
-            </motion.div>
+      {review && moved.length > 0 && (
+        <ReportPage
+          kicker={`Search results · ${review.label}`}
+          title="The pages that moved"
+          intro="Average Google ranking across each page's tracked keywords, compared with the previous review. Pages in the sections we have flagged as priorities carry a flag."
+        >
+          <ReportTable head={[{ label: 'Page' }, { label: 'Position', align: 'right' }, { label: 'Change', align: 'right' }]}>
+            {moved.slice(0, 15).map(m => (
+              <tr key={m.page.id}>
+                <td className={TD}><span className="inline-flex items-center gap-2">{m.isPriority && <Flag size={11} className="shrink-0 text-pink" fill="currentColor" />}{m.page.name}</span></td>
+                <td className={cn(TD, 'text-right')}><PositionChip position={m.avgPosition} /></td>
+                <td className={cn(TD, 'text-right')}><ChangeIndicator change={m.change} /></td>
+              </tr>
+            ))}
+          </ReportTable>
+          {moved.length > 15 && <p className="mt-3 text-xs text-ink-faint">And {moved.length - 15} more. The Results tab has every review.</p>}
+          {review.priorityHubs.length > 0 && (
+            <ReportNote className="mt-6" lead="Priority sections.">{review.priorityHubs.map(h => h.name).join(', ')}.</ReportNote>
           )}
-        </div>
-      </div>
+        </ReportPage>
+      )}
 
-      {/* ── Section D: Branded Footer ───────────────────────── */}
-      <motion.div
-        className="py-10 text-center bg-white"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.6 }}
-      >
-        <p className="text-2xl font-bold italic text-coral tracking-tight">distl</p>
-        <p className="text-sm text-gray-400 mt-1">Brand Purity. Digital Potency.</p>
-      </motion.div>
-    </div>
+      <ReportEnd />
+    </Report>
   )
 }

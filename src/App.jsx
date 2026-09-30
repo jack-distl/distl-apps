@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Header, Sidebar, LoginPage, LoadingSpinner, AuthCallback, SetPassword } from './components'
 import { useAuth } from './hooks/useAuth'
@@ -8,7 +8,6 @@ import { TemplateProvider } from './contexts/TemplateContext'
 import Dashboard from './features/hub/Dashboard'
 import Clients from './features/hub/Clients'
 import ClientOverview from './features/hub/ClientOverview'
-import PlannerHome from './features/okr/PlannerHome'
 import OkrPlanner from './features/okr/OkrPlanner'
 import TemplateEditor from './features/okr/TemplateEditor'
 import SitemapHome from './features/sitemap/SitemapHome'
@@ -84,12 +83,13 @@ export default function App() {
                 <Routes location={location}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/clients" element={<Clients />} />
-                  <Route path="/clients/:clientId" element={<ClientOverview />} />
-                  <Route path="/okr" element={<PlannerHome />} />
+                  <Route path="/clients/:clientRef" element={<ClientOverview />} />
+                  {/* The SEO plan is reached from a client: the Clients list, then its tab */}
+                  <Route path="/okr" element={<Navigate to="/clients" replace />} />
                   <Route path="/okr/templates" element={<TemplateEditor />} />
-                  <Route path="/okr/:clientId" element={<OkrPlanner />} />
+                  <Route path="/okr/:clientRef" element={<OkrPlanner />} />
                   <Route path="/sitemap" element={<SitemapHome />} />
-                  <Route path="/sitemap/:clientId" element={<SitemapTool />} />
+                  <Route path="/sitemap/:clientRef" element={<SitemapTool />} />
                 </Routes>
               </motion.div>
             </AnimatePresence>

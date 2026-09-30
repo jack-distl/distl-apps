@@ -21,6 +21,30 @@ export default {
         'off-black': '#111111',
         cream: '#FAF9F7',
 
+        // The SEO Plan screens are shared with the WordPress build
+        // (distl-app-wp), which uses pink / sage / ink class names. They map
+        // onto this app's coral and cream here, so those files can be copied
+        // across unchanged and still look like this app.
+        pink: {
+          50: '#FDF0ED',
+          100: '#FCE0D8',
+          soft: '#FCE0D8',
+          light: '#F2A090',
+          DEFAULT: '#E8806A',
+          dark: '#D66B55',
+        },
+        sage: {
+          light: '#FAF9F7',
+          DEFAULT: '#F3F4F6',
+          line: '#E5E7EB',
+          deep: '#D1D5DB',
+        },
+        ink: {
+          DEFAULT: '#1A1A1A',
+          soft: '#666666',
+          faint: '#9CA3AF',
+        },
+
         // shadcn/ui semantic colors
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -60,6 +84,8 @@ export default {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        // WordPress build's large panel corner, kept subtle here.
+        panel: '1rem',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

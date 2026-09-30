@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useClients } from '@/hooks'
 import { fetchSitemapSummaries } from '@/hooks/useSitemapData'
 import { REVIEW_CADENCES } from '@/lib/sitemap/defaults'
+import { clientPath } from '@/lib/clientRoutes'
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } }
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }
@@ -54,7 +55,7 @@ export default function SitemapHome() {
           const cadence = s ? REVIEW_CADENCES.find(c => c.value === s.reviewCadence)?.label : null
           return (
             <motion.div key={client.id} variants={fadeUp} whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
-              <Card className="cursor-pointer hover:shadow-md transition-shadow h-full" onClick={() => navigate(`/sitemap/${client.id}`)}>
+              <Card className="cursor-pointer hover:shadow-md transition-shadow h-full" onClick={() => navigate(clientPath('sitemap', client))}>
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div>
@@ -74,7 +75,7 @@ export default function SitemapHome() {
                   ) : summaries ? (
                     <button
                       type="button"
-                      onClick={e => { e.stopPropagation(); navigate(`/sitemap/${client.id}?start=foundations`) }}
+                      onClick={e => { e.stopPropagation(); navigate(`${clientPath('sitemap', client)}?start=foundations`) }}
                       className="text-sm text-coral hover:text-coral-dark inline-flex items-center gap-1"
                     >
                       Start SEO Foundations <ArrowRight size={12} />
