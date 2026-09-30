@@ -16,14 +16,7 @@ function periodFromDb(row) {
     seoRetainer: row.seo_retainer ?? null,
     offsiteAllowancePercent: Number(row.offsite_allowance_percent),
     adHocPercent: row.adhoc_percent != null ? Number(row.adhoc_percent) : 10,
-    accountManagementName: row.account_management_name ?? 'Account Management',
     accountManagementPercent: row.account_management_percent != null ? Number(row.account_management_percent) : 5,
-    adminTasks: {
-      monthlyReportingAM: Number(row.admin_monthly_reporting_am),
-      monthlyReportingSEO: Number(row.admin_monthly_reporting_seo),
-      okrReportingAM: Number(row.admin_okr_reporting_am),
-      okrReportingSEO: Number(row.admin_okr_reporting_seo),
-    },
     objectives: [],
   }
 }
@@ -41,14 +34,7 @@ function periodToDb(period, clientId) {
     seo_retainer: period.seoRetainer ?? null,
     offsite_allowance_percent: period.offsiteAllowancePercent,
     adhoc_percent: period.adHocPercent ?? 10,
-    account_management_name: period.accountManagementName ?? 'Account Management',
     account_management_percent: period.accountManagementPercent ?? 5,
-    // Admin reporting columns are retained for backwards-compat; reporting
-    // is now modelled as objectives, so fall back to defaults when absent.
-    admin_monthly_reporting_am: period.adminTasks?.monthlyReportingAM ?? 0,
-    admin_monthly_reporting_seo: period.adminTasks?.monthlyReportingSEO ?? 0,
-    admin_okr_reporting_am: period.adminTasks?.okrReportingAM ?? 0,
-    admin_okr_reporting_seo: period.adminTasks?.okrReportingSEO ?? 0,
   }
 }
 
@@ -111,6 +97,12 @@ export function useOkrData(clientId) {
   const [saving, setSaving] = useState(false)
 
   const fetchData = useCallback(async () => {
+    if (!clientId) {
+      // The route resolves the client by name first; nothing to load yet.
+      setPeriods([])
+      setLoading(true)
+      return
+    }
     if (!supabase) {
       const mock = mockOkrData[clientId]
       setPeriods(mock?.periods || [])
@@ -188,7 +180,7 @@ export function useOkrData(clientId) {
 
       setPeriods(assembled)
     } catch (err) {
-      setError('Failed to load OKR data.')
+      setError('Could not load the SEO plan.')
       console.error('useOkrData fetch error:', err)
     } finally {
       setLoading(false)
@@ -363,7 +355,7 @@ export function useOkrData(clientId) {
   }
 }
 
-// Lightweight fetch for PlannerHome — latest period per client
+// Lightweight fetch of the latest period per client (the Blueprint's SEO card)
 export async function fetchLatestPeriods() {
   if (!supabase) return null
 

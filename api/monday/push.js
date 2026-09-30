@@ -92,7 +92,8 @@ export default async function handler(req, res) {
             updatePosted = true
           } catch (err) {
             console.error(`Failed to post update on "${task.name}":`, err)
-            errors.push({ name: task.name, error: `Subitem created, but its update failed: ${err.message}` })
+            // created: the subitem exists, so a retry must not send it again.
+            errors.push({ name: task.name, error: `Subitem created, but its update failed: ${err.message}`, created: true })
           }
         }
         results.push({ name: task.name, subitemId, updatePosted })

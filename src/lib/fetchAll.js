@@ -1,6 +1,6 @@
-// The REST route caps a select at 1,000 rows (distl_platform_max_rows),
-// the way Supabase did. Anything that can grow past that pages through with
-// fetchAllRows, or the screen quietly shows part of the data.
+// Supabase caps a select at 1,000 rows. Anything that can grow past that
+// pages through with fetchAllRows, or the screen quietly shows part of the
+// data. Shared with the WordPress build, whose REST route has the same cap.
 
 import { supabase } from './supabase.js'
 
