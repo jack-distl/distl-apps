@@ -19,6 +19,10 @@ const SCOPE_ICONS = {
 
 const BLANK_NEW_TASK = { name: '', am: 0.5, seo: 2 }
 
+// Shared field styling: white, hairline, black on focus with a soft pink ring.
+const FIELD = 'rounded-xl border border-sage-line bg-white text-sm text-ink focus:outline-none focus:border-ink focus:ring-2 focus:ring-pink/30'
+const FIELD_SM = 'rounded-lg border border-sage-line bg-white text-ink focus:outline-none focus:border-ink focus:ring-2 focus:ring-pink/30'
+
 export default function TemplateEditor() {
   const {
     tasks, templates, allTemplatesResolved, categories,
@@ -125,14 +129,14 @@ export default function TemplateEditor() {
       {/* Heading + search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
         <div>
-          <h2 className="text-lg font-semibold text-charcoal">OKR Task Templates</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Reusable objective templates and their tasks. Edits apply everywhere a task is used.
+          <h2 className="text-3xl font-light tracking-tight text-ink">Objective templates</h2>
+          <p className="mt-1.5 text-ink-soft">
+            Reusable objective templates and their tasks. Edits change the library and templates; plans already made keep their own copy.
           </p>
         </div>
 
         <div className="relative flex-1 max-w-xs">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-sage-deep" />
           <Input
             type="text"
             value={search}
@@ -141,7 +145,7 @@ export default function TemplateEditor() {
             className="pl-9 pr-8"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sage-deep hover:text-ink-soft">
               <X size={14} />
             </button>
           )}
@@ -151,25 +155,25 @@ export default function TemplateEditor() {
       <div className="space-y-3">
         {/* New template button / form */}
         {showNewTemplate ? (
-          <form onSubmit={handleAddTemplate} className="bg-white rounded-xl border border-gray-200 border-dashed p-5">
+          <form onSubmit={handleAddTemplate} className="bg-white rounded-2xl border border-sage-line border-dashed p-5">
             <div className="flex items-end gap-3">
               <div className="flex-1">
-                <label className="block text-sm text-gray-500 mb-1">Template Title</label>
+                <label className="block text-sm text-ink-soft mb-1">Template title</label>
                 <input
                   type="text"
                   value={newTplTitle}
                   onChange={e => setNewTplTitle(e.target.value)}
                   placeholder="e.g. E-commerce SEO Setup"
                   autoFocus
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
+                  className={`w-full h-9 px-3.5 ${FIELD}`}
                 />
               </div>
               <div className="w-44">
-                <label className="block text-sm text-gray-500 mb-1">Category</label>
+                <label className="block text-sm text-ink-soft mb-1">Category</label>
                 <select
                   value={newTplCategory}
                   onChange={e => setNewTplCategory(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg"
+                  className={`w-full h-9 px-3 ${FIELD}`}
                 >
                   {categoryOptions.map(c => (
                     <option key={c} value={c}>{c}</option>
@@ -177,11 +181,11 @@ export default function TemplateEditor() {
                 </select>
               </div>
               <div className="w-40">
-                <label className="block text-sm text-gray-500 mb-1">Default Scope</label>
+                <label className="block text-sm text-ink-soft mb-1">Default scope</label>
                 <select
                   value={newTplScope}
                   onChange={e => setNewTplScope(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg"
+                  className={`w-full h-9 px-3 ${FIELD}`}
                 >
                   {SCOPE_OPTIONS.map(s => (
                     <option key={s.id} value={s.id}>{s.label}</option>
@@ -191,14 +195,14 @@ export default function TemplateEditor() {
               <button
                 type="submit"
                 disabled={!newTplTitle.trim()}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark disabled:opacity-40 transition-colors"
+                className="h-9 px-4 text-sm font-medium rounded-full bg-pink text-white hover:bg-pink-dark disabled:opacity-40 transition-colors"
               >
                 Add
               </button>
               <button
                 type="button"
                 onClick={() => { setShowNewTemplate(false); setNewTplTitle('') }}
-                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+                className="h-9 px-4 text-sm text-ink-soft hover:text-ink"
               >
                 Cancel
               </button>
@@ -207,19 +211,19 @@ export default function TemplateEditor() {
         ) : (
           <button
             onClick={() => setShowNewTemplate(true)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-coral hover:text-coral-dark transition-colors"
+            className="inline-flex items-center gap-2 h-9 px-4 text-sm font-medium rounded-full border border-pink text-pink hover:bg-pink hover:text-white transition-colors"
           >
             <Plus className="w-4 h-4" />
-            New Template
+            New template
           </button>
         )}
 
         {/* Template list, grouped by category */}
         {groupedTemplates.map(([category, tpls]) => (
           <div key={category} className="space-y-3">
-            <div className="flex items-center gap-2 pt-3 pb-0.5">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{category}</h3>
-              <span className="text-xs text-gray-300">· {tpls.length}</span>
+            <div className="flex items-baseline gap-2 pt-3 pb-0.5">
+              <h3 className="text-sm font-medium text-ink">{category}</h3>
+              <span className="text-xs text-ink-faint">· {tpls.length}</span>
             </div>
             {tpls.map(tpl => {
           const isExpanded = expandedTemplateId === tpl.id
@@ -230,7 +234,7 @@ export default function TemplateEditor() {
           const isAddingTask = newTaskFor === tpl.id
 
           return (
-            <div key={tpl.id} className="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <div key={tpl.id} className="bg-white rounded-2xl border border-sage-line">
               {/* Header row */}
               <div
                 className="flex items-center gap-3 p-5 cursor-pointer"
@@ -238,13 +242,13 @@ export default function TemplateEditor() {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-charcoal truncate">{tpl.title}</h3>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${scopeOption?.color || 'bg-gray-100 text-gray-700'}`}>
+                    <h3 className="text-sm font-medium text-ink truncate">{tpl.title}</h3>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${scopeOption?.color || 'bg-sage text-ink'}`}>
                       <ScopeIcon size={11} />
                       {scopeOption?.label}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-ink-faint mt-0.5">
                     {tpl.taskCount} {tpl.taskCount === 1 ? 'task' : 'tasks'} &middot; {formatHours(tpl.totalHours)} total
                   </p>
                 </div>
@@ -253,33 +257,33 @@ export default function TemplateEditor() {
                     e.stopPropagation()
                     setConfirmDelete({ id: tpl.id, name: tpl.title })
                   }}
-                  className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                  className="text-sage-deep hover:text-red-600 transition-colors p-1"
                 >
                   <Trash2 size={15} />
                 </button>
-                {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                {isExpanded ? <ChevronUp size={16} className="text-ink-faint" /> : <ChevronDown size={16} className="text-ink-faint" />}
               </div>
 
               {/* Expanded detail */}
               {isExpanded && (
-                <div className="border-t border-gray-100 px-5 pb-5 pt-4 space-y-4">
+                <div className="border-t border-sage-line px-5 pb-5 pt-4 space-y-4">
                   {/* Editable title & scope */}
                   <div className="flex gap-3">
                     <div className="flex-1">
-                      <label className="block text-xs text-gray-400 mb-1">Title</label>
+                      <label className="block text-xs text-ink-soft mb-1">Title</label>
                       <input
                         type="text"
                         value={tpl.title}
                         onChange={e => updateTemplate(tpl.id, { title: e.target.value })}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
+                        className={`w-full h-8 px-3 ${FIELD}`}
                       />
                     </div>
                     <div className="w-44">
-                      <label className="block text-xs text-gray-400 mb-1">Category</label>
+                      <label className="block text-xs text-ink-soft mb-1">Category</label>
                       <select
                         value={tpl.category || ''}
                         onChange={e => updateTemplate(tpl.id, { category: e.target.value || null })}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg"
+                        className={`w-full h-8 px-3 ${FIELD}`}
                       >
                         <option value="">Uncategorised</option>
                         {categoryOptions.map(c => (
@@ -288,11 +292,11 @@ export default function TemplateEditor() {
                       </select>
                     </div>
                     <div className="w-40">
-                      <label className="block text-xs text-gray-400 mb-1">Default Scope</label>
+                      <label className="block text-xs text-ink-soft mb-1">Default scope</label>
                       <select
                         value={tpl.defaultScope}
                         onChange={e => updateTemplate(tpl.id, { defaultScope: e.target.value })}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg"
+                        className={`w-full h-8 px-3 ${FIELD}`}
                       >
                         {SCOPE_OPTIONS.map(s => (
                           <option key={s.id} value={s.id}>{s.label}</option>
@@ -304,19 +308,19 @@ export default function TemplateEditor() {
                   {/* Task list within template — inline editable */}
                   {tpl.resolvedTasks.length > 0 ? (
                     <div className="space-y-1">
-                      <div className="flex items-center gap-3 px-3 text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                      <div className="flex items-center gap-3 px-3 text-xs text-ink-soft">
                         <span className="flex-1">Task</span>
                         <span className="w-16 text-center">AM</span>
                         <span className="w-16 text-center">SEO</span>
                         <span className="w-6" />
                       </div>
                       {tpl.resolvedTasks.map(task => (
-                        <div key={task.id} className="flex items-center gap-3 py-1.5 px-3 rounded-lg hover:bg-gray-50 group">
+                        <div key={task.id} className="flex items-center gap-3 py-1.5 px-3 rounded-xl hover:bg-sage-light group">
                           <input
                             type="text"
                             value={task.name}
                             onChange={e => updateTask(task.id, { name: e.target.value })}
-                            className="flex-1 min-w-0 bg-transparent text-sm text-charcoal border-0 p-0 focus:outline-none focus:ring-0"
+                            className="flex-1 min-w-0 bg-transparent text-sm text-ink border-0 p-0 focus:outline-none focus:ring-0"
                           />
                           <input
                             type="number"
@@ -324,7 +328,7 @@ export default function TemplateEditor() {
                             onChange={e => updateTask(task.id, { defaultAmHours: roundToHalf(Number(e.target.value) || 0) })}
                             min={0}
                             step={0.5}
-                            className="w-16 px-1.5 py-0.5 text-xs border border-gray-200 rounded text-center focus:outline-none focus:ring-2 focus:ring-coral/30"
+                            className={`w-16 px-1.5 py-0.5 text-xs text-center tabular-nums ${FIELD_SM}`}
                           />
                           <input
                             type="number"
@@ -332,11 +336,11 @@ export default function TemplateEditor() {
                             onChange={e => updateTask(task.id, { defaultSeoHours: roundToHalf(Number(e.target.value) || 0) })}
                             min={0}
                             step={0.5}
-                            className="w-16 px-1.5 py-0.5 text-xs border border-gray-200 rounded text-center focus:outline-none focus:ring-2 focus:ring-coral/30"
+                            className={`w-16 px-1.5 py-0.5 text-xs text-center tabular-nums ${FIELD_SM}`}
                           />
                           <button
                             onClick={() => removeTaskFromTemplate(tpl.id, task.id)}
-                            className="w-6 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all p-0.5"
+                            className="w-6 opacity-0 group-hover:opacity-100 text-sage-deep hover:text-red-600 transition-all p-0.5"
                             title="Remove from template"
                           >
                             <Minus size={14} />
@@ -345,7 +349,7 @@ export default function TemplateEditor() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-400 italic">No tasks yet. Add one below.</p>
+                    <p className="text-sm text-ink-faint">No tasks yet. Add one below.</p>
                   )}
 
                   {/* Add existing task + create new task */}
@@ -356,7 +360,7 @@ export default function TemplateEditor() {
                         onChange={e => {
                           if (e.target.value) addTaskToTemplate(tpl.id, e.target.value)
                         }}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-500 focus:outline-none focus:ring-2 focus:ring-coral/30"
+                        className={`flex-1 h-9 px-3 ${FIELD} text-ink-soft`}
                       >
                         <option value="">+ Add an existing task...</option>
                         {availableTasks.map(t => (
@@ -369,10 +373,10 @@ export default function TemplateEditor() {
                     {!isAddingTask && (
                       <button
                         onClick={() => openNewTask(tpl.id)}
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-coral hover:text-coral-dark border border-coral/30 rounded-lg hover:bg-coral/5 transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 h-9 px-4 text-sm font-medium rounded-full border border-pink text-pink hover:bg-pink hover:text-white transition-colors"
                       >
                         <Plus className="w-4 h-4" />
-                        New Task
+                        New task
                       </button>
                     )}
                   </div>
@@ -381,58 +385,58 @@ export default function TemplateEditor() {
                   {isAddingTask && (
                     <form
                       onSubmit={e => handleCreateTaskInTemplate(e, tpl.id)}
-                      className="bg-gray-50 rounded-lg border border-gray-200 border-dashed p-3"
+                      className="bg-sage-light rounded-xl border border-sage-line border-dashed p-3"
                     >
                       <div className="flex flex-wrap items-end gap-3">
                         <div className="flex-1 min-w-[160px]">
-                          <label className="block text-xs text-gray-500 mb-1">New Task Name</label>
+                          <label className="block text-xs text-ink-soft mb-1">New task name</label>
                           <input
                             type="text"
                             value={newTask.name}
                             onChange={e => setNewTask(prev => ({ ...prev, name: e.target.value }))}
                             placeholder="e.g. Schema Audit"
                             autoFocus
-                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral"
+                            className={`w-full h-8 px-3 ${FIELD}`}
                           />
                         </div>
                         <div className="w-20">
-                          <label className="block text-xs text-gray-500 mb-1">AM Hrs</label>
+                          <label className="block text-xs text-ink-soft mb-1">AM hrs</label>
                           <input
                             type="number"
                             value={newTask.am}
                             onChange={e => setNewTask(prev => ({ ...prev, am: Number(e.target.value) || 0 }))}
                             min={0}
                             step={0.5}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg"
+                            className={`w-full h-8 px-2 tabular-nums ${FIELD}`}
                           />
                         </div>
                         <div className="w-20">
-                          <label className="block text-xs text-gray-500 mb-1">SEO Hrs</label>
+                          <label className="block text-xs text-ink-soft mb-1">SEO hrs</label>
                           <input
                             type="number"
                             value={newTask.seo}
                             onChange={e => setNewTask(prev => ({ ...prev, seo: Number(e.target.value) || 0 }))}
                             min={0}
                             step={0.5}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg"
+                            className={`w-full h-8 px-2 tabular-nums ${FIELD}`}
                           />
                         </div>
                         <button
                           type="submit"
                           disabled={!newTask.name.trim()}
-                          className="px-4 py-1.5 text-sm font-medium rounded-lg bg-coral text-white hover:bg-coral-dark disabled:opacity-40 transition-colors"
+                          className="h-8 px-4 text-sm font-medium rounded-full bg-pink text-white hover:bg-pink-dark disabled:opacity-40 transition-colors"
                         >
                           Add
                         </button>
                         <button
                           type="button"
                           onClick={() => { setNewTaskFor(null); setNewTask(BLANK_NEW_TASK) }}
-                          className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700"
+                          className="h-8 px-3 text-sm text-ink-soft hover:text-ink"
                         >
                           Cancel
                         </button>
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-2">
+                      <p className="text-xs text-ink-faint mt-2">
                         Creates a reusable task in the master library and adds it to this template.
                       </p>
                     </form>
@@ -446,7 +450,7 @@ export default function TemplateEditor() {
         ))}
 
         {filteredTemplates.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-8">
+          <p className="text-sm text-ink-faint text-center py-8">
             {search ? `No templates or tasks match "${search}"` : 'No templates yet'}
           </p>
         )}
@@ -457,7 +461,7 @@ export default function TemplateEditor() {
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDeleteConfirm}
-        title="Delete Template"
+        title="Delete template"
         message={`Are you sure you want to delete "${confirmDelete?.name}"? This cannot be undone.`}
       />
     </div>

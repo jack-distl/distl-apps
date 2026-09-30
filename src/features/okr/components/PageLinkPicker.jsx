@@ -70,16 +70,16 @@ export function PageLinkPicker({ open, onClose, pages, linkedIds = [], onSave, o
     >
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[12rem]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-faint" />
           <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Filter by page, URL or keyword" className="h-8 pl-8 text-xs" />
         </div>
-        <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
-          <input type="checkbox" className="accent-[#E8806A]" checked={priorityOnly} onChange={e => setPriorityOnly(e.target.checked)} />
-          <Flag size={11} className="text-coral" fill="currentColor" /> Priority only
+        <label className="inline-flex items-center gap-1.5 text-xs text-ink-soft cursor-pointer select-none">
+          <input type="checkbox" className="accent-pink" checked={priorityOnly} onChange={e => setPriorityOnly(e.target.checked)} />
+          <Flag size={11} className="text-pink" fill="currentColor" /> Priority only
         </label>
       </div>
 
-      <div className="max-h-[45vh] overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100 text-sm">
+      <div className="max-h-[45vh] overflow-y-auto rounded-xl border border-sage-line divide-y divide-sage-line text-sm">
         {shownGroups.map(g => {
           const ids = g.matches.map(p => p.id)
           const allOn = ids.every(id => selected.has(id))
@@ -88,23 +88,23 @@ export function PageLinkPicker({ open, onClose, pages, linkedIds = [], onSave, o
             <div key={g.key}>
               <label
                 className={cn(
-                  'flex items-center gap-2 px-3 py-1.5 bg-gray-50 cursor-pointer hover:bg-gray-100',
-                  g.priority && 'bg-coral-50/50 hover:bg-coral-50'
+                  'flex items-center gap-2 px-3 py-1.5 bg-sage-light cursor-pointer hover:bg-sage',
+                  g.priority && 'bg-pink-50/50 hover:bg-pink-50'
                 )}
                 title={g.isHub ? `Link the whole ${g.label} hub (${ids.length} page${ids.length === 1 ? '' : 's'})` : undefined}
               >
                 <input
                   type="checkbox"
-                  className="accent-[#E8806A]"
+                  className="accent-pink"
                   checked={allOn}
                   ref={el => { if (el) el.indeterminate = someOn && !allOn }}
                   onChange={() => setMany(ids, !allOn)}
                 />
-                {g.isHub && <Layers size={11} className="text-gray-400 shrink-0" />}
-                {g.priority && <Flag size={11} className="text-coral shrink-0" fill="currentColor" />}
-                <span className="font-medium text-charcoal">{g.label}</span>
-                {g.url && <span className="font-mono text-[11px] text-gray-400 truncate">{g.url}</span>}
-                <span className="ml-auto text-[11px] text-gray-400 shrink-0">
+                {g.isHub && <Layers size={11} className="text-ink-faint shrink-0" />}
+                {g.priority && <Flag size={11} className="text-pink shrink-0" fill="currentColor" />}
+                <span className="font-medium text-ink">{g.label}</span>
+                {g.url && <span className="font-mono text-[11px] text-ink-faint truncate">{g.url}</span>}
+                <span className="ml-auto text-[11px] text-ink-faint shrink-0">
                   {g.isHub ? `whole hub · ${ids.length} page${ids.length === 1 ? '' : 's'}` : `${ids.length} page${ids.length === 1 ? '' : 's'}`}
                 </span>
               </label>
@@ -112,23 +112,23 @@ export function PageLinkPicker({ open, onClose, pages, linkedIds = [], onSave, o
                 const primary = (p.keywords || []).find(k => k.is_primary)
                 const on = selected.has(p.id)
                 return (
-                  <label key={p.id} className={cn('flex items-center gap-2 pl-8 pr-3 py-1.5 cursor-pointer hover:bg-gray-50', on && 'bg-coral-50/40')}>
-                    <input type="checkbox" checked={on} onChange={() => toggle(p.id)} className="accent-[#E8806A]" />
-                    {p.is_priority && <Flag size={11} className="text-coral shrink-0" fill="currentColor" />}
-                    <span className="font-medium text-charcoal truncate">{p.name}</span>
-                    <span className="font-mono text-[11px] text-gray-400 truncate">{p.url}</span>
-                    {primary && <span className="ml-auto text-[11px] text-gray-400 truncate shrink-0">{primary.keyword}</span>}
+                  <label key={p.id} className={cn('flex items-center gap-2 pl-8 pr-3 py-1.5 cursor-pointer hover:bg-sage-light', on && 'bg-pink-50/40')}>
+                    <input type="checkbox" checked={on} onChange={() => toggle(p.id)} className="accent-pink" />
+                    {p.is_priority && <Flag size={11} className="text-pink shrink-0" fill="currentColor" />}
+                    <span className="font-medium text-ink truncate">{p.name}</span>
+                    <span className="font-mono text-[11px] text-ink-faint truncate">{p.url}</span>
+                    {primary && <span className="ml-auto text-[11px] text-ink-faint truncate shrink-0">{primary.keyword}</span>}
                   </label>
                 )
               })}
             </div>
           )
         })}
-        {!totalShown && <div className="px-3 py-6 text-center text-gray-400">No pages match.</div>}
+        {!totalShown && <div className="px-3 py-6 text-center text-ink-faint">No pages match.</div>}
       </div>
 
       <div className="flex items-center justify-between pt-1">
-        <span className="text-xs text-gray-500">{selected.size} page{selected.size === 1 ? '' : 's'} linked</span>
+        <span className="text-xs text-ink-soft">{selected.size} page{selected.size === 1 ? '' : 's'} linked</span>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button onClick={() => { onSave([...selected]); onClose() }}>
