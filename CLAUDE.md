@@ -112,7 +112,7 @@ distl-apps/
 │   ├── components/               # Reusable UI pieces (buttons, modals, etc.)
 │   ├── features/                 # Feature-specific pages
 │   │   ├── hub/                  # Dashboard & client list
-│   │   ├── okr/                  # OKR Planner
+│   │   ├── okr/                  # SEO plan (formerly OKR Planner)
 │   │   └── sitemap/              # Sitemap Tool (SEO Foundations)
 │   ├── hooks/                    # Data fetching (auth, clients, Supabase)
 │   ├── lib/                      # Utilities, constants, mock data
@@ -143,21 +143,21 @@ pnpm preview     # Preview the production build locally
 
 ## The Hub (Central Dashboard)
 
-The hub is where users land after login. The sidebar lists every active client at the bottom: the client name opens their overview, the chevron expands their tools. New clients are added from the Clients list, the Sitemap Tool home or the OKR Planner home (shared `NewClientModal`).
+The hub is where users land after login. The sidebar lists every active client at the bottom: the client name opens their overview, the chevron expands their tools. New clients are added from the Clients list or the Sitemap Tool home (shared `NewClientModal`). Every client screen has the same tab row: Overview, SEO plan, Sitemap (`components/ClientTabs.jsx`, `lib/clientTools.js`).
 
 The hub shows platform-wide numbers pulled from both apps (`useHubStats`, which pages past Supabase's 1000-row cap):
 
-1. **Delivered** — tasks delivered (tasks inside actioned objectives), active clients, pages improved
+1. **Delivered** — tasks delivered (tasks inside objectives marked Working on it), active clients, pages improved
 2. **Latest reviews** — priority keywords improved, keywords improved, Search Console clicks and impressions with change, comparing each client's latest review to the one before
 3. **App launcher**
 
-Money and hour figures stay out of the hub; they live in the OKR Planner where they are planned.
+Money and hour figures stay out of the hub; they live in the SEO plan where they are planned.
 
-### Client Overview (`/clients/:clientId`)
+### Client Overview (`/clients/:client`)
 
-The CEO view of one client: every sitemap review period side by side with clicks, impressions, average position across all tracked keywords and across priority keywords, the OKR objectives and tasks whose months overlap that review, and the pages that moved underneath. Reviews and OKR periods are matched by overlapping dates, so the two line up without being locked together; periods with no counterpart still appear.
+The CEO view of one client: every sitemap review period side by side with clicks, impressions, average position across all tracked keywords and across priority keywords, the SEO plan's objectives and tasks whose months overlap that review, and the pages that moved underneath. Each period links into the SEO plan (`?period=`). Reviews and SEO plan periods are matched by overlapping dates, so the two line up without being locked together; periods with no counterpart still appear.
 
-Clicks are Search Console clicks, not GA4 sessions. "Tasks" counts tasks in objectives; objectives show actioned of planned, since tasks carry no individual completion flag.
+Clicks are Search Console clicks, not GA4 sessions. "Tasks" counts tasks in objectives; objectives show those worked on of those planned, since tasks carry no individual completion flag.
 
 ### Client View in Hub
 
@@ -172,25 +172,26 @@ Each client card shows:
 
 ## Apps
 
-### OKR Planner (`src/features/okr/`)
+### SEO plan (`src/features/okr/`)
 
-**Purpose:** Plan how retainer hours are allocated each quarter
+Formerly the OKR Planner. **Kept in step with the WordPress build** (`DistlDev/distl-app-wp`, `wp-content/plugins/distl-platform/app/src/features/okr/`), which both teams use alongside this app: same behaviour, same wording, this app's coral and cream look. The screens, `hooks/useOkrData.js`, `hooks/useFutureTasks.js`, `lib/taskLibrary.js` and the shared components (`Sortable`, `AddTile`, `PeriodPills`, `Stat`, `Tag`, `report/*`) copy across from there unchanged: `tailwind.config.js` maps the WordPress build's `pink` / `sage` / `ink` class names onto coral and cream, and `lib/optionLists.js` is a stub (the WordPress build's Settings lists are its defaults here). Only these differ, on purpose: Monday goes through the Vercel functions (`hooks/useMondayData.js`), and there is no Example client, Blueprint, service plans or Settings.
+
+**Purpose:** Plan how a client's SEO retainer hours are spent, period by period
 
 **Key features:**
 
-- Convert monthly retainer to hours ($180/hr)
-- Allocate hours across objectives and tasks
-- Track AM vs SEO hour split (target: 40% / 60%)
-- 10% buffer for ad hoc work
-- Objective templates for common SEO work
-- Optional crosslink: an objective scoped to pages or a keyword group can name the sitemap pages it works on (`okr_objective_pages`), one page or a whole hub at a time, which feeds the client overview and shows in Client View. Entirely optional — the free-text scope detail still works, and clients with no sitemap are unaffected
-- Add Objective filters templates by task type with pills; nothing selected shows every type
-- Push to Monday posts each task's details and internal notes as an update on the subitem it creates
-- Dual view: Internal (full detail) vs Client (simplified)
-- Export tasks to Monday.com format
-- Period-based: Q1, Q2, etc. with history
+- Convert monthly retainer to hours ($180/hr); a period can override the client's retainer and reset back to it
+- Allocate hours across objectives and tasks; the summary line says what is left to plan, "Show workings" opens the retainer, buffers (ad hoc 10%, account management, offsite) and the AM / SEO split
+- Periods as pills (oldest to newest, "not shared" until shared with the client). A new period defaults to the three months after the latest; it can start blank or as a copy, and pull objectives from Future tasks. Deleting asks first. `?period=<id>` opens one (the client Overview links in this way)
+- Objectives: Working on it / Parked (with the reason the client sees), drag to reorder, a More menu (add a blank task, duplicate, save as a template, move to future tasks, delete), an add tile at the end of the grid
+- Tasks: drag to reorder, internal notes behind a Note button
+- **Future tasks** tab: everything we might do for the client, grouped by template category. Search, collapse, drag between categories (which changes the category), pull into a period (moved, or kept as well), and send an objective back from a period with undo (`okr_future_objectives`, `okr_future_key_results`)
+- Objective templates for common SEO work (`/okr/templates`, in the sidebar); Add objective filters them by type with pills
+- Optional crosslink: an objective scoped to pages or a keyword group can name the sitemap pages it works on (`okr_objective_pages`), one page or a whole hub at a time. Entirely optional; clients with no sitemap are unaffected
+- Push to Monday creates subitems and posts each task's details and internal notes as an update; a retry sends only the tasks Monday refused
+- **Client view**: one switch in the header for the whole app (remembered per browser). Every client screen shows what the client sees: the SEO plan becomes a report (the goal, the Sitemap review that overlaps the period with clicks, times seen on Google, average ranking and the pages that moved, then the objectives and tasks), and the Sitemap tab drops out
 
-**Status:** Prototype complete, connected to Supabase
+**Status:** Connected to Supabase (migrations 020 and 021 add Future tasks and the plain-English library wording)
 
 ### Sitemap Tool (`src/features/sitemap/`)
 
@@ -201,7 +202,7 @@ Each client card shows:
 - One sitemap per client. Pages carry name, URL, status (keep / add / opportunity / functional), page template, a keyword cluster with exactly one primary keyword, title tag, meta description and H1
 - Hierarchy is derived from the URL path (`/about/our-people/` nests under `/about/`), so editing a URL moves the page; children can follow with a confirm
 - Four tabs from the same tree: Sitemap (tree or table), Keyword Research, URL Architecture, Templates
-- Detail side panel with every field editable in place; edits autosave through Supabase like the OKR planner
+- Detail side panel with every field editable in place; edits autosave through Supabase like the SEO plan
 - **Template in, then fully editable:** the SEO Foundations CSVs (proposed sitemap, keyword clusters, optional metadata sheet) land the whole tree. Re-importing shows a diff and never overwrites edits unless chosen
 - **Versions:** the planning version plus any number of review versions, each named after the period it covers (e.g. Jul – Sep 2026) and ordered by that period. Search Console queries attach to pages by page URL when the export has one, else by exact keyword, else by containing a tracked keyword (marked inferred). A review takes Search Console Pages and Queries CSVs, an Ahrefs or SEMrush rank tracking export and optionally refreshed volumes. Pages and keywords the files reveal are offered as additions, so the tree can start from nothing. Nothing unmatched is dropped; it is kept with the version for review
 - **Board layout:** pages move left/right (columns) and up/down with hover arrows; "Show under" groups a page into another column visually without changing its URL. The table view reads the board left to right
@@ -251,11 +252,13 @@ team_members
 ### App-Specific Tables
 
 ```sql
--- OKR Planner
-okr_periods (client_id, start_date, end_date, goal, is_published, ...)
-okr_objectives (period_id, title, scope, ...)
-okr_tasks (objective_id, description, am_hours, seo_hours, status, ...)
+-- SEO plan (formerly OKR Planner)
+okr_periods (client_id, start_month, start_year, end_month, end_year, goal, is_published, seo_retainer, ...)
+okr_objectives (period_id, title, scope, is_actioned, not_actioned_reason, ...)
+okr_key_results (objective_id, task, description, internal_notes, am_hours, seo_hours, ...)
 okr_objective_pages (objective_id, page_id)   -- optional link to Sitemap Tool pages
+okr_future_objectives (client_id, category, title, scope, scope_detail, ...)   -- Future tasks
+okr_future_key_results (objective_id, task, description, internal_notes, am_hours, seo_hours, ...)
 
 -- Sitemap Tool
 sitemaps (client_id, review_cadence, menus, ...)
@@ -295,11 +298,17 @@ sitemap_version_uploads / _page_metrics / _keyword_positions / _queries (per ver
 ```
 /                     # Hub (dashboard)
 /clients              # All clients list
-/clients/:clientId    # Client overview (what we did vs what moved)
-/okr                  # OKR Planner home
-/okr/:clientId        # OKR for specific client
+/clients/:client      # Client overview (what we did vs what moved)
+/okr                  # Redirects to /clients: the SEO plan is reached from the client
+/okr/templates        # Objective templates
+/okr/:client          # SEO plan for a client (?period=<id> opens one period)
 /sitemap              # Sitemap Tool home
-/sitemap/:clientId    # Sitemap Tool for specific client
+/sitemap/:client      # Sitemap Tool for a client
+```
+
+`:client` is the client's name as a slug (`/okr/amped-digital`), the same as the WordPress build; an id still resolves, so old links keep working (`lib/clientRoutes.js`, `hooks/useClientRoute.js`).
+
+```
 ```
 
 ---
@@ -317,7 +326,7 @@ sitemap_version_uploads / _page_metrics / _keyword_positions / _queries (per ver
 
 ## Current Status
 
-- [x] OKR Planner — Prototype complete, connected to Supabase
+- [x] SEO plan (formerly OKR Planner) — connected to Supabase, in step with the WordPress build
 - [x] Security — Auth gate, RLS policies, security headers
 - [ ] Hub — Basic dashboard exists, needs work
 - [x] Sitemap Tool — Built (SEO Foundations sitemap, keyword clusters, reviews, WordPress export)
