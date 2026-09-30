@@ -16,7 +16,7 @@ export function generateAbbreviation(name) {
 }
 
 /**
- * Add a client. Used from the Clients list and the OKR Planner home.
+ * Add a client. Used from the Clients list and the Sitemap Tool home.
  * `addClient` comes from useClients; `onAdded(client, seoRetainer)` fires
  * after the client (and its SEO retainer, when set) is saved.
  */

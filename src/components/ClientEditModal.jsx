@@ -221,7 +221,7 @@ export function ClientEditModal({ client, isOpen, onClose, onSaved, onDeleted, u
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDelete}
         title="Delete client?"
-        message={`This will permanently delete ${client.name} and all their OKR data. This cannot be undone.`}
+        message={`This will permanently delete ${client.name} and their SEO plan. This cannot be undone.`}
       />
     </>
   )

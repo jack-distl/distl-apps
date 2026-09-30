@@ -10,7 +10,7 @@ import { formatNumber } from '../../lib/sitemap/tree'
 import { ChangeIndicator } from '../sitemap/components/Chips'
 
 const apps = [
-  { name: 'OKR Planner', description: 'Quarterly objective and hour planning', icon: Target, href: '/okr' },
+  { name: 'SEO plan', description: 'Each client’s objectives, tasks and hours, period by period', icon: Target, href: '/clients' },
   { name: 'Sitemap Tool', description: 'SEO Foundations sitemaps, keywords and reviews', icon: MapIcon, href: '/sitemap' },
   { name: 'Clients', description: 'Every client, and what we have moved for them', icon: Users, href: '/clients' },
 ]
@@ -66,8 +66,8 @@ export default function Dashboard() {
             accent
             label="Tasks delivered"
             value={statsLoading ? '—' : formatNumber(stats?.tasksDelivered ?? 0)}
-            sub={stats ? `${stats.objectivesActioned} objectives actioned` : null}
-            hint="Every task inside an objective marked Actioned, across all clients and quarters."
+            sub={stats ? `${stats.objectivesActioned} objectives worked on` : null}
+            hint="Every task inside an objective marked Working on it, across all clients and periods."
           />
         </motion.div>
         <motion.div variants={fadeUp}>
