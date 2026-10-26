@@ -223,6 +223,14 @@ export function useSitemapData(clientId) {
     else queueUpdate('sitemap_pages', pageId, fields)
   }, [patch, runWrite, queueUpdate])
 
+  /** Set the same fields on many pages at once (table bulk edit). */
+  const updatePages = useCallback((pageIds, fields) => {
+    const ids = new Set(pageIds)
+    if (!ids.size) return
+    patch(sm => ({ ...sm, pages: sm.pages.map(p => (ids.has(p.id) ? { ...p, ...fields } : p)) }))
+    runWrite(() => supabase.from('sitemap_pages').update(fields).in('id', [...ids]))
+  }, [patch, runWrite])
+
   /** Change a page URL and optionally cascade to descendants. Returns the cascade list. */
   const updatePageUrl = useCallback((pageId, newUrl, { cascade = false } = {}) => {
     const page = sitemap?.pages.find(p => p.id === pageId)
@@ -243,6 +251,27 @@ export function useSitemapData(clientId) {
     })
     runWrite(() => supabase.from('sitemap_pages').delete().eq('id', pageId))
     return removed
+  }, [patch, runWrite])
+
+  /** Remove many pages at once (table bulk edit). Returns the removed pages for undo. */
+  const deletePages = useCallback((pageIds) => {
+    const ids = new Set(pageIds)
+    if (!ids.size) return []
+    const removed = (sitemap?.pages || []).filter(p => ids.has(p.id))
+    patch(sm => ({ ...sm, pages: sm.pages.filter(p => !ids.has(p.id)) }))
+    runWrite(() => supabase.from('sitemap_pages').delete().in('id', [...ids]))
+    return removed
+  }, [patch, runWrite, sitemap])
+
+  /** Re-insert pages removed with deletePages (undo). Performance rows are gone. */
+  const restorePages = useCallback((pages) => {
+    if (!pages?.length) return
+    patch(sm => ({ ...sm, pages: [...sm.pages, ...pages].sort((a, b) => a.sort_order - b.sort_order) }))
+    const rows = pages.map(({ keywords, ...row }) => row)
+    const keywords = pages.flatMap(p => p.keywords || [])
+    runWrite(() => supabase.from('sitemap_pages').insert(rows)).then(() => {
+      if (keywords.length) runWrite(() => supabase.from('sitemap_keywords').insert(keywords))
+    })
   }, [patch, runWrite])
 
   /** Re-insert a page removed with deletePage (undo). Performance rows are gone. */
@@ -471,7 +500,7 @@ export function useSitemapData(clientId) {
   return {
     sitemap, loading, error, saveStatus, saveError, retrySave, refetch: fetchData,
     createSitemap, updateSitemap, setMenus,
-    addPage, updatePage, updatePageUrl, deletePage, restorePage, reorderPages,
+    addPage, updatePage, updatePages, updatePageUrl, deletePage, deletePages, restorePage, restorePages, reorderPages,
     addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword, deleteKeywords,
     addTemplate, updateTemplate, deleteTemplate,
     addVersion, updateVersion, deleteVersion, deleteUpload, replaceVersionData,

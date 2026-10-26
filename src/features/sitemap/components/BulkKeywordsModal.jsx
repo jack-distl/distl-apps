@@ -9,18 +9,21 @@ import { cn } from '@/lib/utils'
 /**
  * Bulk edit tracked keywords. Every keyword starts ticked for removal; untick
  * the ones to keep, then remove the rest. Scoped to one page when `pageId`
- * is given, otherwise the whole sitemap.
+ * is given, to the pages ticked in the table when `pageIds` is, otherwise the
+ * whole sitemap.
  */
-export function BulkKeywordsModal({ open, onClose, sitemap, pageId, onRemove }) {
+export function BulkKeywordsModal({ open, onClose, sitemap, pageId, pageIds = null, onRemove }) {
   const [selected, setSelected] = useState(new Set())
   const [query, setQuery] = useState('')
 
+  const scope = useMemo(() => (pageIds ? new Set(pageIds) : pageId ? new Set([pageId]) : null), [pageId, pageIds])
+  const singlePage = scope?.size === 1
   const groups = useMemo(() => {
     const { ordered } = orderedPages(sitemap?.pages || [])
     return ordered
-      .filter(p => (!pageId || p.id === pageId) && p.keywords?.length)
+      .filter(p => (!scope || scope.has(p.id)) && p.keywords?.length)
       .map(p => ({ page: p, keywords: [...p.keywords].sort((a, b) => (b.is_primary - a.is_primary) || (Number(b.volume) || 0) - (Number(a.volume) || 0)) }))
-  }, [sitemap, pageId])
+  }, [sitemap, scope])
 
   const allIds = useMemo(() => groups.flatMap(g => g.keywords.map(k => k.id)), [groups])
 
@@ -64,7 +67,7 @@ export function BulkKeywordsModal({ open, onClose, sitemap, pageId, onRemove }) 
           const someOn = ids.some(id => selected.has(id))
           return (
             <div key={g.page.id}>
-              {!pageId && (
+              {!singlePage && (
                 <label className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 cursor-pointer">
                   <input type="checkbox" checked={allOn} ref={el => { if (el) el.indeterminate = someOn && !allOn }} onChange={() => setMany(ids, !allOn)} className="accent-[#E8806A]" />
                   <span className="font-medium text-charcoal">{g.page.name}</span>
@@ -73,7 +76,7 @@ export function BulkKeywordsModal({ open, onClose, sitemap, pageId, onRemove }) 
                 </label>
               )}
               {g.keywords.map(k => (
-                <label key={k.id} className={cn('flex items-center gap-2 px-3 py-1 cursor-pointer hover:bg-gray-50', !pageId && 'pl-8', selected.has(k.id) ? 'text-gray-400 line-through decoration-gray-300' : 'text-charcoal')}>
+                <label key={k.id} className={cn('flex items-center gap-2 px-3 py-1 cursor-pointer hover:bg-gray-50', !singlePage && 'pl-8', selected.has(k.id) ? 'text-gray-400 line-through decoration-gray-300' : 'text-charcoal')}>
                   <input type="checkbox" checked={selected.has(k.id)} onChange={() => toggle(k.id)} className="accent-[#E8806A]" />
                   {k.is_primary && <Star size={11} className="text-coral shrink-0" fill="currentColor" />}
                   <span className="flex-1 min-w-0 truncate">{k.keyword}</span>
