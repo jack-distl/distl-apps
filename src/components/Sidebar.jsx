@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, Target, LayoutTemplate, Map, Settings, Users, ChevronRight, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, Target, LayoutTemplate, Map, Settings, Users, ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -26,7 +26,7 @@ const CLIENT_SERVICES = [
   { label: 'Sitemap', href: c => clientPath('sitemap', c), icon: Map },
 ]
 
-function ClientList({ pathname, onClose }) {
+function ClientList({ pathname, onClose, collapsed }) {
   const { clients } = useClients()
   const [openId, setOpenId] = useState(null)
   const active = clients.filter(c => c.is_active)
@@ -34,6 +34,26 @@ function ClientList({ pathname, onClose }) {
   const currentRef = pathname.match(/^\/(?:okr|sitemap|clients)\/([^/]+)/)?.[1] || null
   const currentId = findClientByRef(active, currentRef)?.id || null
   const expanded = openId ?? currentId
+
+  // Collapsed rail: just the Clients link, highlighted while inside a client
+  if (collapsed) {
+    const on = pathname === '/clients' || !!currentId
+    return (
+      <div className="px-3 pb-2">
+        <Link
+          to="/clients"
+          title={`Clients (${active.length})`}
+          aria-label="Clients"
+          className={cn(
+            'flex items-center justify-center py-2 rounded-lg transition-colors',
+            on ? 'bg-white/10 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'
+          )}
+        >
+          <Users className={cn('w-4 h-4', on && 'text-coral')} />
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div className="px-3 pb-2">
@@ -107,7 +127,7 @@ function ClientList({ pathname, onClose }) {
   )
 }
 
-export function Sidebar({ open = false, onClose }) {
+export function Sidebar({ open = false, onClose, collapsed = false, onToggleCollapsed }) {
   const { pathname } = useLocation()
 
   // Sub-items (with a `parent`) only appear while inside that section
@@ -120,18 +140,25 @@ export function Sidebar({ open = false, onClose }) {
     .filter(item => !item.disabled && isMatch(item.href, pathname))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href
 
-  const sidebarContent = (
+  // The mobile drawer always shows in full; only the desktop sidebar collapses
+  const renderContent = (collapsed) => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="h-14 flex items-center px-5 shrink-0">
-        <img
-          src="/logos/distl-type-white.svg"
-          alt="Distl"
-          className="h-5 w-auto"
-        />
-        <span className="text-white/30 mx-2.5">|</span>
-        <span className="text-white/50 text-sm">platform</span>
-      </div>
+      {collapsed ? (
+        <div className="h-14 flex items-center justify-center shrink-0">
+          <img src="/logos/distl-symbol-white.svg" alt="Distl" className="h-6 w-auto" />
+        </div>
+      ) : (
+        <div className="h-14 flex items-center px-5 shrink-0">
+          <img
+            src="/logos/distl-type-white.svg"
+            alt="Distl"
+            className="h-5 w-auto"
+          />
+          <span className="text-white/30 mx-2.5">|</span>
+          <span className="text-white/50 text-sm">platform</span>
+        </div>
+      )}
 
       <Separator className="bg-white/10" />
 
@@ -147,19 +174,21 @@ export function Sidebar({ open = false, onClose }) {
                 if (item.disabled) e.preventDefault()
                 else onClose?.()
               }}
+              title={collapsed ? (item.disabled ? `${item.label} (soon)` : item.label) : undefined}
+              aria-label={collapsed ? item.label : undefined}
               className={cn(
                 'flex items-center gap-3 py-2 rounded-lg transition-colors',
-                item.indent ? 'pl-9 pr-3 text-[13px]' : 'px-3 text-sm',
+                collapsed ? 'justify-center' : item.indent ? 'pl-9 pr-3 text-[13px]' : 'px-3 text-sm',
                 active
-                  ? 'bg-white/10 text-white font-medium border-l-2 border-coral'
+                  ? cn('bg-white/10 text-white font-medium', !collapsed && 'border-l-2 border-coral')
                   : item.disabled
                   ? 'text-white/20 cursor-not-allowed'
                   : 'text-white/60 hover:bg-white/5 hover:text-white'
               )}
             >
               <item.icon className={cn(item.indent ? 'w-3.5 h-3.5' : 'w-4 h-4', active && 'text-coral')} />
-              {item.label}
-              {item.disabled && (
+              {!collapsed && item.label}
+              {!collapsed && item.disabled && (
                 <span className="ml-auto text-[10px] text-white/20 font-medium">Soon</span>
               )}
             </Link>
@@ -170,15 +199,32 @@ export function Sidebar({ open = false, onClose }) {
       {/* Clients */}
       <Separator className="bg-white/10 mx-3 w-auto" />
       <div className="flex-1 min-h-0 overflow-hidden pt-2">
-        <ClientList pathname={pathname} onClose={onClose} />
+        <ClientList pathname={pathname} onClose={onClose} collapsed={collapsed} />
       </div>
 
       {/* Footer */}
-      <div className="p-4 shrink-0">
+      <div className={cn('shrink-0', collapsed ? 'p-3' : 'p-4')}>
         <Separator className="bg-white/10 mb-4" />
-        <p className="text-[10px] text-white/20 text-center">
-          Brand Purity. Digital Potency.
-        </p>
+        {onToggleCollapsed && (
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={cn(
+              'w-full flex items-center gap-3 py-2 mb-3 rounded-lg text-sm text-white/40 hover:bg-white/5 hover:text-white transition-colors',
+              collapsed ? 'justify-center' : 'px-3'
+            )}
+          >
+            {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            {!collapsed && 'Collapse'}
+          </button>
+        )}
+        {!collapsed && (
+          <p className="text-[10px] text-white/20 text-center">
+            Brand Purity. Digital Potency.
+          </p>
+        )}
       </div>
     </div>
   )
@@ -186,8 +232,8 @@ export function Sidebar({ open = false, onClose }) {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-60 bg-charcoal flex-col">
-        {sidebarContent}
+      <aside className={cn('hidden lg:flex fixed inset-y-0 left-0 z-40 bg-charcoal flex-col transition-[width] duration-200', collapsed ? 'w-16' : 'w-60')}>
+        {renderContent(collapsed)}
       </aside>
 
       {/* Mobile sidebar with animation */}
@@ -209,7 +255,7 @@ export function Sidebar({ open = false, onClose }) {
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="fixed inset-y-0 left-0 z-50 w-60 bg-charcoal flex flex-col lg:hidden"
             >
-              {sidebarContent}
+              {renderContent(false)}
             </motion.aside>
           </>
         )}

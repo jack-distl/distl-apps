@@ -143,7 +143,7 @@ pnpm preview     # Preview the production build locally
 
 ## The Hub (Central Dashboard)
 
-The hub is where users land after login. The sidebar lists every active client at the bottom: the client name opens their overview, the chevron expands their tools. New clients are added from the Clients list or the Sitemap Tool home (shared `NewClientModal`). Every client screen has the same tab row: Overview, SEO plan, Sitemap (`components/ClientTabs.jsx`, `lib/clientTools.js`).
+The hub is where users land after login. The sidebar lists every active client at the bottom: the client name opens their overview, the chevron expands their tools. On desktop the sidebar collapses to an icon rail (Collapse at its foot, remembered per browser, `hooks/useSidebarCollapsed.js`). New clients are added from the Clients list or the Sitemap Tool home (shared `NewClientModal`). Every client screen has the same tab row: Overview, SEO plan, Sitemap (`components/ClientTabs.jsx`, `lib/clientTools.js`).
 
 The hub shows platform-wide numbers pulled from both apps (`useHubStats`, which pages past Supabase's 1000-row cap):
 
@@ -189,7 +189,7 @@ Formerly the OKR Planner. **Kept in step with the WordPress build** (`DistlDev/d
 - Objective templates for common SEO work (`/okr/templates`, in the sidebar); Add objective filters them by type with pills
 - Optional crosslink: an objective scoped to pages or a keyword group can name the sitemap pages it works on (`okr_objective_pages`), one page or a whole hub at a time. Entirely optional; clients with no sitemap are unaffected
 - Push to Monday creates subitems and posts each task's details and internal notes as an update; a retry sends only the tasks Monday refused
-- **Client view**: one switch in the header for the whole app (remembered per browser). Every client screen shows what the client sees: the SEO plan becomes a report (the goal, the Sitemap review that overlaps the period with clicks, times seen on Google, average ranking and the pages that moved, then the objectives and tasks), and the Sitemap tab drops out
+- **Client view**: one switch in the header for the whole app (remembered per browser). Every client screen shows what the client sees: the SEO plan becomes a report (the goal, the Sitemap review that overlaps the period with clicks, times seen on Google, average ranking and the pages that moved, then the objectives and tasks), and the Sitemap goes read only: the latest version's tree or table and Keyword Research, with no review cadence, import, export, versions, URL Architecture or Templates, and a page panel with nothing to edit
 
 **Status:** Connected to Supabase (migrations 020 and 021 add Future tasks and the plain-English library wording)
 
@@ -208,6 +208,7 @@ Formerly the OKR Planner. **Kept in step with the WordPress build** (`DistlDev/d
 - **Board layout:** pages move left/right (columns) and up/down with hover arrows; "Show under" groups a page into another column visually without changing its URL. The table view reads the board left to right
 - **Starting points:** the live site's sitemap.xml (fetched through `api/sitemap/fetch.js`), an uploaded sitemap.xml, the SEO Foundations CSVs, a WordPress import CSV, or review uploads
 - **Bulk edit tracked keywords:** tick to remove across a page or the whole sitemap
+- **Bulk edit in table view:** tick pages (or all shown) to set status, template or the Priority flag, edit their keywords, or remove them with undo
 - **Ongoing use:** filters (Priority keywords, Tracked keywords), a Priority flag per page that lightly emphasises hubs being worked on, and Site / Hubs / All pages roll-ups that sum clicks, impressions and volume up the tree ("20 of 20 pages"). Arriving at a sitemap opens the Sitemap tab on the latest version with Priority keywords on, Hubs roll-up and Tree view. Templates and URL Architecture only show on the SEO Foundations version
 - **Exports:** WordPress import CSV (fixed format, see `reference/seo-foundations/`), plus the tool's own sitemap and keyword cluster CSVs which re-import cleanly
 - Review cadence per client: Quarterly / Biannual / Annual

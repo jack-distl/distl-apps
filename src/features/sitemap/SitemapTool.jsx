@@ -15,7 +15,7 @@ import { useClientView } from '@/hooks/useClientView'
 import { ClientTabs } from '@/components/ClientTabs'
 import { useSitemapData } from '@/hooks/useSitemapData'
 import { REVIEW_CADENCES } from '@/lib/sitemap/defaults'
-import { sortedVersions } from '@/lib/sitemap/perf'
+import { sortedVersions, versionPeriodLabel } from '@/lib/sitemap/perf'
 import { moveAmong } from '@/lib/sitemap/tree'
 import { generateId } from '@/lib/constants'
 import { buildReviewSnapshot } from '@/lib/sitemap/matching'
@@ -53,7 +53,7 @@ const ROLLUPS = [
 export default function SitemapTool() {
   const { client, clientId, clientsLoading } = useClientRoute()
   const { user } = useAuth()
-  const { clientView, setClientView } = useClientView()
+  const { clientView } = useClientView()
   const data = useSitemapData(clientId)
   const { sitemap, loading, error, saveStatus, saveError, retrySave } = data
 
@@ -66,7 +66,7 @@ export default function SitemapTool() {
   const [versionModal, setVersionModal] = useState(null) // null | { existing: version|null }
   const [addPage, setAddPage] = useState(null)           // null | defaults
   const [showMenus, setShowMenus] = useState(false)
-  const [bulkEdit, setBulkEdit] = useState(null)          // null | { pageId: string|null }
+  const [bulkEdit, setBulkEdit] = useState(null)          // null | { pageId: string|null, pageIds?: string[] }
   // Defaults on arrival: Sitemap tab, latest version, Priority keywords on, Tracked keywords off, Hubs roll-up, Tree view
   const [filters, setFilters] = useState({ hideNoKeyword: false, priorityOnly: true })
   const [rollup, setRollup] = useState('hubs')            // 'site' | 'hubs' | 'all'
@@ -87,13 +87,15 @@ export default function SitemapTool() {
   }, [loading, sitemap, searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const versions = useMemo(() => (sitemap ? sortedVersions(sitemap) : []), [sitemap])
-  const version = versions.find(v => v.id === versionId) || versions[versions.length - 1] || null
+  // Client view has no version switching: the client sees the latest
+  const version = (!clientView && versions.find(v => v.id === versionId)) || versions[versions.length - 1] || null
   const isReview = version?.type === 'review'
   const selectedPage = sitemap?.pages.find(p => p.id === selectedPageId) || null
-  // Templates and URL Architecture belong to SEO Foundations (the planning version)
-  const visibleTabs = TABS.filter(t => !isReview || !t.foundationsOnly)
+  // Templates and URL Architecture belong to SEO Foundations (the planning
+  // version) and to the team; Client view keeps the Sitemap and Keyword Research
+  const visibleTabs = TABS.filter(t => !t.foundationsOnly || (!isReview && !clientView))
 
-  useEffect(() => { if (isReview && (tab === 'templates' || tab === 'urls')) setTab('sitemap') }, [isReview, tab])
+  useEffect(() => { if ((isReview || clientView) && (tab === 'templates' || tab === 'urls')) setTab('sitemap') }, [isReview, clientView, tab])
 
   function toggleCollapse(id) {
     if (id === '__site__') { setRollup('hubs'); return }
@@ -127,7 +129,18 @@ export default function SitemapTool() {
   function handleDeletePage(page) {
     const removed = data.deletePage(page.id)
     setSelectedPageId(null)
-    if (removed) setUndo({ message: `Removed "${removed.name}"`, page: removed })
+    if (removed) setUndo({ message: `Removed "${removed.name}"`, pages: [removed] })
+  }
+
+  // Table bulk edit: the ticked pages edited together
+  const bulkActions = {
+    updatePages: data.updatePages,
+    editKeywords: (pageIds) => setBulkEdit({ pageId: null, pageIds }),
+    deletePages: (pageIds) => {
+      const removed = data.deletePages(pageIds)
+      if (pageIds.includes(selectedPageId)) setSelectedPageId(null)
+      if (removed.length) setUndo({ message: removed.length === 1 ? `Removed "${removed[0].name}"` : `Removed ${removed.length} pages`, pages: removed })
+    },
   }
 
   /**
@@ -209,20 +222,6 @@ export default function SitemapTool() {
     )
   }
 
-  // The Sitemap is the team's working tool; the client's tabs leave it out.
-  if (clientView) {
-    return (
-      <div className="w-full">
-        <ClientTabs client={client} />
-        <div className="mx-auto max-w-lg rounded-xl border border-gray-200 bg-white px-8 py-16 text-center">
-          <h2 className="text-lg font-medium text-charcoal">The Sitemap stays with the team</h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500">Its numbers reach the client through the SEO plan. Turn Client view off to work on it.</p>
-          <button type="button" onClick={() => setClientView(false)} className="mt-6 inline-flex h-9 items-center rounded-lg bg-charcoal px-4 text-sm font-medium text-white transition-colors hover:bg-charcoal/80">Turn Client view off</button>
-        </div>
-      </div>
-    )
-  }
-
   const saveIndicator = saveStatus === 'saving' ? (
     <span className="text-xs font-normal text-gray-400 inline-flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Saving…</span>
   ) : saveStatus === 'error' ? (
@@ -236,7 +235,7 @@ export default function SitemapTool() {
   return (
     <div className="w-full">
       <ClientTabs client={client} />
-      {saveError && (
+      {!clientView && saveError && (
         <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2">
           <AlertTriangle size={16} className="text-red-500 shrink-0" />
           <p className="text-sm text-red-700 flex-1">{saveError}</p>
@@ -245,7 +244,14 @@ export default function SitemapTool() {
       )}
       {error && <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      {/* Header */}
+      {/* Header. Client view: the name and the period the sitemap covers; no
+          review cadence, import, export or versions. */}
+      {clientView ? (
+        <div className="mb-5">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">Sitemap{version ? ` · ${isReview ? (versionPeriodLabel(version) || version.name) : 'SEO Foundations'}` : ''}</div>
+          <h1 className="text-2xl font-semibold text-charcoal">{client.name}</h1>
+        </div>
+      ) : (
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-5">
         <div className="flex items-start gap-3">
           <Link to="/sitemap" className="text-gray-400 hover:text-gray-600 mt-1.5" title="Back to Sitemap Tool"><ArrowLeft size={20} /></Link>
@@ -293,9 +299,16 @@ export default function SitemapTool() {
           </div>
         )}
       </div>
+      )}
 
       {/* No sitemap yet */}
-      {!sitemap && (
+      {!sitemap && clientView && (
+        <div className="mx-auto mt-10 max-w-lg rounded-xl border border-gray-200 bg-white px-8 py-16 text-center">
+          <h2 className="text-lg font-medium text-charcoal">No sitemap yet</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500">Turn Client view off to start one for {client.name}.</p>
+        </div>
+      )}
+      {!sitemap && !clientView && (
         <Card className="p-10 text-center max-w-2xl mx-auto mt-10">
           <div className="w-12 h-12 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-4"><MapIcon size={22} className="text-coral" /></div>
           <h2 className="text-lg font-semibold text-charcoal mb-2">No sitemap for {client.name} yet</h2>
@@ -321,17 +334,19 @@ export default function SitemapTool() {
                 ))}
               </TabsList>
             </Tabs>
-            <VersionPills
-              sitemap={sitemap}
-              currentId={version?.id}
-              onSelect={setVersionId}
-              onRename={(id, name) => data.updateVersion(id, { name })}
-              onDelete={(id) => { data.deleteVersion(id); if (id === version?.id) setVersionId(null) }}
-              onNew={() => setVersionModal({ existing: null })}
-            />
+            {!clientView && (
+              <VersionPills
+                sitemap={sitemap}
+                currentId={version?.id}
+                onSelect={setVersionId}
+                onRename={(id, name) => data.updateVersion(id, { name })}
+                onDelete={(id) => { data.deleteVersion(id); if (id === version?.id) setVersionId(null) }}
+                onNew={() => setVersionModal({ existing: null })}
+              />
+            )}
           </div>
 
-          {isReview && (
+          {isReview && !clientView && (
             <div className="mb-4">
               <SourceStrip
                 version={version}
@@ -387,11 +402,11 @@ export default function SitemapTool() {
                     </div>
                   </div>
                   {view === 'tree'
-                    ? <TreeView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} onAddPage={handleAddPage} onMove={handleMove} filters={filters} rollup={rollup} collapsed={collapsed} onToggleCollapse={toggleCollapse} />
-                    : <TableView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} filters={filters} rollup={rollup} collapsed={collapsed} />}
+                    ? <TreeView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} onAddPage={handleAddPage} onMove={handleMove} filters={filters} rollup={rollup} collapsed={collapsed} onToggleCollapse={toggleCollapse} readOnly={clientView} />
+                    : <TableView sitemap={sitemap} version={version} selectedPageId={selectedPageId} onSelectPage={selectPage} filters={filters} rollup={rollup} collapsed={collapsed} bulk={clientView ? null : bulkActions} />}
                 </>
               )}
-              {tab === 'keywords' && <KeywordsTab sitemap={sitemap} onSelectPage={selectPage} onBulkEdit={(pageId) => setBulkEdit({ pageId })} />}
+              {tab === 'keywords' && <KeywordsTab sitemap={sitemap} onSelectPage={selectPage} onBulkEdit={clientView ? null : (pageId) => setBulkEdit({ pageId })} />}
               {tab === 'urls' && <UrlsTab sitemap={sitemap} selectedPageId={selectedPageId} onSelectPage={selectPage} />}
               {tab === 'templates' && (
                 <TemplatesTab
@@ -414,6 +429,7 @@ export default function SitemapTool() {
                   onJumpTemplate={jumpToTemplate}
                   onDeletePage={handleDeletePage}
                   onBulkEdit={(pageId) => setBulkEdit({ pageId })}
+                  readOnly={clientView}
                   rolledUp={rollup === 'site' ? 'site' : (rollup === 'hubs' || collapsed.has(selectedPage.id)) ? 'hub' : null}
                   actions={{
                     updatePage: data.updatePage,
@@ -445,14 +461,14 @@ export default function SitemapTool() {
             onAdd={fields => { const p = data.addPage(fields); setSelectedPageId(p.id); setTab('sitemap') }}
           />
           <MenusModal open={showMenus} onClose={() => setShowMenus(false)} menus={sitemap.menus || []} onChange={data.setMenus} />
-          <BulkKeywordsModal open={!!bulkEdit} onClose={() => setBulkEdit(null)} sitemap={sitemap} pageId={bulkEdit?.pageId || null} onRemove={data.deleteKeywords} />
+          <BulkKeywordsModal open={!!bulkEdit} onClose={() => setBulkEdit(null)} sitemap={sitemap} pageId={bulkEdit?.pageId || null} pageIds={bulkEdit?.pageIds || null} onRemove={data.deleteKeywords} />
         </>
       )}
 
       {undo && (
         <UndoToast
           message={undo.message}
-          onUndo={() => { data.restorePage(undo.page); setUndo(null) }}
+          onUndo={() => { data.restorePages(undo.pages); setUndo(null) }}
           onDismiss={() => setUndo(null)}
         />
       )}

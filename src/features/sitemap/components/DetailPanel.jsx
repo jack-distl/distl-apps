@@ -34,12 +34,24 @@ function StatBox({ value, change: chg, label, sub }) {
   )
 }
 
+/** A metadata field as plain text, for Client view. */
+function ReadField({ label, value }) {
+  if (!value) return null
+  return (
+    <div>
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1">{label}</div>
+      <p className="text-sm leading-relaxed text-gray-800">{value}</p>
+    </div>
+  )
+}
+
 function fmtDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, onDeletePage, onBulkEdit, rolledUp = null, actions }) {
+/** `readOnly` (Client view) shows the page as the client sees it: every field as text, nothing to edit. */
+export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, onDeletePage, onBulkEdit, rolledUp = null, actions = {}, readOnly = false }) {
   const { updatePage, updatePageUrl, addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword } = actions
   const isReview = version?.type === 'review'
   const showPerf = isReview && hasPerf(version, page)
@@ -183,6 +195,8 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
         {/* Status and post type belong to SEO Foundations (the planning version) */}
         {isReview ? (
           <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 pt-1">{versionPeriodLabel(version) || version?.name}</div>
+        ) : readOnly ? (
+          <div className="pt-1"><StatusChip status={page.status} /></div>
         ) : (
         <div className="flex items-center gap-2">
           <Select value={page.status} onValueChange={v => updatePage(page.id, { status: v }, { immediate: true })}>
@@ -209,6 +223,11 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
         </div>
         )}
         <div className="flex items-center gap-2">
+          {readOnly ? (page.is_priority && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-coral bg-coral px-2 py-0.5 text-[11px] font-medium text-white">
+              <Flag size={11} fill="currentColor" /> Priority
+            </span>
+          )) : (
           <button
             type="button"
             onClick={() => updatePage(page.id, { is_priority: !page.is_priority }, { immediate: true })}
@@ -217,17 +236,24 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
           >
             <Flag size={11} fill={page.is_priority ? 'currentColor' : 'none'} /> Priority
           </button>
+          )}
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600" title="Close"><X size={16} /></button>
         </div>
       </div>
 
       <h2 className="text-lg font-semibold text-charcoal mt-3 leading-tight">
-        <EditableText value={page.name} onChange={v => v && updatePage(page.id, { name: v })} />
+        <EditableText value={page.name} onChange={v => v && updatePage(page.id, { name: v })} disabled={readOnly} />
       </h2>
       <div className="text-xs text-gray-500 font-mono mt-1">
-        <EditableText value={page.url} onChange={commitUrl} title="Click to edit URL. Children can follow." />
+        <EditableText value={page.url} onChange={commitUrl} title="Click to edit URL. Children can follow." disabled={readOnly} />
       </div>
 
+      {readOnly ? (template && (
+        <div className="flex items-center gap-2 mt-3 text-xs">
+          <span className="text-gray-400 w-20 shrink-0">Template</span>
+          <span className="text-charcoal">{templateLabel(template)}</span>
+        </div>
+      )) : (
       <div className="flex items-center gap-2 mt-3 text-xs">
         <span className="text-gray-400 w-20 shrink-0">Template</span>
         <Select value={page.template_id || '__none__'} onValueChange={v => updatePage(page.id, { template_id: v === '__none__' ? null : v }, { immediate: true })}>
@@ -245,8 +271,9 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
           </button>
         )}
       </div>
+      )}
 
-      {!isHome(page) && (
+      {!isHome(page) && !readOnly && (
         <div className="flex items-center gap-2 mt-2 text-xs">
           <span className="text-gray-400 w-20 shrink-0 whitespace-nowrap inline-flex items-center gap-1">Show under <Hint>Puts this page in another hub's column on the board so related pages sit together. Visual only: the URL, hierarchy and WordPress export do not change.</Hint></span>
           <Select value={page.group_parent_id || '__auto__'} onValueChange={v => updatePage(page.id, { group_parent_id: v === '__auto__' ? null : v }, { immediate: true })}>
@@ -302,10 +329,20 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
           onUpdate={updateKeyword}
           onSetPrimary={setPrimaryKeyword}
           onDelete={deleteKeyword}
-          onBulkEdit={() => onBulkEdit(page.id)}
+          onBulkEdit={onBulkEdit ? () => onBulkEdit(page.id) : null}
+          readOnly={readOnly}
         />
       </Section>
 
+      {readOnly ? ((page.title_tag || page.meta_description || page.h1) && (
+        <Section label="Metadata">
+          <div className="space-y-3">
+            <ReadField label="Title tag" value={page.title_tag} />
+            <ReadField label="Meta description" value={page.meta_description} />
+            <ReadField label="Recommended H1" value={page.h1} />
+          </div>
+        </Section>
+      )) : (
       <Section label="Metadata">
         <div className="space-y-3">
           <FieldEditor label="Title tag" limit={60} value={page.title_tag} onChange={v => updatePage(page.id, { title_tag: v })} placeholder="Primary Keyword | Secondary | Brand" />
@@ -313,7 +350,9 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
           <FieldEditor label="Recommended H1" value={page.h1} onChange={v => updatePage(page.id, { h1: v })} placeholder="Heading the page should lead with" />
         </div>
       </Section>
+      )}
 
+      {!readOnly && (
       <div className="pt-4 mt-4 border-t border-gray-100 flex justify-end">
         <button
           type="button"
@@ -323,6 +362,7 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
           <Trash2 size={13} /> Remove page
         </button>
       </div>
+      )}
     </motion.aside>
   )
 }

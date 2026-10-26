@@ -10,11 +10,10 @@ import { clientPath } from './clientRoutes.js'
 export const TAB_LABELS = { overview: 'Overview', okr: 'SEO plan', sitemap: 'Sitemap' }
 
 /**
- * The tabs the client never gets: the Sitemap is the team's working tool
- * (the proposed structure, keywords, review uploads). Its numbers reach the
- * client through the SEO plan.
+ * The tabs the client never gets. None at the moment: the Sitemap shows in
+ * Client view too, read only, without its imports, exports and versions.
  */
-export const INTERNAL_TABS = ['sitemap']
+export const INTERNAL_TABS = []
 
 /**
  * [{ id, label, href }] for a client. With `clientView` the internal tabs

@@ -11,6 +11,7 @@ const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } }
 const fadeUp = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }
 
 function AddButton({ label, onClick, className = '' }) {
+  if (!onClick) return null
   return (
     <button
       type="button"
@@ -44,12 +45,12 @@ function MovableCard({ page, moves, grouped, ...cardProps }) {
       {grouped && (
         <span className="absolute -left-1.5 top-2 text-coral/70 bg-white rounded-full" title="Grouped here visually. URL parent is elsewhere."><Link2 size={11} /></span>
       )}
-      <div className="absolute -top-2.5 right-2 hidden group-hover/card:flex gap-1">
+      {moves && <div className="absolute -top-2.5 right-2 hidden group-hover/card:flex gap-1">
         {moves.left && <Arrow dir="left" title="Move left" {...moves.left} />}
         {moves.up && <Arrow dir="up" title="Move up" {...moves.up} />}
         {moves.down && <Arrow dir="down" title="Move down" {...moves.down} />}
         {moves.right && <Arrow dir="right" title="Move right" {...moves.right} />}
-      </div>
+      </div>}
     </div>
   )
 }
@@ -62,21 +63,25 @@ export function passesFilters(page, filters) {
 }
 
 /**
- * The board. `rollup` is 'site' | 'hubs' | 'all'; `collapsed` is the set of
+ * The board. `readOnly` (Client view) drops the add buttons and move arrows. `rollup` is 'site' | 'hubs' | 'all'; `collapsed` is the set of
  * hub ids rolled up individually. Filters hide cards but roll-up totals
  * always sum every page beneath, so numbers stay true to the site.
  */
-export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAddPage, onMove, filters = {}, rollup = 'all', collapsed = new Set(), onToggleCollapse }) {
+export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAddPage, onMove, filters = {}, rollup = 'all', collapsed = new Set(), onToggleCollapse, readOnly = false }) {
   const { home, silos, functional } = buildVisualSilos(sitemap.pages)
   const totalPages = sitemap.pages.length
+
+  // Read-only: no add buttons (AddButton renders nothing without onClick), no move arrows
+  const add = readOnly ? () => undefined : (defaults) => () => onAddPage(defaults)
+  const movesFor = (fn) => (readOnly ? null : fn())
 
   if (!sitemap.pages.length) {
     return (
       <EmptyState
         icon={Home}
         title="No pages yet"
-        description="Import the site or the SEO Foundations files to land the whole tree, or add a home page and build it by hand."
-        action={<Button onClick={() => onAddPage({ url: '/', name: 'Home', status: 'keep' })}><Plus size={16} className="mr-1.5" /> Add home page</Button>}
+        description={readOnly ? 'This sitemap has no pages yet.' : 'Import the site or the SEO Foundations files to land the whole tree, or add a home page and build it by hand.'}
+        action={readOnly ? null : <Button onClick={() => onAddPage({ url: '/', name: 'Home', status: 'keep' })}><Plus size={16} className="mr-1.5" /> Add home page</Button>}
       />
     )
   }
@@ -116,7 +121,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
   // Connector segments are drawn by each column: a tick up to the bar and a
   // bar segment from its centre outwards, so the line always meets the
   // neighbours and the trunk from Home whatever the column widths.
-  const connectorCount = visibleSilos.length + (filters.priorityOnly ? 0 : 1)
+  const connectorCount = visibleSilos.length + (filters.priorityOnly || readOnly ? 0 : 1)
   const Connector = ({ index }) => (
     <>
       <div className="absolute -top-4 left-1/2 w-px h-4 bg-gray-300" />
@@ -138,7 +143,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
           {home ? (
             <PageCard page={home} selected={home.id === selectedPageId} {...cardProps} />
           ) : (
-            <AddButton label="Add home page" onClick={() => onAddPage({ url: '/', name: 'Home', status: 'keep' })} className="py-3" />
+            <AddButton label="Add home page" onClick={add({ url: '/', name: 'Home', status: 'keep' })} className="py-3" />
           )}
         </div>
       </div>
@@ -146,7 +151,7 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
 
       {filters.priorityOnly && !anyPriority && (
         <div className="mx-auto mb-4 max-w-xl rounded-lg border border-coral/30 bg-coral-50/40 px-4 py-2.5 text-xs text-gray-600 text-center">
-          <span className="inline-flex items-center gap-1"><Flag size={11} className="text-coral" fill="currentColor" /> <b className="text-charcoal">Priority keywords</b></span> is on but nothing is flagged yet. Open a page and click Priority to flag it, or untick the filter to see every page.
+          <span className="inline-flex items-center gap-1"><Flag size={11} className="text-coral" fill="currentColor" /> <b className="text-charcoal">Priority keywords</b></span> is on but nothing is flagged yet. {readOnly ? 'Untick the filter to see every page.' : 'Open a page and click Priority to flag it, or untick the filter to see every page.'}
         </div>
       )}
       <div className="overflow-x-auto pb-4 -mx-1 px-1">
@@ -170,10 +175,10 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
                       aggregate={agg}
                       collapsed={rolled}
                       onToggleCollapse={children.length ? () => onToggleCollapse(root.id) : undefined}
-                      moves={{
+                      moves={movesFor(() => ({
                         left: { onClick: () => onMove(root.id, -1, { siblings: siloRoots }), disabled: si === 0 },
                         right: { onClick: () => onMove(root.id, 1, { siblings: siloRoots }), disabled: si === siloRoots.length - 1 },
-                      }}
+                      }))}
                       {...cardProps}
                     />
                     {shownChildren.length > 0 && (
@@ -186,10 +191,10 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
                               page={c}
                               selected={c.id === selectedPageId}
                               grouped={isGrouped(c)}
-                              moves={{
+                              moves={movesFor(() => ({
                                 up: { onClick: () => onMove(c.id, -1, { siblings: children }), disabled: ci === 0 },
                                 down: { onClick: () => onMove(c.id, 1, { siblings: children }), disabled: ci === children.length - 1 },
-                              }}
+                              }))}
                               {...cardProps}
                             />
                           )
@@ -199,25 +204,25 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
                     {!rolled && hidden > 0 && (
                       <div className="mt-1.5 ml-6 text-[11px] text-gray-400">{hidden} page{hidden === 1 ? '' : 's'} hidden by filters</div>
                     )}
-                    {!rolled && (
+                    {!rolled && !readOnly && (
                       <div className="mt-2 ml-3 pl-3">
-                        <AddButton label="Add child" onClick={() => onAddPage({ parentUrl: root.url, status: 'add' })} />
+                        <AddButton label="Add child" onClick={add({ parentUrl: root.url, status: 'add' })} />
                       </div>
                     )}
                   </motion.div>
                 )
               })}
 
-              {!filters.priorityOnly && (
+              {!filters.priorityOnly && !readOnly && (
                 <motion.div variants={fadeUp} className="w-72 shrink-0 relative">
                   <Connector index={connectorCount - 1} />
-                  <AddButton label="Add top-level page" onClick={() => onAddPage({ parentUrl: '/', status: 'add' })} className="py-3" />
+                  <AddButton label="Add top-level page" onClick={add({ parentUrl: '/', status: 'add' })} className="py-3" />
                 </motion.div>
               )}
             </motion.div>
 
             {/* Functional column (hidden entirely when filtering to keyword focus) */}
-            {!filters.hideNoKeyword && (visibleFunctional.length > 0 || !filters.priorityOnly) && (
+            {!filters.hideNoKeyword && (visibleFunctional.length > 0 || (!filters.priorityOnly && !readOnly)) && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-72 shrink-0 relative ml-4 pl-4 border-l border-dashed border-gray-300">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Functional</div>
                 <div className="space-y-2">
@@ -229,22 +234,22 @@ export function TreeView({ sitemap, version, selectedPageId, onSelectPage, onAdd
                         page={p}
                         selected={p.id === selectedPageId}
                         grouped={false}
-                        moves={{
+                        moves={movesFor(() => ({
                           up: { onClick: () => onMove(p.id, -1, { siblings: functional }), disabled: fi === 0 },
                           down: { onClick: () => onMove(p.id, 1, { siblings: functional }), disabled: fi === functional.length - 1 },
-                        }}
+                        }))}
                         {...cardProps}
                       />
                     )
                   })}
-                  {!filters.priorityOnly && <AddButton label="Add functional page" onClick={() => onAddPage({ parentUrl: '/', status: 'functional' })} />}
+                  {!filters.priorityOnly && <AddButton label="Add functional page" onClick={add({ parentUrl: '/', status: 'functional' })} />}
                 </div>
               </motion.div>
             )}
           </div>
         </div>
       </div>
-      <p className="text-[11px] text-gray-400 mt-1">Hover a page for arrows to move it. The chevron on a hub rolls its pages up into one total. "Show under" in a page's panel groups it into another column without changing its URL.</p>
+      {!readOnly && <p className="text-[11px] text-gray-400 mt-1">Hover a page for arrows to move it. The chevron on a hub rolls its pages up into one total. "Show under" in a page's panel groups it into another column without changing its URL.</p>}
     </div>
   )
 }
