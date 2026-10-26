@@ -20,9 +20,9 @@ export function KeywordsTab({ sitemap, onSelectPage, onBulkEdit }) {
     <div>
       <div className="flex items-center justify-between mb-3 text-xs text-gray-500">
         <span>{total} tracked keyword{total === 1 ? '' : 's'} across {pages.length} page{pages.length === 1 ? '' : 's'}</span>
-        <button type="button" onClick={() => onBulkEdit(null)} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-600 hover:border-coral hover:text-coral transition-colors">
+        {onBulkEdit && <button type="button" onClick={() => onBulkEdit(null)} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-600 hover:border-coral hover:text-coral transition-colors">
           <ListChecks size={13} /> Bulk edit tracked keywords
-        </button>
+        </button>}
       </div>
     <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {pages.map(p => {

@@ -22,8 +22,9 @@ function SortHead({ label, col, sort, onSort, align = 'right' }) {
  * The keyword cluster for one page. Fully editable: rename, change volume,
  * star a new primary, remove, add. Sortable by keyword, volume or position
  * (click the heading). On review versions it also shows position and change.
+ * `readOnly` (Client view) keeps the sorting and drops every edit.
  */
-export function KeywordTable({ sitemap, version, page, onAdd, onUpdate, onSetPrimary, onDelete, onBulkEdit }) {
+export function KeywordTable({ sitemap, version, page, onAdd, onUpdate, onSetPrimary, onDelete, onBulkEdit, readOnly = false }) {
   const isReview = version?.type === 'review'
   const prev = isReview ? previousReview(sitemap, version) : null
   const [newKw, setNewKw] = useState('')
@@ -85,24 +86,25 @@ export function KeywordTable({ sitemap, version, page, onAdd, onUpdate, onSetPri
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
+                      disabled={readOnly}
                       onClick={() => !k.is_primary && onSetPrimary(page.id, k.id)}
-                      title={k.is_primary ? 'Primary keyword' : 'Make primary'}
-                      className={cn('shrink-0 transition-colors', k.is_primary ? 'text-coral' : 'text-gray-200 hover:text-coral')}
+                      title={k.is_primary ? 'Primary keyword' : readOnly ? undefined : 'Make primary'}
+                      className={cn('shrink-0 transition-colors', k.is_primary ? 'text-coral' : readOnly ? 'text-gray-200 cursor-default' : 'text-gray-200 hover:text-coral')}
                     >
                       <Star size={13} fill={k.is_primary ? 'currentColor' : 'none'} />
                     </button>
-                    <EditableText value={k.keyword} onChange={v => v && onUpdate(k.id, { keyword: v.toLowerCase() })} className="min-w-0" />
+                    <EditableText value={k.keyword} onChange={v => v && onUpdate(k.id, { keyword: v.toLowerCase() })} className="min-w-0" disabled={readOnly} />
                   </div>
                 </td>
                 <td className="py-1.5 text-right tabular-nums">
-                  <EditableText type="number" value={k.volume} onChange={v => onUpdate(k.id, { volume: Math.max(0, Number(v) || 0) })} inputClassName="w-20 text-right" />
+                  <EditableText type="number" value={k.volume} onChange={v => onUpdate(k.id, { volume: Math.max(0, Number(v) || 0) })} inputClassName="w-20 text-right" disabled={readOnly} />
                 </td>
                 {isReview && <td className="py-1.5 text-right"><PositionChip position={pos} /></td>}
                 {isReview && <td className="py-1.5 text-right"><ChangeIndicator change={change(pos, prevPos, { betterWhenLower: true })} /></td>}
                 <td className="py-1.5 text-right">
-                  <button type="button" onClick={() => onDelete(k.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove keyword">
+                  {!readOnly && <button type="button" onClick={() => onDelete(k.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove keyword">
                     <X size={13} />
-                  </button>
+                  </button>}
                 </td>
               </tr>
             )
@@ -117,6 +119,7 @@ export function KeywordTable({ sitemap, version, page, onAdd, onUpdate, onSetPri
           )}
         </tbody>
       </table>
+      {!readOnly && (
       <div className="flex items-center gap-2 mt-2 pl-6">
         <form onSubmit={submitNew} className="flex items-center gap-2 flex-1 min-w-0">
           <input
@@ -141,6 +144,7 @@ export function KeywordTable({ sitemap, version, page, onAdd, onUpdate, onSetPri
           </button>
         )}
       </div>
+      )}
     </div>
   )
 }
