@@ -3,7 +3,9 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Header, Sidebar, LoginPage, LoadingSpinner, AuthCallback, SetPassword } from './components'
 import { useAuth } from './hooks/useAuth'
+import { useSidebarCollapsed } from './hooks/useSidebarCollapsed'
 import { supabase } from './lib/supabase'
+import { cn } from './lib/utils'
 import { TemplateProvider } from './contexts/TemplateContext'
 import Dashboard from './features/hub/Dashboard'
 import Clients from './features/hub/Clients'
@@ -22,6 +24,7 @@ const pageTransition = {
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { collapsed: sidebarCollapsed, toggle: toggleSidebarCollapsed } = useSidebarCollapsed()
   const { user, loading, signOut } = useAuth()
   const location = useLocation()
 
@@ -70,8 +73,13 @@ export default function App() {
   return (
     <TemplateProvider>
       <div className="min-h-screen bg-cream">
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="lg:pl-60">
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={toggleSidebarCollapsed}
+        />
+        <div className={cn('transition-[padding] duration-200', sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-60')}>
           <Header
             onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
             user={{ name: displayName, email: activeUser.email }}
