@@ -4,7 +4,7 @@ import { fetchAllRows, fetchAllIn } from '../lib/fetchAll'
 import { generateId } from '../lib/constants'
 import { buildSampleSitemap } from '../lib/sitemap/sampleData.js'
 import { DEFAULT_MENUS, DEFAULT_PAGE_TEMPLATES, DEFAULT_PLAN_VERSION_NAME } from '../lib/sitemap/defaults.js'
-import { newRow } from '../lib/sitemap/templateBlocks.js'
+import { newSection } from '../lib/sitemap/templateBlocks.js'
 import { normaliseUrl, cascadeUrlChange } from '../lib/sitemap/tree.js'
 
 // ─── Load ───────────────────────────────────────────────────────
@@ -364,7 +364,7 @@ export function useSitemapData(clientId) {
   // ─── Templates ────────────────────────────────────────────
   const addTemplate = useCallback((fields = {}) => {
     const n = sitemap.templates.length
-    const tpl = { id: generateId(), sitemap_id: sitemap.id, code: fields.code || `T${n + 1}`, name: fields.name || 'New template', description: fields.description || '', blocks: fields.blocks || [newRow({ type: 'navigation' }), newRow({ type: 'page-header' }), newRow({ type: 'text' }), newRow({ type: 'footer' })], sort_order: n }
+    const tpl = { id: generateId(), sitemap_id: sitemap.id, code: fields.code || `T${n + 1}`, name: fields.name || 'New template', description: fields.description || '', blocks: fields.blocks || [newSection({ title: 'Nav bar' }), newSection({ title: 'Page Header' }), newSection({ title: 'Content' }), newSection({ title: 'Footer' })], sort_order: n }
     patch(sm => ({ ...sm, templates: [...sm.templates, tpl] }))
     runWrite(() => supabase.from('sitemap_page_templates').insert(tpl))
     return tpl

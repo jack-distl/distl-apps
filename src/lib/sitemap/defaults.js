@@ -1,4 +1,4 @@
-import { section } from './templateBlocks.js'
+import { s } from './templateBlocks.js'
 
 // Seed data for a new sitemap: page templates and WordPress menus.
 // These are starting points only. Everything is editable per client.
@@ -17,87 +17,86 @@ export const REVIEW_CADENCES = [
   { value: 'annual', label: 'Annual' },
 ]
 
-// blocks: page outline rows, see lib/sitemap/templateBlocks.js
-const two = (a, b) => ({ cols: [...section(...a).cols, ...section(...b).cols] })
-
+// blocks: page outline sections, see lib/sitemap/templateBlocks.js
 export const DEFAULT_PAGE_TEMPLATES = [
   {
     code: 'T1', name: 'Home',
     description: 'Full-width entry point. Hero with primary keyword H1, service overview, trust, featured work, contact CTA.',
     blocks: [
-      section('navigation', 'Mega menu'),
-      section('hero', 'Hero image or video with H1 and subheading.\nCTA → \'Get in touch\'', { color: 'dark' }),
-      section('feature-list', 'Service overview\n- One card per parent service\n- Each card has an image and links down', { title: 'Services' }),
-      section('logos', 'Awards, accreditations or client logos.', { title: 'Trust strip' }),
-      section('text-image', 'Short story about the business.\n- Team photo\nCTA → \'About us\'', { title: 'About teaser' }),
-      section('posts', 'Three latest articles or projects.\nCTA → \'View all\'', { title: 'Featured work' }),
-      section('cta', 'Closing prompt to enquire.\nCTA → \'Book a consultation\'', { color: 'coral' }),
-      section('footer'),
+      s('Nav bar', 'Mega menu'),
+      s('Hero Banner', 'Hero image or video with H1 and subheading.\nCTA → \'Get in touch\''),
+      s('Services', 'Service overview\n- One card per parent service\n- Each card has an image and links down'),
+      s('Trust strip', 'Awards, accreditations or client logos.'),
+      s('About teaser', 'Short story about the business.\n- Team photo\nCTA → \'About us\''),
+      s('Featured work', 'Three latest articles or projects.\nCTA → \'View all\''),
+      s('Contact CTA', 'Closing prompt to enquire.\nCTA → \'Book a consultation\''),
+      s('Footer'),
     ],
   },
   {
     code: 'T2', name: 'Service Parent',
     description: 'Hub page for a service area. Introduces the area, links down to child services, answers common questions.',
     blocks: [
-      section('navigation'),
-      section('page-header', 'Clear category intro.\nCTA → \'Book a consultation\''),
-      section('breadcrumbs'),
-      section('feature-list', 'Links to each child service with image and one line.', { title: 'Explore the range' }),
-      two(['text', 'Why choose us, in three short points.', { title: 'Choosing with confidence' }], ['form', 'Short enquiry form.', { title: 'Quick contact' }]),
-      section('faq', 'Category-level accordion for long-tail SEO.'),
-      section('cta', '', { color: 'coral' }),
-      section('footer'),
+      s('Nav bar'),
+      s('Page Header', 'Clear category intro.\nCTA → \'Book a consultation\''),
+      s('Breadcrumbs'),
+      s('Explore the range', 'Links to each child service with image and one line.'),
+      s('Choosing with confidence', 'Why choose us, in three short points.'),
+      s('FAQ', 'Category-level accordion for long-tail SEO.'),
+      s('CTA Section'),
+      s('Footer'),
     ],
   },
   {
     code: 'T3', name: 'Service Child',
     description: 'Conversion-focused single service page. Long-form content against a persistent contact card.',
     blocks: [
-      section('navigation'),
-      section('page-header', 'Service intro.\nCTA → \'Enquire now\''),
-      section('breadcrumbs'),
-      section('text-image', 'Short intro with three benefit ticks.', { title: 'Overview' }),
-      section('gallery', 'Recent projects for this service.'),
-      section('feature', 'Steps from enquiry to finished job.\n- Consult\n- Plan\n- Deliver', { title: 'Process' }),
-      section('faq', 'Service-level accordion for long-tail SEO.'),
-      section('feature-list', 'Sibling services, for internal linking.', { title: 'Related services' }),
-      section('cta', '', { color: 'coral' }),
-      section('footer'),
+      s('Nav bar'),
+      s('Page Header', 'Service intro.\nCTA → \'Enquire now\''),
+      s('Breadcrumbs'),
+      s('Overview', 'Short intro with three benefit ticks.'),
+      s('Gallery', 'Recent projects for this service.'),
+      s('Process', 'Steps from enquiry to finished job.\n- Consult\n- Plan\n- Deliver'),
+      s('FAQ', 'Service-level accordion for long-tail SEO.'),
+      s('Related services', 'Sibling services, for internal linking.'),
+      s('CTA Section'),
+      s('Footer'),
     ],
   },
   {
     code: 'T4', name: 'Standard Internal',
     description: 'Simple flexible content page for about, values, policies and general information.',
     blocks: [
-      section('navigation'),
-      section('page-header'),
-      section('breadcrumbs'),
-      section('text-image', 'Split layout with image and narrative.', { title: 'Our story' }),
-      section('text', 'Flexible content blocks.'),
-      section('cta', '', { color: 'coral' }),
-      section('footer'),
+      s('Nav bar'),
+      s('Page Header'),
+      s('Breadcrumbs'),
+      s('Our story', 'Split layout with image and narrative.'),
+      s('Content', 'Flexible content blocks.'),
+      s('CTA Section'),
+      s('Footer'),
     ],
   },
   {
     code: 'T5', name: 'Team',
     description: 'People listing with individual profiles. Each profile links to its service areas for internal linking.',
     blocks: [
-      section('navigation'),
-      section('page-header'),
-      section('team', 'Grid of people.\n- Photo, name, role\n- Links to their service areas'),
-      section('cta', 'Join us.\nCTA → \'View careers\'', { color: 'coral' }),
-      section('footer'),
+      s('Nav bar'),
+      s('Page Header'),
+      s('Team', 'Grid of people.\n- Photo, name, role\n- Links to their service areas'),
+      s('Join us', 'CTA → \'View careers\''),
+      s('Footer'),
     ],
   },
   {
     code: 'T6', name: 'Contact',
     description: 'Short enquiry form beside office details and map. Minimal distractions.',
     blocks: [
-      section('navigation'),
-      section('page-header', "CTA → 'Call us'"),
-      two(['form', '- Name\n- Email\n- Phone\n- Message'], ['map', 'Office address, hours and directions.']),
-      section('faq', 'Handle the last objections before enquiring.'),
-      section('footer'),
+      s('Nav bar'),
+      s('Page Header', "CTA → 'Call us'"),
+      s('Enquiry form', '- Name\n- Email\n- Phone\n- Message'),
+      s('Map and office details', 'Office address, hours and directions.'),
+      s('FAQ', 'Handle the last objections before enquiring.'),
+      s('Footer'),
     ],
   },
 ]
