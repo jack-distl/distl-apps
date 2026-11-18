@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
-  ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, Map as MapIcon, FileSpreadsheet, ListTree, Plus, Globe, Flag,
+  ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, Map as MapIcon, FileSpreadsheet, ListTree, Plus, Globe, Flag, MoreHorizontal, RotateCcw,
 } from 'lucide-react'
-import { LoadingSpinner, UndoToast, Hint } from '@/components'
+import { LoadingSpinner, UndoToast, Hint, ConfirmDialog } from '@/components'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -68,7 +68,8 @@ export default function SitemapTool() {
   const [showMenus, setShowMenus] = useState(false)
   const [bulkEdit, setBulkEdit] = useState(null)          // null | { pageId: string|null, pageIds?: string[] }
   // Defaults on arrival: Sitemap tab, latest version, Priority keywords on, Tracked keywords off, Hubs roll-up, Tree view
-  const [filters, setFilters] = useState({ hideNoKeyword: false, priorityOnly: true })
+  const [filters, setFilters] = useState({ hideNoKeyword: false, priorityOnly: false })
+  const [confirmRemake, setConfirmRemake] = useState(false)
   const [rollup, setRollup] = useState('hubs')            // 'site' | 'hubs' | 'all'
   const [collapsed, setCollapsed] = useState(new Set())    // hub ids rolled up individually
   const [undo, setUndo] = useState(null)
@@ -205,6 +206,13 @@ export default function SitemapTool() {
     }
   }
 
+  async function remakeFoundations() {
+    setSelectedPageId(null)
+    setVersionId(null)
+    setTab('sitemap')
+    await data.deleteSitemap()
+  }
+
   function exportWordPress() { downloadText(wordPressFilename(client?.name), buildWordPressCsv(sitemap)) }
   function exportData() { downloadText(dataFilename(client?.name, isReview ? version : null, 'sitemap'), buildSitemapDataCsv(sitemap, isReview ? version : null)) }
   function exportKeywords() { downloadText(dataFilename(client?.name, null, 'keyword-clusters'), buildKeywordClusterCsv(sitemap)) }
@@ -294,6 +302,16 @@ export default function SitemapTool() {
                 <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-gray-400">Sitemap data</DropdownMenuLabel>
                 <DropdownMenuItem onClick={exportData}><MapIcon size={14} className="mr-2 text-gray-400" /> Sitemap &amp; metadata CSV{isReview ? ' (with performance)' : ''}</DropdownMenuItem>
                 <DropdownMenuItem onClick={exportKeywords}><FileSpreadsheet size={14} className="mr-2 text-gray-400" /> Keyword clusters CSV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" aria-label="More"><MoreHorizontal size={16} /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuItem onClick={() => setConfirmRemake(true)} className="text-red-600 focus:text-red-700">
+                  <RotateCcw size={14} className="mr-2" /> Remake SEO Foundations…
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -413,7 +431,7 @@ export default function SitemapTool() {
                   sitemap={sitemap}
                   highlightId={highlightTemplateId}
                   onSelectPage={selectPage}
-                  actions={{ addTemplate: data.addTemplate, updateTemplate: data.updateTemplate, deleteTemplate: data.deleteTemplate, updateSitemap: data.updateSitemap }}
+                  actions={{ addTemplate: data.addTemplate, updateTemplate: data.updateTemplate, deleteTemplate: data.deleteTemplate }}
                 />
               )}
             </div>
@@ -459,6 +477,14 @@ export default function SitemapTool() {
             sitemap={sitemap}
             defaults={addPage}
             onAdd={fields => { const p = data.addPage(fields); setSelectedPageId(p.id); setTab('sitemap') }}
+          />
+          <ConfirmDialog
+            open={confirmRemake}
+            onClose={() => setConfirmRemake(false)}
+            onConfirm={remakeFoundations}
+            title={`Remake ${client.name}'s SEO Foundations?`}
+            message="This deletes the whole sitemap: every page, keyword, template, menu and review version, and any SEO plan objectives linked to its pages lose that link. You then start again from the website, the SEO Foundations files or blank. Export a CSV first if you might want anything back."
+            confirmLabel="Delete and start again"
           />
           <MenusModal open={showMenus} onClose={() => setShowMenus(false)} menus={sitemap.menus || []} onChange={data.setMenus} />
           <BulkKeywordsModal open={!!bulkEdit} onClose={() => setBulkEdit(null)} sitemap={sitemap} pageId={bulkEdit?.pageId || null} pageIds={bulkEdit?.pageIds || null} onRemove={data.deleteKeywords} />

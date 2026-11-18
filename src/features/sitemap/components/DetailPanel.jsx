@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { X, ExternalLink, Trash2, ChevronDown, ChevronUp, Flag, Layers } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
-import { EditableText, FieldEditor } from './Editable'
+import { EditableText } from './Editable'
 import { StatusChip, ChangeIndicator } from './Chips'
 import { KeywordTable } from './KeywordTable'
 import { STATUS_META, STATUSES, normaliseUrl, cascadeUrlChange, templateLabel, formatNumber, buildHierarchy, isHome, visualDescendants } from '@/lib/sitemap/tree'
 import { hasPerf, pagePerfSummary, averagePosition, previousReview, pageClickBreakdown, pageMetric, change, versionPeriodLabel, aggregatePages } from '@/lib/sitemap/perf'
 import { cn } from '@/lib/utils'
 import { Hint } from '@/components'
+import { normaliseBlocks, parseDetails } from '@/lib/sitemap/templateBlocks'
 
 const TOP_QUERIES = 3
 
@@ -35,12 +36,39 @@ function StatBox({ value, change: chg, label, sub }) {
 }
 
 /** A metadata field as plain text, for Client view. */
-function ReadField({ label, value }) {
-  if (!value) return null
+/** The chosen template's sections, as a small read-only outline. */
+function TemplateOutline({ template, onOpen }) {
+  const sections = template ? normaliseBlocks(template.blocks) : []
+  if (!template || !sections.length) {
+    return (
+      <div className="rounded-lg border-2 border-dashed border-gray-200 px-4 py-8 text-center">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-300">Page wireframe will be added here</p>
+        <p className="mt-1 text-xs text-gray-400">{template ? 'This template has no sections yet.' : 'Choose a template above.'}</p>
+      </div>
+    )
+  }
   return (
-    <div>
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1">{label}</div>
-      <p className="text-sm leading-relaxed text-gray-800">{value}</p>
+    <div className="rounded-lg border border-gray-200 bg-white p-2 space-y-1.5">
+      {sections.map(sec => {
+        const lines = parseDetails(sec.details)
+        return (
+          <div key={sec.id} className="rounded-md border border-[#DCDCDC] bg-[#EBEBEB] px-2.5 py-1.5">
+            <p className="text-[12px] font-semibold leading-snug text-charcoal break-words">{sec.title || <span className="italic font-normal text-gray-400">Untitled</span>}</p>
+            {lines.length > 0 && (
+              <div className="mt-0.5 text-[11px] leading-snug text-[#6B6B6B] space-y-px">
+                {lines.map((l, i) => l.kind === 'bullet'
+                  ? <p key={i} className="flex gap-1.5 pl-0.5"><span aria-hidden>•</span><span className="min-w-0 break-words">{l.text}</span></p>
+                  : <p key={i} className="break-words">{l.text}</p>)}
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {onOpen && (
+        <button type="button" onClick={onOpen} className="w-full pt-1 text-[11px] text-gray-400 hover:text-coral inline-flex items-center justify-center gap-1">
+          <ExternalLink size={11} /> Edit this template
+        </button>
+      )}
     </div>
   )
 }
@@ -334,23 +362,9 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
         />
       </Section>
 
-      {readOnly ? ((page.title_tag || page.meta_description || page.h1) && (
-        <Section label="Metadata">
-          <div className="space-y-3">
-            <ReadField label="Title tag" value={page.title_tag} />
-            <ReadField label="Meta description" value={page.meta_description} />
-            <ReadField label="Recommended H1" value={page.h1} />
-          </div>
-        </Section>
-      )) : (
-      <Section label="Metadata">
-        <div className="space-y-3">
-          <FieldEditor label="Title tag" limit={60} value={page.title_tag} onChange={v => updatePage(page.id, { title_tag: v })} placeholder="Primary Keyword | Secondary | Brand" />
-          <FieldEditor label="Meta description" limit={160} value={page.meta_description} onChange={v => updatePage(page.id, { meta_description: v })} placeholder="Two sentences at most. End with a full stop." rows={2} />
-          <FieldEditor label="Recommended H1" value={page.h1} onChange={v => updatePage(page.id, { h1: v })} placeholder="Heading the page should lead with" />
-        </div>
+      <Section label={template ? `Page template · ${templateLabel(template)}` : 'Page template'}>
+        <TemplateOutline template={template} onOpen={template && !readOnly ? () => onJumpTemplate(template.id) : null} />
       </Section>
-      )}
 
       {!readOnly && (
       <div className="pt-4 mt-4 border-t border-gray-100 flex justify-end">
