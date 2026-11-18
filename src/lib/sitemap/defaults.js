@@ -1,3 +1,5 @@
+import { section } from './templateBlocks.js'
+
 // Seed data for a new sitemap: page templates and WordPress menus.
 // These are starting points only. Everything is editable per client.
 
@@ -15,66 +17,87 @@ export const REVIEW_CADENCES = [
   { value: 'annual', label: 'Annual' },
 ]
 
-// blocks: rows of wireframe blocks. c = 'hero' | 'tall' | 'cta' | undefined
+// blocks: page outline rows, see lib/sitemap/templateBlocks.js
+const two = (a, b) => ({ cols: [...section(...a).cols, ...section(...b).cols] })
+
 export const DEFAULT_PAGE_TEMPLATES = [
   {
     code: 'T1', name: 'Home',
-    description: 'Full-width entry point. Hero with primary keyword H1, service grid, trust strip, featured results, contact CTA.',
+    description: 'Full-width entry point. Hero with primary keyword H1, service overview, trust, featured work, contact CTA.',
     blocks: [
-      [{ t: 'Hero — H1 + primary CTA', c: 'hero' }],
-      [{ t: 'Service grid', c: 'tall' }],
-      [{ t: 'Trust strip / awards' }],
-      [{ t: 'Featured results' }, { t: 'About teaser' }],
-      [{ t: 'Contact CTA', c: 'cta' }],
+      section('navigation', 'Mega menu'),
+      section('hero', 'Hero image or video with H1 and subheading.\nCTA → \'Get in touch\'', { color: 'dark' }),
+      section('feature-list', 'Service overview\n- One card per parent service\n- Each card has an image and links down', { title: 'Services' }),
+      section('logos', 'Awards, accreditations or client logos.', { title: 'Trust strip' }),
+      section('text-image', 'Short story about the business.\n- Team photo\nCTA → \'About us\'', { title: 'About teaser' }),
+      section('posts', 'Three latest articles or projects.\nCTA → \'View all\'', { title: 'Featured work' }),
+      section('cta', 'Closing prompt to enquire.\nCTA → \'Book a consultation\'', { color: 'coral' }),
+      section('footer'),
     ],
   },
   {
     code: 'T2', name: 'Service Parent',
     description: 'Hub page for a service area. Introduces the area, links down to child services, answers common questions.',
     blocks: [
-      [{ t: 'Hero — H1 + breadcrumb', c: 'hero' }],
-      [{ t: 'Intro copy' }, { t: 'Quick contact' }],
-      [{ t: 'Child service links', c: 'tall' }],
-      [{ t: 'FAQ accordion' }],
-      [{ t: 'Consult CTA', c: 'cta' }],
+      section('navigation'),
+      section('page-header', 'Clear category intro.\nCTA → \'Book a consultation\''),
+      section('breadcrumbs'),
+      section('feature-list', 'Links to each child service with image and one line.', { title: 'Explore the range' }),
+      two(['text', 'Why choose us, in three short points.', { title: 'Choosing with confidence' }], ['form', 'Short enquiry form.', { title: 'Quick contact' }]),
+      section('faq', 'Category-level accordion for long-tail SEO.'),
+      section('cta', '', { color: 'coral' }),
+      section('footer'),
     ],
   },
   {
     code: 'T3', name: 'Service Child',
-    description: 'Conversion-focused single service page. Long-form content sections against a persistent contact sidebar.',
+    description: 'Conversion-focused single service page. Long-form content against a persistent contact card.',
     blocks: [
-      [{ t: 'Hero — H1 + breadcrumb', c: 'hero' }],
-      [{ t: 'Content sections', c: 'tall' }, { t: 'Sticky contact card', c: 'tall' }],
-      [{ t: 'Process steps' }],
-      [{ t: 'FAQ' }],
-      [{ t: 'Consult CTA', c: 'cta' }],
+      section('navigation'),
+      section('page-header', 'Service intro.\nCTA → \'Enquire now\''),
+      section('breadcrumbs'),
+      section('text-image', 'Short intro with three benefit ticks.', { title: 'Overview' }),
+      section('gallery', 'Recent projects for this service.'),
+      section('feature', 'Steps from enquiry to finished job.\n- Consult\n- Plan\n- Deliver', { title: 'Process' }),
+      section('faq', 'Service-level accordion for long-tail SEO.'),
+      section('feature-list', 'Sibling services, for internal linking.', { title: 'Related services' }),
+      section('cta', '', { color: 'coral' }),
+      section('footer'),
     ],
   },
   {
     code: 'T4', name: 'Standard Internal',
     description: 'Simple flexible content page for about, values, policies and general information.',
     blocks: [
-      [{ t: 'Page header', c: 'hero' }],
-      [{ t: 'Flexible content blocks', c: 'tall' }],
-      [{ t: 'Related links' }],
+      section('navigation'),
+      section('page-header'),
+      section('breadcrumbs'),
+      section('text-image', 'Split layout with image and narrative.', { title: 'Our story' }),
+      section('text', 'Flexible content blocks.'),
+      section('cta', '', { color: 'coral' }),
+      section('footer'),
     ],
   },
   {
     code: 'T5', name: 'Team',
     description: 'People listing with individual profiles. Each profile links to its service areas for internal linking.',
     blocks: [
-      [{ t: 'Page header', c: 'hero' }],
-      [{ t: 'Person' }, { t: 'Person' }, { t: 'Person' }],
-      [{ t: 'Person' }, { t: 'Person' }, { t: 'Person' }],
-      [{ t: 'Join us CTA', c: 'cta' }],
+      section('navigation'),
+      section('page-header'),
+      section('team', 'Grid of people.\n- Photo, name, role\n- Links to their service areas'),
+      section('cta', 'Join us.\nCTA → \'View careers\'', { color: 'coral' }),
+      section('footer'),
     ],
   },
   {
     code: 'T6', name: 'Contact',
     description: 'Short enquiry form beside office details and map. Minimal distractions.',
     blocks: [
-      [{ t: 'Page header', c: 'hero' }],
-      [{ t: 'Enquiry form', c: 'tall' }, { t: 'Office details + map', c: 'tall' }],
+      section('navigation'),
+      section('page-header', "CTA → 'Call us'"),
+      two(['form', '- Name\n- Email\n- Phone\n- Message'], ['map', 'Office address, hours and directions.']),
+      section('faq', 'Handle the last objections before enquiring.'),
+      section('footer'),
     ],
   },
 ]
