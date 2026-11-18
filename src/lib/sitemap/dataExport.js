@@ -5,6 +5,7 @@ import { orderedPages, isHome, primaryKeyword, supportingKeywords, combinedVolum
 import { rowsToCsv, slugify } from './csv.js'
 import { STATUS_META } from './tree.js'
 import { pagePerfSummary, pageMetric } from './perf.js'
+import { normaliseBlocks, dynamicValues, resolveDynamic, parseWords, formatWords, countWords } from './templateBlocks.js'
 
 function changeText(c) {
   if (!c || c.kind === 'none') return ''
@@ -73,6 +74,28 @@ export function buildKeywordClusterRows(sitemap) {
     for (const k of kws) rows.push([category, k.keyword, k.volume, k.is_primary ? 'Yes' : '', p.url])
   }
   return rows
+}
+
+/** One row per page section with its copy, in tree order. Dynamic fields are filled in for each page. */
+export function buildCopyRows(sitemap) {
+  const rows = [['Page', 'URL', 'Template', 'Section', 'Brief', 'Recommended words', 'Word count', 'Copy', 'Copy confirmed']]
+  const { ordered, hierarchy } = orderedPages(sitemap.pages || [])
+  for (const p of ordered) {
+    const template = (sitemap.templates || []).find(t => t.id === p.template_id)
+    const copy = sitemap.copy?.[p.id] || {}
+    const confirmed = p.copy_confirmed ? 'Yes' : ''
+    if (!template) { rows.push([p.name, p.url, '', '', '', '', '', '', confirmed]); continue }
+    const values = dynamicValues(p, hierarchy)
+    for (const sec of normaliseBlocks(template.blocks)) {
+      const body = copy[sec.id]?.body || ''
+      rows.push([p.name, p.url, templateLabel(template), resolveDynamic(sec.title, values), resolveDynamic(sec.details, values), formatWords(parseWords(sec.words)), countWords(body), body, confirmed])
+    }
+  }
+  return rows
+}
+
+export function buildCopyCsv(sitemap) {
+  return rowsToCsv(buildCopyRows(sitemap))
 }
 
 export function buildSitemapDataCsv(sitemap, version) {

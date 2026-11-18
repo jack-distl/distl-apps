@@ -39,6 +39,12 @@ async function loadSitemap(clientId) {
     fetchAllIn('sitemap_version_keyword_positions', '*', 'version_id', versionIds, q => q.order('id')),
     fetchAllIn('sitemap_version_queries', '*', 'version_id', versionIds, bySortThenId),
   ])
+  // Copywriting (migration 023). Missing table: no copy yet, rather than no sitemap.
+  let copyRows = []
+  try { copyRows = await fetchAllIn('sitemap_page_copy', '*', 'page_id', pageIds, q => q.order('id')) } catch (err) { console.warn('Copywriting not loaded (run migration 023):', err?.message || err) }
+  const copy = {}
+  for (const r of copyRows) (copy[r.page_id] ||= {})[r.section_id] = { id: r.id, body: r.body || '' }
+
   // Chunked IN-queries come back chunk by chunk; restore one overall order.
   keywords.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
   uploads.sort((a, b) => String(a.uploaded_at || '').localeCompare(String(b.uploaded_at || '')))
@@ -59,6 +65,7 @@ async function loadSitemap(clientId) {
   return {
     ...sm,
     templates,
+    copy,
     pages: pages.map(p => ({ ...p, keywords: kwByPage[p.id] || [] })),
     versions: versions.map(v => ({
       ...v,
@@ -184,7 +191,7 @@ export function useSitemapData(clientId) {
     const now = new Date().toISOString()
     const templates = DEFAULT_PAGE_TEMPLATES.map((t, i) => ({ id: generateId(), sitemap_id: id, ...t, sort_order: i }))
     const plan = { id: generateId(), sitemap_id: id, name: DEFAULT_PLAN_VERSION_NAME, type: 'plan', sort_order: 0, created_at: now, uploads: [], pageMetrics: {}, keywordPositions: {}, queries: [] }
-    const sm = { id, client_id: clientId, domain: null, review_cadence: 'quarterly', menus: [...DEFAULT_MENUS], templates, pages: [], versions: [plan] }
+    const sm = { id, client_id: clientId, domain: null, review_cadence: 'quarterly', menus: [...DEFAULT_MENUS], templates, pages: [], copy: {}, versions: [plan] }
     setSitemap(sm)
     if (!supabase) return sm
     await runWrite(() => supabase.from('sitemaps').insert({ id, client_id: clientId, review_cadence: 'quarterly', menus: sm.menus }))
@@ -234,6 +241,16 @@ export function useSitemapData(clientId) {
     if (immediate) runWrite(() => supabase.from('sitemap_pages').update(fields).eq('id', pageId))
     else queueUpdate('sitemap_pages', pageId, fields)
   }, [patch, runWrite, queueUpdate])
+
+  /** Copy for one section of one page's template. First write inserts, later ones are queued updates. */
+  const setCopy = useCallback((pageId, sectionId, body) => {
+    const existing = sitemap?.copy?.[pageId]?.[sectionId]
+    const id = existing?.id || generateId()
+    patch(sm => ({ ...sm, copy: { ...(sm.copy || {}), [pageId]: { ...(sm.copy?.[pageId] || {}), [sectionId]: { id, body } } } }))
+    if (!supabase) return
+    if (existing) queueUpdate('sitemap_page_copy', id, { body, updated_at: new Date().toISOString() })
+    else runWrite(() => supabase.from('sitemap_page_copy').insert({ id, page_id: pageId, section_id: sectionId, body }))
+  }, [sitemap, patch, runWrite, queueUpdate])
 
   /** Set the same fields on many pages at once (table bulk edit). */
   const updatePages = useCallback((pageIds, fields) => {
@@ -514,7 +531,7 @@ export function useSitemapData(clientId) {
     createSitemap, updateSitemap, deleteSitemap, setMenus,
     addPage, updatePage, updatePages, updatePageUrl, deletePage, deletePages, restorePage, restorePages, reorderPages,
     addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword, deleteKeywords,
-    addTemplate, updateTemplate, deleteTemplate,
+    addTemplate, updateTemplate, deleteTemplate, setCopy,
     addVersion, updateVersion, deleteVersion, deleteUpload, replaceVersionData,
     applyOperations,
   }
