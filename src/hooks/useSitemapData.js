@@ -391,11 +391,16 @@ export function useSitemapData(clientId) {
 
   // ─── Templates ────────────────────────────────────────────
   const addTemplate = useCallback((fields = {}) => {
-    const n = sitemap.templates.length
-    const tpl = { id: generateId(), sitemap_id: sitemap.id, code: fields.code || `T${n + 1}`, name: fields.name || 'New template', description: fields.description || '', blocks: fields.blocks || [newSection({ title: 'Nav bar' }), newSection({ title: 'Page Header' }), newSection({ title: 'Content' }), newSection({ title: 'Footer' })], sort_order: n }
+    // Next free T-number and the end of the list, so codes and order never collide
+    const used = new Set(sitemap.templates.map(t => String(t.code || '').toUpperCase()))
+    let k = sitemap.templates.length + 1
+    while (used.has(`T${k}`)) k++
+    const order = sitemap.templates.reduce((m, t) => Math.max(m, t.sort_order ?? 0), -1) + 1
+    const tpl = { id: generateId(), sitemap_id: sitemap.id, code: fields.code || `T${k}`, name: fields.name || 'New template', description: fields.description || '', blocks: fields.blocks || [newSection({ title: 'Nav bar' }), newSection({ title: 'Page Header' }), newSection({ title: 'Content' }), newSection({ title: 'Footer' })], sort_order: order }
     patch(sm => ({ ...sm, templates: [...sm.templates, tpl] }))
-    runWrite(() => supabase.from('sitemap_page_templates').insert(tpl))
-    return tpl
+    // `saved` resolves once the row exists, so a page can point at it safely
+    const saved = runWrite(() => supabase.from('sitemap_page_templates').insert(tpl))
+    return { ...tpl, saved }
   }, [patch, runWrite, sitemap])
 
   const updateTemplate = useCallback((templateId, fields, { immediate = false } = {}) => {

@@ -9,6 +9,7 @@ import { STATUS_META, STATUSES, normaliseUrl, cascadeUrlChange, templateLabel, f
 import { hasPerf, pagePerfSummary, averagePosition, previousReview, pageClickBreakdown, pageMetric, change, versionPeriodLabel, aggregatePages } from '@/lib/sitemap/perf'
 import { cn } from '@/lib/utils'
 import { Hint } from '@/components'
+import { TemplateBuilder } from './TemplateBuilder'
 import { normaliseBlocks, parseDetails, dynamicValues, resolveDynamic, parseWords, formatWords } from '@/lib/sitemap/templateBlocks'
 
 const TOP_QUERIES = 3
@@ -82,7 +83,7 @@ function fmtDate(iso) {
 
 /** `readOnly` (Client view) shows the page as the client sees it: every field as text, nothing to edit. */
 export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, onDeletePage, onBulkEdit, rolledUp = null, actions = {}, readOnly = false }) {
-  const { updatePage, updatePageUrl, addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword } = actions
+  const { updatePage, updatePageUrl, addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword, addTemplate } = actions
   const isReview = version?.type === 'review'
   const showPerf = isReview && hasPerf(version, page)
   const template = sitemap.templates.find(t => t.id === page.template_id) || null
@@ -365,7 +366,19 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
       </Section>
 
       <Section label={template ? `Page template · ${templateLabel(template)}` : 'Page template'}>
-        <TemplateOutline template={template} values={dynamicValues(page, h)} onOpen={template && !readOnly ? () => onJumpTemplate(template.id) : null} />
+        {!template && !readOnly && addTemplate ? (
+          <TemplateBuilder
+            sitemap={sitemap}
+            page={page}
+            onSave={async fields => {
+              const tpl = addTemplate(fields)
+              await tpl.saved
+              updatePage(page.id, { template_id: tpl.id }, { immediate: true })
+            }}
+          />
+        ) : (
+          <TemplateOutline template={template} values={dynamicValues(page, h)} onOpen={template && !readOnly ? () => onJumpTemplate(template.id) : null} />
+        )}
       </Section>
 
       {!readOnly && (

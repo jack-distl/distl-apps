@@ -217,7 +217,7 @@ function SectionEditor({ section, focusField, onChange, onClose, onAddBelow, onR
 }
 
 /** Add a row: a custom one, or any section already built on this sitemap's templates. */
-function RowPicker({ library, onPick, onClose, className }) {
+export function RowPicker({ library, onPick, onClose, className }) {
   const ref = useRef(null)
   const [q, setQ] = useState('')
   useEffect(() => {
@@ -455,6 +455,8 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
 
   // Highlight a module (a section name) everywhere it's used: hovering the
   // highlighter previews it, clicking pins it until clicked again or Esc.
+  const [view, setView] = useState(() => { try { return localStorage.getItem('distl.templatesView') || 'tree' } catch { return 'tree' } })
+  const [justAdded, setJustAdded] = useState(null)
   const [peekKey, setPeekKey] = useState(null)
   const [pinnedKey, setPinnedKey] = useState(null)
   const activeKey = peekKey || pinnedKey
@@ -467,6 +469,20 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [pinnedKey])
+
+  function chooseView(v) {
+    setView(v)
+    try { localStorage.setItem('distl.templatesView', v) } catch { /* private window */ }
+  }
+
+  // A new template: scroll to it and outline it for a moment
+  useEffect(() => {
+    if (!justAdded) return
+    const el = refs.current[justAdded]
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+    const timer = setTimeout(() => setJustAdded(null), 2500)
+    return () => clearTimeout(timer)
+  }, [justAdded, templates])
 
   useEffect(() => {
     if (highlightId && refs.current[highlightId]) {
@@ -481,7 +497,7 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
       index={templates.indexOf(t)}
       templates={templates}
       used={sitemap.pages.filter(p => p.template_id === t.id)}
-      highlighted={highlightId === t.id}
+      highlighted={highlightId === t.id || justAdded === t.id}
       cardRef={el => { refs.current[t.id] = el }}
       library={library}
       activeKey={activeKey}
@@ -492,7 +508,7 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
       // before an earlier queued one and be overwritten by it.
       onUpdate={fields => updateTemplate(t.id, fields)}
       onDelete={() => deleteTemplate(t.id)}
-      onDuplicate={() => addTemplate({ name: `${t.name} copy`, description: t.description, blocks: normaliseBlocks(t.blocks).map(sec => ({ ...newSection(), title: sec.title, details: sec.details, words: sec.words })) })}
+      onDuplicate={() => setJustAdded(addTemplate({ name: `${t.name} copy`, description: t.description, blocks: normaliseBlocks(t.blocks).map(sec => ({ ...newSection(), title: sec.title, details: sec.details, words: sec.words })) }).id)}
       onSelectPage={onSelectPage}
     />
   )
@@ -503,9 +519,16 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
         <p className="text-xs text-gray-500">
           Click a section to type into it. Add row offers every section from your other templates, or a custom one. Dynamic fields fill in per page.
         </p>
-        <button type="button" onClick={() => addTemplate()} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:border-coral hover:text-coral">
-          <LayoutTemplate size={14} /> Add template
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            {[['tree', 'Tree'], ['side', 'Side by side']].map(([v, label]) => (
+              <button key={v} type="button" onClick={() => chooseView(v)} className={cn('px-2.5 py-1 rounded-md text-xs font-medium transition-colors', view === v ? 'bg-white text-charcoal shadow-sm' : 'text-gray-500 hover:text-gray-700')}>{label}</button>
+            ))}
+          </div>
+          <button type="button" onClick={() => setJustAdded(addTemplate().id)} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:border-coral hover:text-coral">
+            <LayoutTemplate size={14} /> Add template
+          </button>
+        </div>
       </div>
       {pinnedKey && (
         <div className="flex items-center gap-2 text-xs text-gray-600">
@@ -514,11 +537,17 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
           <button type="button" onClick={() => setPinnedKey(null)} className="text-gray-400 underline hover:text-coral">Clear</button>
         </div>
       )}
-      <div className="overflow-x-auto pb-6 -mx-1 px-1">
-        <div className="w-max min-w-full flex flex-col items-center gap-10 pt-2">
-          {tree.roots.map(node => <TreeNode key={node.template.id} node={node} renderCard={renderCard} />)}
+      {view === 'tree' ? (
+        <div className="overflow-x-auto pb-6 -mx-1 px-1">
+          <div className="w-max min-w-full flex flex-col items-center gap-10 pt-2">
+            {tree.roots.map(node => <TreeNode key={node.template.id} node={node} renderCard={renderCard} />)}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-start gap-5 pb-6">
+          {templates.map(renderCard)}
+        </div>
+      )}
     </div>
   )
 }

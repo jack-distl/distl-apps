@@ -108,6 +108,41 @@ function CopySection({ section, values, body, onChange }) {
   )
 }
 
+/** How often a phrase appears in some text, whole words, any case. */
+function timesUsed(text, phrase) {
+  const p = String(phrase || '').trim()
+  if (!p) return 0
+  const re = new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')}\\b`, 'gi')
+  return (String(text || '').match(re) || []).length
+}
+
+/** The page's keyword cluster, primary first, with how often each appears in the copy so far. */
+function PageKeywords({ page, allCopy }) {
+  const kws = [...(page.keywords || [])].sort((a, b) => (b.is_primary - a.is_primary) || ((b.volume || 0) - (a.volume || 0)))
+  if (!kws.length) {
+    return <p className="mt-3 rounded-lg border border-dashed border-gray-200 px-3 py-2 text-xs text-gray-400">No keywords on this page yet. Add them in the Sitemap tab.</p>
+  }
+  return (
+    <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3">
+      <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+        <span>Keywords for this page</span><span className="font-normal normal-case tracking-normal">volume /mo · used in copy</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {kws.map(k => {
+          const n = timesUsed(allCopy, k.keyword)
+          return (
+            <span key={k.id || k.keyword} title={k.is_primary ? 'Primary keyword' : 'Supporting keyword'} className={cn('inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11.5px]', k.is_primary ? 'border-coral/50 bg-coral-50 text-charcoal font-medium' : 'border-gray-200 bg-gray-50 text-gray-700')}>
+              {k.keyword}
+              <span className="tabular-nums text-gray-400">{k.volume ?? '—'}</span>
+              <span className={cn('tabular-nums rounded-full px-1 text-[10px]', n ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400')}>{n}×</span>
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function CopyPanel({ sitemap, page, hierarchy, onClose, onConfirm, onJumpTemplate, setCopy }) {
   const stats = pageCopyStats(sitemap, page)
   const values = dynamicValues(page, hierarchy)
@@ -144,6 +179,8 @@ function CopyPanel({ sitemap, page, hierarchy, onClose, onConfirm, onJumpTemplat
           {page.copy_confirmed ? 'Copy confirmed' : 'Mark as confirmed'}
         </button>
       </div>
+
+      <PageKeywords page={page} allCopy={Object.values(copy).map(c => c.body).join('\n')} />
 
       {!stats.template || !stats.sections.length ? (
         <div className="mt-4 rounded-lg border-2 border-dashed border-gray-200 px-4 py-10 text-center">

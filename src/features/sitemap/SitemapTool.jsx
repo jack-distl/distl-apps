@@ -469,6 +469,7 @@ export default function SitemapTool() {
                     updateKeyword: data.updateKeyword,
                     setPrimaryKeyword: data.setPrimaryKeyword,
                     deleteKeyword: data.deleteKeyword,
+                    addTemplate: data.addTemplate,
                   }}
                 />
               )}
