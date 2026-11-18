@@ -1,77 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, X, LayoutTemplate, Copy } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, X, LayoutTemplate, Copy, Highlighter } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { SortableList, SortableItem, DragHandle } from '@/components/Sortable'
 import { EditableText } from './Editable'
 import { cn } from '@/lib/utils'
-import {
-  newSection, normaliseBlocks, parseDetails,
-  MODULE_PALETTE, paletteColour, moduleKey, listModules, assignModuleColours,
-} from '@/lib/sitemap/templateBlocks'
+import { newSection, normaliseBlocks, parseDetails, moduleKey } from '@/lib/sitemap/templateBlocks'
 
 // The coloured dot on each template label, by its place in the list, the
 // same order as the SEO Foundations Figma key.
 const TEMPLATE_DOTS = ['#F87171', '#FB923C', '#FACC15', '#4ADE80', '#2DD4BF', '#38BDF8', '#60A5FA', '#A78BFA', '#F472B6', '#9CA3AF']
 
-const BLOCK = 'relative rounded-md border-[1.5px] px-2.5 py-1.5 transition-[opacity,box-shadow,background-color,border-color]'
-const PLAIN = { background: '#FFFFFF', borderColor: '#DCDCDC' }
-
-/** Outline on white, or a soft fill when the module is set to Fill. */
-function moduleStyle(entry) {
-  const c = paletteColour(entry?.color)
-  if (!c) return PLAIN
-  return entry.fill ? { background: c.tint, borderColor: c.line } : { background: '#FFFFFF', borderColor: c.line }
-}
-
-/** Pick a module's colour, Outline or Fill, or hand it back to auto. Changes every section with that name. */
-function ModulePicker({ label, entry, onChange, onAuto, onClose, className }) {
-  const ref = useRef(null)
-  useEffect(() => {
-    function onDown(e) { if (ref.current && !ref.current.contains(e.target) && !e.target.closest?.('[data-picker-toggle]')) onClose() }
-    function onKey(e) { if (e.key === 'Escape') onClose() }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
-  }, [onClose])
-  return (
-    <div ref={ref} onClick={e => e.stopPropagation()} className={cn('absolute z-30 w-56 rounded-lg border border-gray-200 bg-white p-2.5 shadow-lg space-y-2 text-left', className)}>
-      <p className="text-[10px] uppercase tracking-wider text-gray-400 truncate">{label}</p>
-      <div className="grid grid-cols-6 gap-1.5">
-        {MODULE_PALETTE.map(p => (
-          <button
-            key={p.key}
-            type="button"
-            onClick={() => onChange({ color: p.key, pinned: true })}
-            title={p.name}
-            aria-label={p.name}
-            aria-pressed={entry?.color === p.key}
-            className={cn('w-6 h-6 rounded-full border-[1.5px] transition-transform hover:scale-110', entry?.color === p.key && 'ring-2 ring-offset-1 ring-coral')}
-            style={{ background: entry?.fill ? p.tint : '#FFFFFF', borderColor: p.line }}
-          />
-        ))}
-      </div>
-      <div className="flex rounded-md border border-gray-200 overflow-hidden text-[11px]">
-        {[[false, 'Outline'], [true, 'Fill']].map(([fill, text]) => (
-          <button
-            key={text}
-            type="button"
-            onClick={() => onChange({ fill })}
-            aria-pressed={!!entry?.fill === fill}
-            className={cn('flex-1 py-1 transition-colors', !!entry?.fill === fill ? 'bg-charcoal text-white' : 'text-gray-600 hover:bg-gray-50')}
-          >
-            {text}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[10.5px] leading-snug text-gray-400">Changes every {label} on this sitemap.</p>
-        {entry?.pinned && (
-          <button type="button" onClick={onAuto} className="shrink-0 text-[10.5px] text-gray-500 underline hover:text-coral">Back to auto</button>
-        )}
-      </div>
-    </div>
-  )
-}
+const BLOCK = 'relative rounded-md border border-[#DCDCDC] bg-[#EBEBEB] px-2.5 py-1.5 transition-[opacity,box-shadow]'
 
 function autosize(el) {
   if (!el) return
@@ -80,9 +19,8 @@ function autosize(el) {
 }
 
 /** A section shown as text. Click to edit. */
-function SectionView({ section, look, dim, lit, picker, onEdit, onPickColour }) {
+function SectionView({ section, dim, lit, onEdit }) {
   const lines = parseDetails(section.details)
-  const c = paletteColour(look.entry?.color)
   return (
     <div
       role="button"
@@ -90,26 +28,11 @@ function SectionView({ section, look, dim, lit, picker, onEdit, onPickColour }) 
       onClick={e => onEdit(e.target.closest('[data-details]') ? 'details' : 'title')}
       onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) { e.preventDefault(); onEdit('title') } }}
       title="Click to edit"
-      style={look.style}
-      className={cn(BLOCK, 'group/sec cursor-text hover:ring-1 hover:ring-coral/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-coral/50', dim && 'opacity-30', lit && 'ring-2 ring-coral')}
+      className={cn(BLOCK, 'cursor-text hover:ring-1 hover:ring-coral/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-coral/50', dim && 'opacity-25', lit && 'ring-2 ring-coral bg-coral-50 border-coral/40')}
     >
-      <div className="flex items-start gap-2">
-        <p className="min-w-0 flex-1 text-[12.5px] font-semibold leading-snug text-charcoal break-words">
-          {section.title || <span className="italic font-normal text-gray-400">Untitled</span>}
-        </p>
-        {c && (
-          <button
-            type="button"
-            data-picker-toggle
-            onClick={e => { e.stopPropagation(); onPickColour() }}
-            title="Change this module's colour"
-            aria-label="Change this module's colour"
-            className="mt-0.5 w-3.5 h-3.5 shrink-0 rounded-full border border-black/10 opacity-0 group-hover/sec:opacity-100 focus:opacity-100 transition-opacity"
-            style={{ background: c.line }}
-          />
-        )}
-      </div>
-      {picker}
+      <p className="text-[12.5px] font-semibold leading-snug text-charcoal break-words">
+        {section.title || <span className="italic font-normal text-gray-400">Untitled</span>}
+      </p>
       <div data-details className="mt-0.5 text-[11.5px] leading-snug text-[#6B6B6B] space-y-px">
         {lines.length === 0 && <p className="italic text-gray-400">Add a description</p>}
         {lines.map((l, i) => l.kind === 'bullet'
@@ -121,7 +44,7 @@ function SectionView({ section, look, dim, lit, picker, onEdit, onPickColour }) 
 }
 
 /** The same section, typed into in place. No boxes, no toolbar. */
-function SectionEditor({ section, look, focusField, onChange, onClose, onAddBelow, onRemoveEmpty }) {
+function SectionEditor({ section, focusField, onChange, onClose, onAddBelow, onRemoveEmpty }) {
   const wrapRef = useRef(null)
   const titleRef = useRef(null)
   const detailsRef = useRef(null)
@@ -156,7 +79,7 @@ function SectionEditor({ section, look, focusField, onChange, onClose, onAddBelo
   }
 
   return (
-    <div ref={wrapRef} onKeyDown={onKeyDown} style={look.style} className={cn(BLOCK, 'ring-2 ring-coral')}>
+    <div ref={wrapRef} onKeyDown={onKeyDown} className={cn(BLOCK, 'ring-2 ring-coral')}>
       <input
         ref={titleRef}
         value={section.title}
@@ -178,7 +101,7 @@ function SectionEditor({ section, look, focusField, onChange, onClose, onAddBelo
   )
 }
 
-function TemplateCard({ template: t, index, used, highlighted, cardRef, lookFor, hoverKey, picker, onPicker, renderPicker, onUpdate, onDelete, onDuplicate, onSelectPage }) {
+function TemplateCard({ template: t, index, used, highlighted, cardRef, activeKey, pinnedKey, onPeek, onPin, onUpdate, onDelete, onDuplicate, onSelectPage }) {
   const sections = normaliseBlocks(t.blocks)
   const [editing, setEditing] = useState(null) // { id, field }
 
@@ -239,7 +162,6 @@ function TemplateCard({ template: t, index, used, highlighted, cardRef, lookFor,
                       {editing?.id === sec.id ? (
                         <SectionEditor
                           section={sec}
-                          look={lookFor(sec.title)}
                           focusField={editing.field}
                           onChange={fields => patch(sec.id, fields)}
                           onClose={() => setEditing(cur => (cur?.id === sec.id ? null : cur))}
@@ -249,11 +171,8 @@ function TemplateCard({ template: t, index, used, highlighted, cardRef, lookFor,
                       ) : (
                         <SectionView
                           section={sec}
-                          look={lookFor(sec.title)}
-                          dim={!!hoverKey && moduleKey(sec.title) !== hoverKey}
-                          lit={!!hoverKey && moduleKey(sec.title) === hoverKey}
-                          picker={picker === sec.id ? renderPicker(moduleKey(sec.title), 'right-0 top-6') : null}
-                          onPickColour={() => onPicker(picker === sec.id ? null : sec.id)}
+                          dim={!!activeKey && moduleKey(sec.title) !== activeKey}
+                          lit={!!activeKey && moduleKey(sec.title) === activeKey}
                           onEdit={field => setEditing({ id: sec.id, field })}
                         />
                       )}
@@ -266,6 +185,23 @@ function TemplateCard({ template: t, index, used, highlighted, cardRef, lookFor,
                       >
                         <X size={13} />
                       </button>
+                      {moduleKey(sec.title) && (
+                        <button
+                          type="button"
+                          onMouseEnter={() => onPeek(moduleKey(sec.title))}
+                          onMouseLeave={() => onPeek(null)}
+                          onClick={() => onPin(moduleKey(sec.title))}
+                          title={`Highlight every ${sec.title.trim()}`}
+                          aria-label={`Highlight every ${sec.title.trim()}`}
+                          aria-pressed={pinnedKey === moduleKey(sec.title)}
+                          className={cn(
+                            'absolute right-1 top-6 p-0.5 rounded transition-opacity hover:bg-coral-50 focus:opacity-100',
+                            pinnedKey === moduleKey(sec.title) ? 'opacity-100 text-coral' : 'opacity-0 group-hover/row:opacity-100 text-gray-300 hover:text-coral'
+                          )}
+                        >
+                          <Highlighter size={13} />
+                        </button>
+                      )}
                     </div>
                     {i < sections.length - 1 && (
                       <div className="relative h-0">
@@ -317,38 +253,23 @@ function TemplateCard({ template: t, index, used, highlighted, cardRef, lookFor,
 }
 
 export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
-  const { addTemplate, updateTemplate, deleteTemplate, updateSitemap } = actions
+  const { addTemplate, updateTemplate, deleteTemplate } = actions
   const refs = useRef({})
   const templates = [...sitemap.templates].sort((a, b) => a.sort_order - b.sort_order)
-  const [hoverKey, setHoverKey] = useState(null)
-  const [picker, setPicker] = useState(null) // a section id, or 'key:<module>' for the key strip
+  // Highlight a module (a section name) everywhere it's used: hovering the
+  // highlighter previews it, clicking pins it until clicked again or Esc.
+  const [peekKey, setPeekKey] = useState(null)
+  const [pinnedKey, setPinnedKey] = useState(null)
+  const activeKey = peekKey || pinnedKey
+  const pinnedCount = pinnedKey ? templates.reduce((n, t) => n + normaliseBlocks(t.blocks).filter(sec => moduleKey(sec.title) === pinnedKey).length, 0) : 0
+  const pinnedLabel = pinnedKey ? templates.flatMap(t => normaliseBlocks(t.blocks)).find(sec => moduleKey(sec.title) === pinnedKey)?.title.trim() : ''
 
-  // Module colours: one per section name across this sitemap's templates.
-  const modules = useMemo(() => listModules(sitemap.templates), [sitemap.templates])
-  const { map: colours, changed } = useMemo(() => assignModuleColours(modules, sitemap.module_colours), [modules, sitemap.module_colours])
-  // Save new assignments once typing settles, so colours never reshuffle later.
   useEffect(() => {
-    if (!changed) return
-    const timer = setTimeout(() => updateSitemap({ module_colours: colours }), 1500)
-    return () => clearTimeout(timer)
-  }, [changed, colours, updateSitemap])
-
-  const lookFor = title => {
-    const entry = colours[moduleKey(title)]
-    return { entry, style: moduleStyle(entry) }
-  }
-  const setModule = (key, fields) => updateSitemap({ module_colours: { ...colours, [key]: { ...colours[key], ...fields } } })
-  const autoModule = key => { const next = { ...colours }; delete next[key]; updateSitemap({ module_colours: next }) }
-  const renderPicker = (key, className) => (
-    <ModulePicker
-      label={modules.find(m => m.key === key)?.label || key}
-      entry={colours[key]}
-      onChange={fields => setModule(key, fields)}
-      onAuto={() => autoModule(key)}
-      onClose={() => setPicker(null)}
-      className={className}
-    />
-  )
+    if (!pinnedKey) return
+    const onKey = e => { if (e.key === 'Escape') setPinnedKey(null) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [pinnedKey])
 
   useEffect(() => {
     if (highlightId && refs.current[highlightId]) {
@@ -361,33 +282,11 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
       <p className="text-xs text-gray-500">
         Click a section to type into it. Enter moves to the description, a dash starts a bullet, Ctrl + Enter adds a row below, Esc finishes.
       </p>
-      {modules.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5" onMouseLeave={() => setHoverKey(null)}>
-          <span className="mr-1 text-[10px] uppercase tracking-wider text-gray-400">Modules</span>
-          {modules.map(m => {
-            const entry = colours[m.key]
-            const c = paletteColour(entry?.color)
-            return (
-              <div key={m.key} className="relative">
-                <button
-                  type="button"
-                  data-picker-toggle
-                  onMouseEnter={() => setHoverKey(m.key)}
-                  onFocus={() => setHoverKey(m.key)}
-                  onBlur={() => setHoverKey(null)}
-                  onClick={() => setPicker(picker === `key:${m.key}` ? null : `key:${m.key}`)}
-                  title="Show where it's used, click to change its colour"
-                  className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-2 py-0.5 text-[11px] text-gray-700 hover:shadow-sm transition-shadow"
-                  style={moduleStyle(entry)}
-                >
-                  {c && <span className="w-2 h-2 rounded-full" style={{ background: c.line }} />}
-                  {m.label}
-                  <span className="text-gray-400 tabular-nums">{m.count}</span>
-                </button>
-                {picker === `key:${m.key}` && renderPicker(m.key, 'left-0 top-7')}
-              </div>
-            )
-          })}
+      {pinnedKey && (
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <Highlighter size={13} className="text-coral" />
+          <span>Highlighting <b className="font-semibold text-charcoal">{pinnedLabel}</b> · {pinnedCount} place{pinnedCount === 1 ? '' : 's'}</span>
+          <button type="button" onClick={() => setPinnedKey(null)} className="text-gray-400 underline hover:text-coral">Clear</button>
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
@@ -399,11 +298,10 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
             used={sitemap.pages.filter(p => p.template_id === t.id)}
             highlighted={highlightId === t.id}
             cardRef={el => { refs.current[t.id] = el }}
-            lookFor={lookFor}
-            hoverKey={hoverKey}
-            picker={picker}
-            onPicker={setPicker}
-            renderPicker={renderPicker}
+            activeKey={activeKey}
+            pinnedKey={pinnedKey}
+            onPeek={setPeekKey}
+            onPin={key => setPinnedKey(cur => (cur === key ? null : key))}
             // Queued (debounced) saves only: an immediate write could land
             // before an earlier queued one and be overwritten by it.
             onUpdate={fields => updateTemplate(t.id, fields)}

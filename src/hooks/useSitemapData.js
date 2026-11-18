@@ -193,6 +193,17 @@ export function useSitemapData(clientId) {
     return sm
   }, [clientId, runWrite])
 
+  /** Delete the whole sitemap (everything cascades) so it can be started again. */
+  const deleteSitemap = useCallback(async () => {
+    if (!sitemap) return
+    const id = sitemap.id
+    pending.current.clear()
+    if (flushTimer.current) clearTimeout(flushTimer.current)
+    setSitemap(null)
+    if (!supabase) return
+    await runWrite(() => supabase.from('sitemaps').delete().eq('id', id))
+  }, [sitemap, runWrite])
+
   const updateSitemap = useCallback((fields) => {
     patch(sm => ({ ...sm, ...fields }))
     if (sitemap) runWrite(() => supabase.from('sitemaps').update(fields).eq('id', sitemap.id))
@@ -500,7 +511,7 @@ export function useSitemapData(clientId) {
 
   return {
     sitemap, loading, error, saveStatus, saveError, retrySave, refetch: fetchData,
-    createSitemap, updateSitemap, setMenus,
+    createSitemap, updateSitemap, deleteSitemap, setMenus,
     addPage, updatePage, updatePages, updatePageUrl, deletePage, deletePages, restorePage, restorePages, reorderPages,
     addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword, deleteKeywords,
     addTemplate, updateTemplate, deleteTemplate,
