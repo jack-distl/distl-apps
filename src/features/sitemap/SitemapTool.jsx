@@ -413,7 +413,7 @@ export default function SitemapTool() {
                   sitemap={sitemap}
                   highlightId={highlightTemplateId}
                   onSelectPage={selectPage}
-                  actions={{ addTemplate: data.addTemplate, updateTemplate: data.updateTemplate, deleteTemplate: data.deleteTemplate }}
+                  actions={{ addTemplate: data.addTemplate, updateTemplate: data.updateTemplate, deleteTemplate: data.deleteTemplate, updateSitemap: data.updateSitemap }}
                 />
               )}
             </div>
