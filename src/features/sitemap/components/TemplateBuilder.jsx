@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { Plus, X, Loader2, LayoutTemplate } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
-import { RowPicker, DynamicText } from './TemplatesTab'
-import { newSection, normaliseBlocks, sectionLibrary, moduleKey, parseWords, formatWords, totalWords } from '@/lib/sitemap/templateBlocks'
+import { RowPicker, DynamicText, DynamicFieldsContext } from './TemplatesTab'
+import { newSection, normaliseBlocks, sectionLibrary, moduleKey, parseWords, formatWords, totalWords, fieldsFor } from '@/lib/sitemap/templateBlocks'
 
 /**
  * Build a template from a page's side panel, for a page that has none yet:
@@ -49,6 +49,7 @@ export function TemplateBuilder({ sitemap, page, onSave }) {
   }
 
   return (
+    <DynamicFieldsContext.Provider value={{ fields: fieldsFor(sitemap.dynamic_fields), manage: null }}>
     <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-2.5">
       <div className="flex items-center gap-2">
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Template name" className="min-w-0 flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm font-medium text-charcoal focus:border-coral/60 focus:outline-none" />
@@ -93,5 +94,6 @@ export function TemplateBuilder({ sitemap, page, onSave }) {
         </div>
       </div>
     </div>
+    </DynamicFieldsContext.Provider>
   )
 }

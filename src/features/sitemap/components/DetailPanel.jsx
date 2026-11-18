@@ -377,7 +377,7 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
             }}
           />
         ) : (
-          <TemplateOutline template={template} values={dynamicValues(page, h)} onOpen={template && !readOnly ? () => onJumpTemplate(template.id) : null} />
+          <TemplateOutline template={template} values={dynamicValues(page, h, sitemap.dynamic_fields)} onOpen={template && !readOnly ? () => onJumpTemplate(template.id) : null} />
         )}
       </Section>
 

@@ -97,24 +97,37 @@ export function wordStatus(count, range) {
 // Written in braces inside a section's name or description. Lists expand
 // a "- {Child pages}" bullet into one bullet per page; inline they join
 // with commas. In the Templates tab they show as chips.
+//
+// Five come built in. Per sitemap (sitemaps.dynamic_fields) the team can
+// choose which pages count as Main categories and add their own fields:
+//   { mainCategories: [pageId] | null,
+//     custom: [{ id, name, type: 'pages' | 'text', pages: [pageId], text }] }
 
 export const DYNAMIC_FIELDS = [
-  { key: 'Page title', list: false, hint: "This page's name" },
-  { key: 'Parent page', list: false, hint: 'The page above this one' },
-  { key: 'Child pages', list: true, hint: 'Pages directly under this one' },
-  { key: 'Sibling pages', list: true, hint: 'Other pages in the same hub' },
-  { key: 'Main categories', list: true, hint: 'The top-level hub pages' },
+  { key: 'Page title', list: false, hint: "This page's name", source: 'The name of the page the template is on.' },
+  { key: 'Parent page', list: false, hint: 'The page above this one', source: 'The page directly above it in the sitemap (from the URL).' },
+  { key: 'Child pages', list: true, hint: 'Pages directly under this one', source: 'Every page directly under this one in the sitemap. Functional pages are left out.' },
+  { key: 'Sibling pages', list: true, hint: 'Other pages in the same hub', source: 'The other pages that share this page\'s parent, so the rest of its hub. Functional pages are left out.' },
+  { key: 'Main categories', list: true, hint: 'The main hub pages', source: 'The top-level hubs of the site, the columns on the sitemap board. Choose exactly which pages count.' },
 ]
-const FIELD_BY_KEY = Object.fromEntries(DYNAMIC_FIELDS.map(f => [f.key.toLowerCase(), f]))
 const TOKEN_RE = /\{([^{}]+)\}/g
 
+/** Built-in fields plus this sitemap's own. */
+export function fieldsFor(config) {
+  const custom = (config?.custom || [])
+    .filter(f => f.name?.trim())
+    .map(f => ({ key: f.name.trim(), list: f.type === 'pages', hint: f.type === 'pages' ? 'Your list of pages' : 'Your text', source: 'Your own field.', custom: true, id: f.id }))
+  return [...DYNAMIC_FIELDS, ...custom]
+}
+
 /** Text → [{ text } | { field }] so dynamic fields can render as chips. */
-export function splitDynamic(text) {
+export function splitDynamic(text, fields = DYNAMIC_FIELDS) {
+  const byKey = Object.fromEntries(fields.map(f => [f.key.toLowerCase(), f]))
   const out = []
   let last = 0
   const s = String(text || '')
   for (const m of s.matchAll(TOKEN_RE)) {
-    const field = FIELD_BY_KEY[m[1].trim().toLowerCase()]
+    const field = byKey[m[1].trim().toLowerCase()]
     if (!field) continue
     if (m.index > last) out.push({ text: s.slice(last, m.index) })
     out.push({ field })
@@ -124,23 +137,45 @@ export function splitDynamic(text) {
   return out
 }
 
-export const hasDynamic = text => splitDynamic(text).some(p => p.field)
+export const hasDynamic = (text, fields) => splitDynamic(text, fields).some(p => p.field)
+
+/** The pages that count as Main categories: the chosen ones, or every non-functional top-level page. */
+export function mainCategoryPages(hierarchy, config) {
+  const chosen = config?.mainCategories
+  if (Array.isArray(chosen)) return chosen.map(id => hierarchy.pages.find(p => p.id === id)).filter(Boolean)
+  return hierarchy.roots.filter(p => p.status !== 'functional')
+}
 
 /**
- * The values each field takes for one page. `hierarchy` is buildHierarchy(pages).
- * Functional pages are left out of the lists.
+ * The values each field takes for one page, keyed by lower-case name.
+ * Lists are arrays. `hierarchy` is buildHierarchy(pages); `config` is
+ * sitemaps.dynamic_fields.
  */
-export function dynamicValues(page, hierarchy) {
+export function dynamicValues(page, hierarchy, config = null) {
   const live = p => p && p.status !== 'functional'
   const parent = hierarchy.parentOf(page)
   const names = list => list.filter(live).map(p => p.name)
-  return {
+  const values = {
     'page title': page.name,
     'parent page': parent?.name || '',
     'child pages': names(hierarchy.childrenOf(page)),
     'sibling pages': parent ? names(hierarchy.childrenOf(parent).filter(p => p.id !== page.id)) : [],
-    'main categories': names(hierarchy.roots),
+    'main categories': mainCategoryPages(hierarchy, config).map(p => p.name),
   }
+  for (const f of config?.custom || []) {
+    const key = f.name?.trim().toLowerCase()
+    if (!key || key in values) continue
+    values[key] = f.type === 'pages'
+      ? (f.pages || []).map(id => hierarchy.pages.find(p => p.id === id)?.name).filter(Boolean)
+      : (f.text || '')
+  }
+  return values
+}
+
+/** Is this line a bullet holding only a list field (one bullet per item when filled in)? */
+export function isListBullet(line, values) {
+  const m = String(line || '').match(/^\s*[-*•]\s+\{([^{}]+)\}\s*$/)
+  return !!(m && Array.isArray(values?.[m[1].trim().toLowerCase()]))
 }
 
 /** Fill dynamic fields in for one page. A bullet holding only a list field becomes one bullet per item. */
@@ -150,11 +185,10 @@ export function resolveDynamic(text, values) {
   const out = []
   for (const line of lines) {
     const bullet = line.match(/^(\s*[-*•]\s+)\{([^{}]+)\}\s*$/)
-    const key = bullet && bullet[2].trim().toLowerCase()
-    if (bullet && FIELD_BY_KEY[key]?.list) {
-      const items = values[key] || []
-      if (!items.length) out.push(`${bullet[1]}(none yet)`)
-      for (const item of items) out.push(`${bullet[1]}${item}`)
+    const list = bullet && values[bullet[2].trim().toLowerCase()]
+    if (Array.isArray(list)) {
+      if (!list.length) out.push(`${bullet[1]}(none yet)`)
+      for (const item of list) out.push(`${bullet[1]}${item}`)
       continue
     }
     out.push(line.replace(TOKEN_RE, (m, k) => {

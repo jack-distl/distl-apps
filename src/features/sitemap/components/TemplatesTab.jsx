@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, X, LayoutTemplate, Copy, Highlighter, Search, Braces, PenLine } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { buildHierarchy } from '@/lib/sitemap/tree'
 import {
   newSection, normaliseBlocks, parseDetails, moduleKey, parseWords, formatWords, totalWords,
-  splitDynamic, DYNAMIC_FIELDS, sectionLibrary, templateTree,
+  splitDynamic, DYNAMIC_FIELDS, fieldsFor, sectionLibrary, templateTree,
 } from '@/lib/sitemap/templateBlocks'
 
 // The coloured dot on each template label, by its place in the list, the
@@ -23,11 +23,15 @@ function autosize(el) {
   el.style.height = el.scrollHeight + 'px'
 }
 
+/** The sitemap's dynamic fields (built-in plus its own) and a way to open the manager. */
+export const DynamicFieldsContext = createContext({ fields: DYNAMIC_FIELDS, manage: null })
+
 /** Text with {Dynamic fields} shown as chips. */
 export function DynamicText({ text, className }) {
+  const { fields } = useContext(DynamicFieldsContext)
   return (
     <span className={className}>
-      {splitDynamic(text).map((part, i) => part.field
+      {splitDynamic(text, fields).map((part, i) => part.field
         ? <span key={i} title={part.field.hint} className="mx-px inline-flex items-center gap-0.5 rounded bg-sky-100 px-1 text-[0.92em] font-medium text-sky-800 align-baseline"><Braces size={9} />{part.field.key}</span>
         : <span key={i}>{part.text}</span>)}
     </span>
@@ -119,6 +123,7 @@ function SectionEditor({ section, focusField, onChange, onClose, onAddBelow, onR
   const detailsRef = useRef(null)
   const lastFocus = useRef(focusField === 'details' ? 'details' : 'title')
   const [fieldsOpen, setFieldsOpen] = useState(false)
+  const { fields, manage } = useContext(DynamicFieldsContext)
 
   useEffect(() => {
     autosize(detailsRef.current)
@@ -203,12 +208,17 @@ function SectionEditor({ section, focusField, onChange, onClose, onAddBelow, onR
         </label>
         {fieldsOpen && (
           <div className="absolute left-0 top-6 z-30 w-60 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
-            {DYNAMIC_FIELDS.map(f => (
+            {fields.map(f => (
               <button key={f.key} type="button" onMouseDown={e => e.preventDefault()} onClick={() => insertField(f)} className="block w-full rounded px-2 py-1 text-left hover:bg-sky-50">
                 <span className="text-[12px] font-medium text-charcoal">{f.key}</span>
                 <span className="block text-[10.5px] text-gray-400">{f.hint}{f.list ? ', as a list' : ''}</span>
               </button>
             ))}
+            {manage && (
+              <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => { setFieldsOpen(false); manage() }} className="mt-1 block w-full border-t border-gray-100 px-2 pt-1.5 pb-1 text-left text-[11px] text-sky-700 hover:underline">
+                See and edit dynamic fields…
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -445,7 +455,7 @@ function TreeNode({ node, renderCard }) {
   )
 }
 
-export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
+export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions, onManageFields }) {
   const { addTemplate, updateTemplate, deleteTemplate } = actions
   const refs = useRef({})
   const templates = useMemo(() => [...sitemap.templates].sort((a, b) => a.sort_order - b.sort_order), [sitemap.templates])
@@ -513,7 +523,10 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
     />
   )
 
+  const fieldsCtx = useMemo(() => ({ fields: fieldsFor(sitemap.dynamic_fields), manage: onManageFields }), [sitemap.dynamic_fields, onManageFields])
+
   return (
+    <DynamicFieldsContext.Provider value={fieldsCtx}>
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-gray-500">
@@ -525,6 +538,11 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
               <button key={v} type="button" onClick={() => chooseView(v)} className={cn('px-2.5 py-1 rounded-md text-xs font-medium transition-colors', view === v ? 'bg-white text-charcoal shadow-sm' : 'text-gray-500 hover:text-gray-700')}>{label}</button>
             ))}
           </div>
+          {onManageFields && (
+            <button type="button" onClick={onManageFields} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:border-sky-300 hover:text-sky-700">
+              <Braces size={13} /> Dynamic fields
+            </button>
+          )}
           <button type="button" onClick={() => setJustAdded(addTemplate().id)} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:border-coral hover:text-coral">
             <LayoutTemplate size={14} /> Add template
           </button>
@@ -549,5 +567,6 @@ export function TemplatesTab({ sitemap, highlightId, onSelectPage, actions }) {
         </div>
       )}
     </div>
+    </DynamicFieldsContext.Provider>
   )
 }
