@@ -202,7 +202,7 @@ Formerly the OKR Planner. **Kept in step with the WordPress build** (`DistlDev/d
 - One sitemap per client. Pages carry name, URL, status (keep / add / opportunity / functional), page template, a keyword cluster with exactly one primary keyword, title tag, meta description and H1
 - Hierarchy is derived from the URL path (`/about/our-people/` nests under `/about/`), so editing a URL moves the page; children can follow with a confirm
 - Four tabs from the same tree: Sitemap (tree or table), Keyword Research, URL Architecture, Templates
-- **Templates** follow the SEO Foundations Figma page cards (Katja's Indeko build), kept deliberately plain: each template is a list of sections, each a name and a description where lines starting with a dash show as bullets. Click a section to type into it in place (no boxes or toolbar), Enter moves to the description, Ctrl + Enter adds a row below, Esc finishes, Backspace on an empty section removes it. Hover between sections to insert one, drag the grip to reorder, × to delete. Stored in `sitemap_page_templates.blocks` as `[{ id, title, details }]` (`lib/sitemap/templateBlocks.js`); older wireframe and column shapes still open
+- **Templates** follow the SEO Foundations Figma page cards (Katja's Indeko build), kept deliberately plain: each template is a list of sections, each a name and a description where lines starting with a dash show as bullets. Click a section to type into it in place (no boxes or toolbar), Enter moves to the description, Ctrl + Enter adds a row below, Esc finishes, Backspace on an empty section removes it. Hover between sections to insert one, drag the grip to reorder, × to delete. Stored in `sitemap_page_templates.blocks` as `[{ id, title, details }]` (`lib/sitemap/templateBlocks.js`); older wireframe and column shapes still open. **Module colours:** every section name gets a soft colour from a twelve-colour palette, the same in every template on that sitemap (not across sitemaps), shown as an outline on white. Matching ignores case and outer spaces. Click a section's dot or a chip in the Modules key to change it (pinned, with Back to auto), or switch a module to Fill to make it loud (CTAs). Hovering a chip highlights everywhere that module is used. Colours are assigned once and saved on `sitemaps.module_colours` (migration 022), repeated modules first so they stay distinct
 - Detail side panel with every field editable in place; edits autosave through Supabase like the SEO plan
 - **Template in, then fully editable:** the SEO Foundations CSVs (proposed sitemap, keyword clusters, optional metadata sheet) land the whole tree. Re-importing shows a diff and never overwrites edits unless chosen
 - **Versions:** the planning version plus any number of review versions, each named after the period it covers (e.g. Jul – Sep 2026) and ordered by that period. Search Console queries attach to pages by page URL when the export has one, else by exact keyword, else by containing a tracked keyword (marked inferred). A review takes Search Console Pages and Queries CSVs, an Ahrefs or SEMrush rank tracking export and optionally refreshed volumes. Pages and keywords the files reveal are offered as additions, so the tree can start from nothing. Nothing unmatched is dropped; it is kept with the version for review
@@ -216,7 +216,7 @@ Formerly the OKR Planner. **Kept in step with the WordPress build** (`DistlDev/d
 
 **Logic lives in `src/lib/sitemap/`** (CSV parsing, tree derivation, importers, matching, exports). Run `pnpm test:sitemap` after touching it; the parity test proves the WordPress export is byte-identical to the reference file.
 
-**Status:** Built, connected to Supabase (migrations 015 to 019). Needs real-client testing.
+**Status:** Built, connected to Supabase (migrations 015 to 019, plus 022 for module colours). Needs real-client testing.
 
 ### Future App Ideas
 
@@ -263,7 +263,7 @@ okr_future_objectives (client_id, category, title, scope, scope_detail, ...)   -
 okr_future_key_results (objective_id, task, description, internal_notes, am_hours, seo_hours, ...)
 
 -- Sitemap Tool
-sitemaps (client_id, review_cadence, menus, ...)
+sitemaps (client_id, review_cadence, menus, module_colours, ...)
 sitemap_page_templates (sitemap_id, code, name, description, blocks, ...)
 sitemap_pages (sitemap_id, name, url, status, template_id, title_tag, meta_description, h1, post_type, group_parent_id, is_priority, ...)
 sitemap_keywords (page_id, keyword, volume, is_primary, ...)
