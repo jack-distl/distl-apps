@@ -10,9 +10,8 @@
 
 import { orderedPages, isHome, templateLabel } from './tree.js'
 import { slugify } from './csv.js'
-import { normaliseBlocks, dynamicValues, resolveDynamic, parseDetails, parseWords, formatWords, totalWords, countWords } from './templateBlocks.js'
+import { normaliseBlocks, dynamicValues, resolveDynamic, parseDetails, parseWords, formatWords, totalWords, countWords, isListBullet } from './templateBlocks.js'
 
-const LIST_FIELD = /^\s*[-*•]\s+\{(child pages|sibling pages|main categories)\}\s*$/im
 
 const md = s => String(s ?? '').replace(/\|/g, '\\|').trim()
 
@@ -50,7 +49,7 @@ export function buildCopyBrief(sitemap, clientName = '') {
     const template = templates.find(t => t.id === page.template_id)
     const sections = template ? normaliseBlocks(template.blocks) : []
     const copy = sitemap.copy?.[page.id] || {}
-    const values = dynamicValues(page, hierarchy)
+    const values = dynamicValues(page, hierarchy, sitemap.dynamic_fields)
     const parent = hierarchy.parentOf(page)
     const total = totalWords(sections)
 
@@ -98,7 +97,7 @@ export function buildCopyBrief(sitemap, clientName = '') {
       if (lines.length) {
         out.push('')
         for (const l of lines) out.push(`${l.kind === 'bullet' ? '- ' : ''}${l.text}${l.kind === 'bullet' ? '' : '  '}`)
-        if (LIST_FIELD.test(sec.details)) out.push('', '_The list above is filled in from the sitemap._')
+        if (String(sec.details || '').split('\n').some(l => isListBullet(l, values))) out.push('', '_The list above is filled in from the sitemap._')
       }
       if (takesCopy) {
         out.push('')

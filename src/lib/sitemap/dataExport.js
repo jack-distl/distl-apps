@@ -85,7 +85,7 @@ export function buildCopyRows(sitemap) {
     const copy = sitemap.copy?.[p.id] || {}
     const confirmed = p.copy_confirmed ? 'Yes' : ''
     if (!template) { rows.push([p.name, p.url, '', '', '', '', '', '', confirmed]); continue }
-    const values = dynamicValues(p, hierarchy)
+    const values = dynamicValues(p, hierarchy, sitemap.dynamic_fields)
     for (const sec of normaliseBlocks(template.blocks)) {
       const body = copy[sec.id]?.body || ''
       rows.push([p.name, p.url, templateLabel(template), resolveDynamic(sec.title, values), resolveDynamic(sec.details, values), formatWords(parseWords(sec.words)), countWords(body), body, confirmed])

@@ -6,10 +6,10 @@ import {
   DialogDescription,
 } from './ui/dialog'
 
-export function Modal({ open, onClose, title, description, children }) {
+export function Modal({ open, onClose, title, description, children, className = '' }) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="[&>*]:min-w-0">
+      <DialogContent className={`[&>*]:min-w-0 ${className}`}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

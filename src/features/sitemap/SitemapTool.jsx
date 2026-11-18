@@ -33,6 +33,7 @@ import { UrlsTab } from './components/UrlsTab'
 import { TemplatesTab } from './components/TemplatesTab'
 import { CopyTab } from './components/CopyTab'
 import { CopyImportModal } from './components/CopyImportModal'
+import { DynamicFieldsModal } from './components/DynamicFieldsModal'
 import { SourceStrip } from './components/SourceStrip'
 import { ImportModal } from './components/ImportModal'
 import { NewVersionModal } from './components/NewVersionModal'
@@ -75,6 +76,8 @@ export default function SitemapTool() {
   const [filters, setFilters] = useState({ hideNoKeyword: false, priorityOnly: false })
   const [confirmRemake, setConfirmRemake] = useState(false)
   const [showCopyImport, setShowCopyImport] = useState(false)
+  const [showFields, setShowFields] = useState(false)
+  const openFields = useCallback(() => setShowFields(true), [])
   const [rollup, setRollup] = useState('hubs')            // 'site' | 'hubs' | 'all'
   const [collapsed, setCollapsed] = useState(new Set())    // hub ids rolled up individually
   const [undo, setUndo] = useState(null)
@@ -447,6 +450,7 @@ export default function SitemapTool() {
                   highlightId={highlightTemplateId}
                   onSelectPage={selectPage}
                   actions={{ addTemplate: data.addTemplate, updateTemplate: data.updateTemplate, deleteTemplate: data.deleteTemplate }}
+                  onManageFields={openFields}
                 />
               )}
               {tab === 'copy' && (
@@ -513,6 +517,14 @@ export default function SitemapTool() {
             message="This deletes the whole sitemap: every page, keyword, template, menu and review version, and any SEO plan objectives linked to its pages lose that link. You then start again from the website, the SEO Foundations files or blank. Export a CSV first if you might want anything back."
             confirmLabel="Delete and start again"
           />
+          {showFields && (
+            <DynamicFieldsModal
+              open
+              onClose={() => setShowFields(false)}
+              sitemap={sitemap}
+              onSave={config => data.updateSitemap({ dynamic_fields: config })}
+            />
+          )}
           <CopyImportModal
             open={showCopyImport}
             onClose={() => setShowCopyImport(false)}

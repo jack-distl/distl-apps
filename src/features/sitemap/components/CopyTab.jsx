@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { buildVisualSilos, buildHierarchy, templateLabel } from '@/lib/sitemap/tree'
 import {
-  normaliseBlocks, parseDetails, dynamicValues, resolveDynamic, hasDynamic,
+  normaliseBlocks, parseDetails, dynamicValues, resolveDynamic, isListBullet,
   parseWords, formatWords, countWords, totalWords, wordStatus,
 } from '@/lib/sitemap/templateBlocks'
 
@@ -77,7 +77,7 @@ function CopySection({ section, values, body, onChange }) {
   const n = countWords(body)
   const status = wordStatus(n, range)
   const brief = parseDetails(resolveDynamic(section.details, values))
-  const dynamicBrief = hasDynamic(section.details)
+  const dynamicBrief = String(section.details || '').split('\n').some(l => isListBullet(l, values))
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-3">
       <p className="text-[13px] font-semibold text-charcoal">{resolveDynamic(section.title, values) || <span className="italic font-normal text-gray-400">Untitled section</span>}</p>
@@ -145,7 +145,7 @@ function PageKeywords({ page, allCopy }) {
 
 function CopyPanel({ sitemap, page, hierarchy, onClose, onConfirm, onJumpTemplate, setCopy }) {
   const stats = pageCopyStats(sitemap, page)
-  const values = dynamicValues(page, hierarchy)
+  const values = dynamicValues(page, hierarchy, sitemap.dynamic_fields)
   const copy = sitemap.copy?.[page.id] || {}
   const over = stats.target && stats.written > stats.target.max
   return (
