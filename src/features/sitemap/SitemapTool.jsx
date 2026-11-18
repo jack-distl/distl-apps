@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
-  ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, Map as MapIcon, FileSpreadsheet, ListTree, Plus, Globe, Flag, MoreHorizontal, RotateCcw,
+  ArrowLeft, Download, Upload, ChevronDown, Loader2, Check, Circle, AlertTriangle, Map as MapIcon, FileSpreadsheet, ListTree, Plus, Globe, Flag, MoreHorizontal, RotateCcw, FileText,
 } from 'lucide-react'
 import { LoadingSpinner, UndoToast, Hint, ConfirmDialog } from '@/components'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,7 @@ import { buildReviewSnapshot } from '@/lib/sitemap/matching'
 import { downloadText } from '@/lib/sitemap/csv'
 import { buildWordPressCsv, wordPressFilename } from '@/lib/sitemap/wordpressExport'
 import { buildSitemapDataCsv, buildKeywordClusterCsv, buildCopyCsv, dataFilename } from '@/lib/sitemap/dataExport'
+import { buildCopyBrief, copyBriefFilename } from '@/lib/sitemap/copyBrief'
 import { VersionPills } from './components/VersionPills'
 import { Legend } from './components/Legend'
 import { TreeView } from './components/TreeView'
@@ -31,6 +32,7 @@ import { KeywordsTab } from './components/KeywordsTab'
 import { UrlsTab } from './components/UrlsTab'
 import { TemplatesTab } from './components/TemplatesTab'
 import { CopyTab } from './components/CopyTab'
+import { CopyImportModal } from './components/CopyImportModal'
 import { SourceStrip } from './components/SourceStrip'
 import { ImportModal } from './components/ImportModal'
 import { NewVersionModal } from './components/NewVersionModal'
@@ -72,6 +74,7 @@ export default function SitemapTool() {
   // Defaults on arrival: Sitemap tab, latest version, Priority keywords on, Tracked keywords off, Hubs roll-up, Tree view
   const [filters, setFilters] = useState({ hideNoKeyword: false, priorityOnly: false })
   const [confirmRemake, setConfirmRemake] = useState(false)
+  const [showCopyImport, setShowCopyImport] = useState(false)
   const [rollup, setRollup] = useState('hubs')            // 'site' | 'hubs' | 'all'
   const [collapsed, setCollapsed] = useState(new Set())    // hub ids rolled up individually
   const [undo, setUndo] = useState(null)
@@ -217,6 +220,7 @@ export default function SitemapTool() {
 
   function exportWordPress() { downloadText(wordPressFilename(client?.name), buildWordPressCsv(sitemap)) }
   function exportData() { downloadText(dataFilename(client?.name, isReview ? version : null, 'sitemap'), buildSitemapDataCsv(sitemap, isReview ? version : null)) }
+  function exportCopyBrief() { downloadText(copyBriefFilename(client?.name), buildCopyBrief(sitemap, client?.name), 'text/markdown;charset=utf-8') }
   function exportCopy() { downloadText(dataFilename(client?.name, null, 'copywriting'), buildCopyCsv(sitemap)) }
   function exportKeywords() { downloadText(dataFilename(client?.name, null, 'keyword-clusters'), buildKeywordClusterCsv(sitemap)) }
 
@@ -305,6 +309,9 @@ export default function SitemapTool() {
                 <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-gray-400">Sitemap data</DropdownMenuLabel>
                 <DropdownMenuItem onClick={exportData}><MapIcon size={14} className="mr-2 text-gray-400" /> Sitemap &amp; metadata CSV{isReview ? ' (with performance)' : ''}</DropdownMenuItem>
                 <DropdownMenuItem onClick={exportKeywords}><FileSpreadsheet size={14} className="mr-2 text-gray-400" /> Keyword clusters CSV</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-gray-400">Copywriting</DropdownMenuLabel>
+                <DropdownMenuItem onClick={exportCopyBrief}><FileText size={14} className="mr-2 text-gray-400" /> Copywriting brief (for a writer or Claude)</DropdownMenuItem>
                 <DropdownMenuItem onClick={exportCopy}><FileSpreadsheet size={14} className="mr-2 text-gray-400" /> Copywriting CSV</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -313,6 +320,10 @@ export default function SitemapTool() {
                 <Button variant="secondary" aria-label="More"><MoreHorizontal size={16} /></Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuItem onClick={() => setShowCopyImport(true)}>
+                  <Upload size={14} className="mr-2 text-gray-400" /> Import copywriting brief…
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setConfirmRemake(true)} className="text-red-600 focus:text-red-700">
                   <RotateCcw size={14} className="mr-2" /> Remake SEO Foundations…
                 </DropdownMenuItem>
@@ -445,6 +456,8 @@ export default function SitemapTool() {
                   onSelectPage={setSelectedPageId}
                   onJumpTemplate={jumpToTemplate}
                   actions={{ setCopy: data.setCopy, updatePage: data.updatePage }}
+                  onExportBrief={exportCopyBrief}
+                  onImportBrief={() => setShowCopyImport(true)}
                 />
               )}
             </div>
@@ -499,6 +512,12 @@ export default function SitemapTool() {
             title={`Remake ${client.name}'s SEO Foundations?`}
             message="This deletes the whole sitemap: every page, keyword, template, menu and review version, and any SEO plan objectives linked to its pages lose that link. You then start again from the website, the SEO Foundations files or blank. Export a CSV first if you might want anything back."
             confirmLabel="Delete and start again"
+          />
+          <CopyImportModal
+            open={showCopyImport}
+            onClose={() => setShowCopyImport(false)}
+            sitemap={sitemap}
+            onApply={items => items.forEach(i => data.setCopy(i.pageId, i.sectionId, i.body))}
           />
           <MenusModal open={showMenus} onClose={() => setShowMenus(false)} menus={sitemap.menus || []} onChange={data.setMenus} />
           <BulkKeywordsModal open={!!bulkEdit} onClose={() => setBulkEdit(null)} sitemap={sitemap} pageId={bulkEdit?.pageId || null} pageIds={bulkEdit?.pageIds || null} onRemove={data.deleteKeywords} />
