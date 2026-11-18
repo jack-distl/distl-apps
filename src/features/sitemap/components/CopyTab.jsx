@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CheckCircle2, Circle, PenLine, ExternalLink } from 'lucide-react'
+import { X, CheckCircle2, Circle, PenLine, ExternalLink, Download, Upload } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { buildVisualSilos, buildHierarchy, templateLabel } from '@/lib/sitemap/tree'
@@ -208,7 +208,7 @@ function CopyPanel({ sitemap, page, hierarchy, onClose, onConfirm, onJumpTemplat
  * words written against the recommended range, and a Done tick. Clicking a
  * page opens its sections, with dynamic fields filled in, to write into.
  */
-export function CopyTab({ sitemap, selectedPageId, onSelectPage, onJumpTemplate, actions }) {
+export function CopyTab({ sitemap, selectedPageId, onSelectPage, onJumpTemplate, actions, onExportBrief, onImportBrief }) {
   const { setCopy, updatePage } = actions
   const { home, silos, functional } = useMemo(() => buildVisualSilos(sitemap.pages), [sitemap.pages])
   const hierarchy = useMemo(() => buildHierarchy(sitemap.pages), [sitemap.pages])
@@ -232,6 +232,9 @@ export function CopyTab({ sitemap, selectedPageId, onSelectPage, onJumpTemplate,
             <input type="checkbox" className="accent-[#E8806A]" checked={onlyOpen} onChange={e => setOnlyOpen(e.target.checked)} /> Hide confirmed pages
           </label>
           <span className="text-gray-400">Red means a section is over its recommended words.</span>
+          <span className="flex-1" />
+          {onExportBrief && <button type="button" onClick={onExportBrief} className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-charcoal hover:border-coral hover:text-coral"><Download size={13} /> Export brief</button>}
+          {onImportBrief && <button type="button" onClick={onImportBrief} className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-charcoal hover:border-coral hover:text-coral"><Upload size={13} /> Import filled brief</button>}
         </div>
 
         {home && show(home) && <div className="flex justify-center"><div className="w-72">{card(home)}</div></div>}
