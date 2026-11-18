@@ -21,7 +21,7 @@ import { generateId } from '@/lib/constants'
 import { buildReviewSnapshot } from '@/lib/sitemap/matching'
 import { downloadText } from '@/lib/sitemap/csv'
 import { buildWordPressCsv, wordPressFilename } from '@/lib/sitemap/wordpressExport'
-import { buildSitemapDataCsv, buildKeywordClusterCsv, dataFilename } from '@/lib/sitemap/dataExport'
+import { buildSitemapDataCsv, buildKeywordClusterCsv, buildCopyCsv, dataFilename } from '@/lib/sitemap/dataExport'
 import { VersionPills } from './components/VersionPills'
 import { Legend } from './components/Legend'
 import { TreeView } from './components/TreeView'
@@ -30,6 +30,7 @@ import { DetailPanel } from './components/DetailPanel'
 import { KeywordsTab } from './components/KeywordsTab'
 import { UrlsTab } from './components/UrlsTab'
 import { TemplatesTab } from './components/TemplatesTab'
+import { CopyTab } from './components/CopyTab'
 import { SourceStrip } from './components/SourceStrip'
 import { ImportModal } from './components/ImportModal'
 import { NewVersionModal } from './components/NewVersionModal'
@@ -42,6 +43,7 @@ const TABS = [
   { value: 'keywords', label: 'Keyword Research' },
   { value: 'urls', label: 'URL Architecture', foundationsOnly: true },
   { value: 'templates', label: 'Templates', foundationsOnly: true },
+  { value: 'copy', label: 'Copywriting', foundationsOnly: true },
 ]
 
 const ROLLUPS = [
@@ -96,7 +98,7 @@ export default function SitemapTool() {
   // version) and to the team; Client view keeps the Sitemap and Keyword Research
   const visibleTabs = TABS.filter(t => !t.foundationsOnly || (!isReview && !clientView))
 
-  useEffect(() => { if ((isReview || clientView) && (tab === 'templates' || tab === 'urls')) setTab('sitemap') }, [isReview, clientView, tab])
+  useEffect(() => { if ((isReview || clientView) && (tab === 'templates' || tab === 'urls' || tab === 'copy')) setTab('sitemap') }, [isReview, clientView, tab])
 
   function toggleCollapse(id) {
     if (id === '__site__') { setRollup('hubs'); return }
@@ -215,6 +217,7 @@ export default function SitemapTool() {
 
   function exportWordPress() { downloadText(wordPressFilename(client?.name), buildWordPressCsv(sitemap)) }
   function exportData() { downloadText(dataFilename(client?.name, isReview ? version : null, 'sitemap'), buildSitemapDataCsv(sitemap, isReview ? version : null)) }
+  function exportCopy() { downloadText(dataFilename(client?.name, null, 'copywriting'), buildCopyCsv(sitemap)) }
   function exportKeywords() { downloadText(dataFilename(client?.name, null, 'keyword-clusters'), buildKeywordClusterCsv(sitemap)) }
 
   // ─── Render ───────────────────────────────────────────────
@@ -302,6 +305,7 @@ export default function SitemapTool() {
                 <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-gray-400">Sitemap data</DropdownMenuLabel>
                 <DropdownMenuItem onClick={exportData}><MapIcon size={14} className="mr-2 text-gray-400" /> Sitemap &amp; metadata CSV{isReview ? ' (with performance)' : ''}</DropdownMenuItem>
                 <DropdownMenuItem onClick={exportKeywords}><FileSpreadsheet size={14} className="mr-2 text-gray-400" /> Keyword clusters CSV</DropdownMenuItem>
+                <DropdownMenuItem onClick={exportCopy}><FileSpreadsheet size={14} className="mr-2 text-gray-400" /> Copywriting CSV</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
@@ -434,10 +438,19 @@ export default function SitemapTool() {
                   actions={{ addTemplate: data.addTemplate, updateTemplate: data.updateTemplate, deleteTemplate: data.deleteTemplate }}
                 />
               )}
+              {tab === 'copy' && (
+                <CopyTab
+                  sitemap={sitemap}
+                  selectedPageId={selectedPageId}
+                  onSelectPage={setSelectedPageId}
+                  onJumpTemplate={jumpToTemplate}
+                  actions={{ setCopy: data.setCopy, updatePage: data.updatePage }}
+                />
+              )}
             </div>
 
             <AnimatePresence>
-              {selectedPage && tab !== 'templates' && (
+              {selectedPage && tab !== 'templates' && tab !== 'copy' && (
                 <DetailPanel
                   key={selectedPage.id}
                   sitemap={sitemap}
@@ -456,6 +469,7 @@ export default function SitemapTool() {
                     updateKeyword: data.updateKeyword,
                     setPrimaryKeyword: data.setPrimaryKeyword,
                     deleteKeyword: data.deleteKeyword,
+                    addTemplate: data.addTemplate,
                   }}
                 />
               )}

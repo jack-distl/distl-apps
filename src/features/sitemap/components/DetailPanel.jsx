@@ -9,7 +9,8 @@ import { STATUS_META, STATUSES, normaliseUrl, cascadeUrlChange, templateLabel, f
 import { hasPerf, pagePerfSummary, averagePosition, previousReview, pageClickBreakdown, pageMetric, change, versionPeriodLabel, aggregatePages } from '@/lib/sitemap/perf'
 import { cn } from '@/lib/utils'
 import { Hint } from '@/components'
-import { normaliseBlocks, parseDetails } from '@/lib/sitemap/templateBlocks'
+import { TemplateBuilder } from './TemplateBuilder'
+import { normaliseBlocks, parseDetails, dynamicValues, resolveDynamic, parseWords, formatWords } from '@/lib/sitemap/templateBlocks'
 
 const TOP_QUERIES = 3
 
@@ -37,7 +38,7 @@ function StatBox({ value, change: chg, label, sub }) {
 
 /** A metadata field as plain text, for Client view. */
 /** The chosen template's sections, as a small read-only outline. */
-function TemplateOutline({ template, onOpen }) {
+function TemplateOutline({ template, values, onOpen }) {
   const sections = template ? normaliseBlocks(template.blocks) : []
   if (!template || !sections.length) {
     return (
@@ -50,10 +51,12 @@ function TemplateOutline({ template, onOpen }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-2 space-y-1.5">
       {sections.map(sec => {
-        const lines = parseDetails(sec.details)
+        const lines = parseDetails(resolveDynamic(sec.details, values))
+        const words = parseWords(sec.words)
         return (
-          <div key={sec.id} className="rounded-md border border-[#DCDCDC] bg-[#EBEBEB] px-2.5 py-1.5">
-            <p className="text-[12px] font-semibold leading-snug text-charcoal break-words">{sec.title || <span className="italic font-normal text-gray-400">Untitled</span>}</p>
+          <div key={sec.id} className="relative rounded-md border border-[#DCDCDC] bg-[#EBEBEB] px-2.5 py-1.5">
+            {words && <span className="absolute right-2 top-1.5 text-[10px] tabular-nums text-gray-400">{formatWords(words)} words</span>}
+            <p className="pr-16 text-[12px] font-semibold leading-snug text-charcoal break-words">{sec.title ? resolveDynamic(sec.title, values) : <span className="italic font-normal text-gray-400">Untitled</span>}</p>
             {lines.length > 0 && (
               <div className="mt-0.5 text-[11px] leading-snug text-[#6B6B6B] space-y-px">
                 {lines.map((l, i) => l.kind === 'bullet'
@@ -80,7 +83,7 @@ function fmtDate(iso) {
 
 /** `readOnly` (Client view) shows the page as the client sees it: every field as text, nothing to edit. */
 export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, onDeletePage, onBulkEdit, rolledUp = null, actions = {}, readOnly = false }) {
-  const { updatePage, updatePageUrl, addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword } = actions
+  const { updatePage, updatePageUrl, addKeyword, updateKeyword, setPrimaryKeyword, deleteKeyword, addTemplate } = actions
   const isReview = version?.type === 'review'
   const showPerf = isReview && hasPerf(version, page)
   const template = sitemap.templates.find(t => t.id === page.template_id) || null
@@ -363,7 +366,19 @@ export function DetailPanel({ sitemap, version, page, onClose, onJumpTemplate, o
       </Section>
 
       <Section label={template ? `Page template · ${templateLabel(template)}` : 'Page template'}>
-        <TemplateOutline template={template} onOpen={template && !readOnly ? () => onJumpTemplate(template.id) : null} />
+        {!template && !readOnly && addTemplate ? (
+          <TemplateBuilder
+            sitemap={sitemap}
+            page={page}
+            onSave={async fields => {
+              const tpl = addTemplate(fields)
+              await tpl.saved
+              updatePage(page.id, { template_id: tpl.id }, { immediate: true })
+            }}
+          />
+        ) : (
+          <TemplateOutline template={template} values={dynamicValues(page, h)} onOpen={template && !readOnly ? () => onJumpTemplate(template.id) : null} />
+        )}
       </Section>
 
       {!readOnly && (
